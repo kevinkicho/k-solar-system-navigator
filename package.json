@@ -1,0 +1,8 @@
+{
+  "name": "helios-solar-system-navigator",
+  "version": "1.0.0",
+  "description": "HELIOS Solar System Navigator with real HYG stellar data",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
