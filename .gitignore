@@ -1,0 +1,8 @@
+node_modules/
+package-lock.json
+tests/screenshots/
+tests/.logs
+temp_importmap.txt
+test.txt
+test2.txt
+.DS_Store

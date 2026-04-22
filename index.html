@@ -129,6 +129,7 @@ html, body {
 .info-row .val.highlight { color: var(--cyan); }
 .info-row .val.amber { color: var(--amber); }
 .info-row .val.green { color: var(--green); }
+.info-row .val.red-val { color: var(--red); }
 
 .route-section { padding: 12px 16px; }
 .route-section h3 { font-family: var(--font-display); font-size: 9px; font-weight: 700; letter-spacing: 2px; color: var(--amber); margin-bottom: 10px; text-transform: uppercase; }
@@ -195,6 +196,38 @@ html, body {
   cursor: pointer; transition: all 0.15s; white-space: nowrap;
 }
 .btn-tiny:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* Flyby waypoint list */
+.flyby-section { margin: 8px 0 4px 0; }
+.flyby-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.flyby-header .slot-label { font-size: 9px; letter-spacing: 2px; color: var(--text-dim); text-transform: uppercase; }
+.flyby-row {
+  display: grid; grid-template-columns: 1fr 130px 24px; gap: 4px;
+  align-items: center; margin-bottom: 4px;
+  padding: 4px; background: rgba(255,152,0,0.05);
+  border: 1px solid rgba(255,152,0,0.2); border-radius: 3px;
+}
+.flyby-row select {
+  background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: var(--amber);
+  font-family: var(--font-display); font-size: 10px; letter-spacing: 1px;
+  padding: 4px 6px; border-radius: 3px; outline: none;
+}
+.flyby-row select:focus { border-color: var(--amber); }
+.flyby-row input[type="datetime-local"] {
+  background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--font-mono); font-size: 9px; padding: 3px 4px;
+  border-radius: 3px; outline: none; width: 100%;
+}
+.flyby-row input[type="datetime-local"]:focus { border-color: var(--cyan); }
+.flyby-row input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
+.flyby-remove {
+  background: rgba(255,45,85,0.08); border: 1px solid rgba(255,45,85,0.3);
+  color: var(--red); font-size: 11px; line-height: 1;
+  width: 24px; height: 24px; border-radius: 3px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; transition: all 0.15s;
+}
+.flyby-remove:hover { background: rgba(255,45,85,0.2); color: #ff6b8a; }
 
 /* MISSION STATUS */
 .mission-status {
@@ -293,6 +326,83 @@ html, body {
   cursor: pointer; border-radius: 3px; transition: all 0.15s;
 }
 #date-picker-overlay .preset-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+/* Porkchop plot overlay */
+#porkchop-overlay {
+  display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 100; background: var(--bg-panel); border: 1px solid var(--amber);
+  border-radius: 6px; padding: 18px 20px;
+  box-shadow: 0 0 40px rgba(255,152,0,0.15), 0 8px 32px rgba(0,0,0,0.75);
+  backdrop-filter: blur(12px); font-family: var(--font-mono);
+}
+#porkchop-overlay.visible { display: block; animation: fadeIn 0.15s ease-out; }
+#porkchop-overlay .pc-title {
+  font-family: var(--font-display); font-size: 12px; color: var(--amber);
+  letter-spacing: 3px; margin-bottom: 4px; text-align: center;
+}
+#porkchop-overlay .pc-route {
+  font-family: var(--font-display); font-size: 10px; color: var(--text-dim);
+  letter-spacing: 2px; margin-bottom: 12px; text-align: center;
+}
+#porkchop-canvas {
+  display: block; background: #000;
+  border: 1px solid var(--border); cursor: crosshair;
+}
+#porkchop-overlay .pc-axes {
+  position: relative; margin: 0 0 4px 44px; font-size: 9px;
+  color: var(--text-dim); font-family: var(--font-mono);
+}
+#porkchop-overlay .pc-yaxis {
+  position: absolute; left: -44px; top: 4px; bottom: 18px; width: 40px;
+  font-size: 9px; color: var(--text-dim); display: flex;
+  flex-direction: column; justify-content: space-between; align-items: flex-end;
+  padding-right: 6px;
+}
+#porkchop-overlay .pc-xaxis {
+  margin: 4px 0 0 44px; display: flex; justify-content: space-between;
+  font-size: 9px; color: var(--text-dim);
+}
+#porkchop-overlay .pc-canvas-wrap { position: relative; display: inline-block; margin-left: 44px; }
+#porkchop-overlay .pc-ylabel {
+  position: absolute; left: 0; top: 50%; transform: translate(-50%, -50%) rotate(-90deg);
+  font-family: var(--font-display); font-size: 9px; color: var(--amber); letter-spacing: 2px;
+  white-space: nowrap;
+}
+#porkchop-overlay .pc-xlabel {
+  text-align: center; margin-top: 4px; font-family: var(--font-display);
+  font-size: 9px; color: var(--amber); letter-spacing: 2px;
+}
+#porkchop-overlay .pc-info {
+  margin-top: 10px; font-size: 10px; color: var(--text-dim);
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+}
+#porkchop-overlay .pc-info div { border-left: 2px solid var(--border); padding-left: 8px; }
+#porkchop-overlay .pc-info .val { color: var(--text); font-size: 12px; display: block; margin-top: 2px; }
+#porkchop-overlay .pc-info .key { font-family: var(--font-display); letter-spacing: 1px; font-size: 8px; color: var(--text-dim); }
+#porkchop-overlay .pc-legend {
+  margin-top: 12px; display: flex; align-items: center; gap: 8px; font-size: 9px;
+  color: var(--text-dim); font-family: var(--font-display); letter-spacing: 1px;
+}
+#porkchop-overlay .pc-bar {
+  flex: 1; height: 8px; border-radius: 2px;
+  background: linear-gradient(to right, #00e676 0%, #9bd200 20%, #ffd200 40%, #ff9800 60%, #ff5a3c 80%, #ff2d55 100%);
+}
+#porkchop-overlay .pc-progress {
+  height: 3px; background: var(--border); margin-top: 10px; border-radius: 2px; overflow: hidden;
+}
+#porkchop-overlay .pc-progress .fill { height: 100%; width: 0%; background: var(--amber); transition: width 0.1s; }
+#porkchop-overlay .pc-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+#porkchop-overlay .pc-btn {
+  padding: 6px 16px; border: 1px solid var(--border); background: rgba(0,0,0,0.3);
+  color: var(--text-dim); font-family: var(--font-display); font-size: 10px;
+  letter-spacing: 1px; cursor: pointer; border-radius: 3px; transition: all 0.15s;
+}
+#porkchop-overlay .pc-btn:hover { border-color: var(--text); color: var(--text); }
+#porkchop-overlay .pc-btn.go {
+  border-color: var(--amber); color: var(--amber); background: rgba(255,152,0,0.1);
+}
+#porkchop-overlay .pc-btn.go:hover { background: rgba(255,152,0,0.2); }
+#porkchop-overlay .pc-btn:disabled { opacity: 0.3; cursor: default; }
 input[type="range"] {
   -webkit-appearance: none; width: 200px; height: 4px;
   background: var(--border); border-radius: 2px; outline: none;
@@ -405,7 +515,15 @@ input[type="range"]::-webkit-slider-thumb {
         <button class="btn-tiny" id="btn-use-optimal" title="Use next optimal launch window">OPT</button>
       </div>
     </div>
+    <div class="flyby-section">
+      <div class="flyby-header">
+        <span class="slot-label">Flyby waypoints</span>
+        <button class="btn-tiny" id="btn-add-flyby" title="Add a gravity-assist flyby between origin and destination">+ FLYBY</button>
+      </div>
+      <div id="flyby-list"></div>
+    </div>
     <button class="route-btn" id="calc-route">Compute Transfer</button>
+    <button class="route-btn" id="find-windows" style="font-size:10px;padding:8px;margin-top:4px;">Find Launch Windows</button>
     <div id="transfer-results"></div>
     <div id="mission-controls"></div>
     <button class="route-btn clear" id="clear-route">Clear Route</button>
@@ -449,6 +567,34 @@ input[type="range"]::-webkit-slider-thumb {
   </div>
 </div>
 
+<div id="porkchop-overlay">
+  <div class="pc-title">LAUNCH WINDOW SEARCH</div>
+  <div class="pc-route" id="pc-route-label">&mdash;</div>
+  <div class="pc-canvas-wrap">
+    <div class="pc-ylabel">TRANSIT DURATION (days)</div>
+    <div class="pc-yaxis" id="pc-yaxis"></div>
+    <canvas id="porkchop-canvas" width="520" height="380"></canvas>
+  </div>
+  <div class="pc-xaxis" id="pc-xaxis"></div>
+  <div class="pc-xlabel">DEPARTURE DATE</div>
+  <div class="pc-info">
+    <div><span class="key">DEPART</span><span class="val" id="pc-depart">&mdash;</span></div>
+    <div><span class="key">TRANSIT</span><span class="val" id="pc-transit">&mdash;</span></div>
+    <div><span class="key">ARRIVE</span><span class="val" id="pc-arrive">&mdash;</span></div>
+    <div><span class="key">TOTAL &Delta;V</span><span class="val" id="pc-dv">&mdash;</span></div>
+  </div>
+  <div class="pc-legend">
+    <span id="pc-scale-min">&mdash;</span>
+    <span class="pc-bar"></span>
+    <span id="pc-scale-max">&mdash;</span>
+  </div>
+  <div class="pc-progress"><div class="fill" id="pc-progress-fill"></div></div>
+  <div class="pc-buttons">
+    <button class="pc-btn" id="pc-close">CLOSE</button>
+    <button class="pc-btn go" id="pc-apply" disabled>USE SELECTED</button>
+  </div>
+</div>
+
 <div id="scale-indicator"><span id="scale-text"></span></div>
 
 <div id="view-controls">
@@ -478,6 +624,7 @@ import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { VEHICLE_SPECS, usableStarshipPropellant, superHeavyDeltaV, starshipDeltaV, totalMissionDeltaV, reservedDeltaV, transferDeltaV } from './trajectory-calculator.js';
 
 // ============================================================
 //  CONSTANTS
@@ -769,6 +916,63 @@ const MOONS = [
   },
 ];
 
+// ============================================================
+//  REAL SPACECRAFT — deep-space probes on escape trajectories.
+//  State vectors anchored at J2000 (simTime=0) in scene coords (AU).
+//  Linear propagation is accurate to ~1% for these missions after their
+//  final planetary flyby — no more gravitational deflection to worry about.
+//  Positions before the spacecraft's launch date are not rendered.
+// ============================================================
+const SPACECRAFT = [
+  {
+    name: 'Voyager 1',
+    color: '#ffcc33',
+    launchDate: Date.UTC(1977, 8, 5),
+    // 2000-01-01: ~75 AU from Sun, heading lon 256°/lat +35° (near solar apex)
+    pos_AU: [-14.9, 43.0, -59.7],
+    vel_m_s: [-3376, 9787, -13555],     // 17.05 km/s nearly radial escape
+    desc: 'Launched 1977. Jupiter + Saturn flybys. Farthest human-made object.',
+  },
+  {
+    name: 'Voyager 2',
+    color: '#ff9f1c',
+    launchDate: Date.UTC(1977, 7, 20),
+    // 2000-01-01: ~60 AU, heading south of ecliptic (lon 290°/lat -50°)
+    pos_AU: [13.2, -36.2, -46.0],
+    vel_m_s: [3366, -9241, -11720],     // 15.3 km/s
+    desc: 'Launched 1977. Only craft to visit Uranus (1986) and Neptune (1989).',
+  },
+  {
+    name: 'Pioneer 10',
+    color: '#90a4ae',
+    launchDate: Date.UTC(1972, 2, 2),
+    // 2000-01-01: ~75 AU, heading toward Aldebaran (lon 70°/lat -5°)
+    pos_AU: [25.6, -6.5, 70.2],
+    vel_m_s: [4180, -1060, 11470],      // 12.24 km/s
+    desc: 'Launched 1972. First craft to Jupiter. Signal lost 2003.',
+  },
+  {
+    name: 'Pioneer 11',
+    color: '#78909c',
+    launchDate: Date.UTC(1973, 3, 6),
+    // 2000-01-01: ~60 AU, heading toward Aquila (lon 58°/lat +10°)
+    pos_AU: [31.3, 10.4, 50.1],
+    vel_m_s: [6220, 2070, 9960],        // 11.8 km/s
+    desc: 'Launched 1973. First craft to Saturn. Signal lost 1995.',
+  },
+  {
+    name: 'New Horizons',
+    color: '#64b5f6',
+    // Linear propagation only valid AFTER the Pluto flyby (Jul 14 2015).
+    // Pre-flyby the trajectory curved through Earth launch and Jupiter
+    // assist, so we hide the craft until its post-Pluto coast begins.
+    launchDate: Date.UTC(2015, 6, 14),
+    pos_AU: [-4.72, 11.08, 0.63],
+    vel_m_s: [5474, -12880, -732],      // 14.0 km/s post-Pluto coast
+    desc: 'Launched 2006. Pluto flyby 2015, Arrokoth 2019.',
+  },
+];
+
 // Pre-compute moon orbital display radii (exaggerated so they're visible)
 // Group moons by parent so we can assign incrementing radii
 {
@@ -805,7 +1009,9 @@ function solveKepler(M, e, tol = 1e-10) {
   return E;
 }
 
-function getBodyPosition3D(body, timeSec) {
+// exaggerate=true (default) uses INCL_EXAGGERATION for the visual scene;
+// exaggerate=false returns the real-inclination heliocentric position (for Δv/physics).
+function getBodyPosition3D(body, timeSec, exaggerate = true) {
   const n = TWO_PI / body.period;
   const M0 = body.L0 - body.wBar;
   const M = M0 + n * timeSec;
@@ -818,12 +1024,37 @@ function getBodyPosition3D(body, timeSec) {
   const w = body.wBar - body.omega;
   const cosO = Math.cos(body.omega), sinO = Math.sin(body.omega);
   const cosWV = Math.cos(w + v), sinWV = Math.sin(w + v);
-  const Ivis = body.I * INCL_EXAGGERATION;
+  const Ivis = body.I * (exaggerate ? INCL_EXAGGERATION : 1);
   const cosI = Math.cos(Ivis), sinI = Math.sin(Ivis);
   const xe = r * (cosO * cosWV - sinO * sinWV * cosI);
   const ye = r * (sinO * cosWV + cosO * sinWV * cosI);
   const ze = r * (sinWV * sinI);
   return { x: xe, y: ze, z: ye, r, v, E };
+}
+
+// Spacecraft position at simTime (seconds since J2000), scene coords (AU).
+// Linear propagation from J2000 anchor. Returns null if not yet launched.
+function getSpacecraftPosition(sc, simTimeSec) {
+  const launchSimTime = (sc.launchDate - J2000) / 1000;
+  if (simTimeSec < launchSimTime) return null;
+  return {
+    x: sc.pos_AU[0] + sc.vel_m_s[0] * simTimeSec / AU,
+    y: sc.pos_AU[1] + sc.vel_m_s[1] * simTimeSec / AU,
+    z: sc.pos_AU[2] + sc.vel_m_s[2] * simTimeSec / AU,
+  };
+}
+
+// Heliocentric velocity of a body at time t (m/s), via centered finite
+// difference on getBodyPosition3D. exaggerate=false gives true physical velocity.
+function getBodyVelocity3D(body, timeSec, exaggerate = false) {
+  const dt = 60; // seconds — small enough for ~1e-9 relative accuracy
+  const pa = getBodyPosition3D(body, timeSec - dt, exaggerate);
+  const pb = getBodyPosition3D(body, timeSec + dt, exaggerate);
+  return [
+    (pb.x - pa.x) / (2 * dt) * AU,
+    (pb.y - pa.y) / (2 * dt) * AU,
+    (pb.z - pa.z) / (2 * dt) * AU,
+  ];
 }
 
 function generateOrbitPoints(body, segments = 256) {
@@ -901,60 +1132,100 @@ function stumpffS(z) {
 }
 
 // --- Lambert solver ---
+// Bracketed bisection on the universal-variable equation F(z) = 0.
+// F(z) is monotonic in z for single-revolution transfers, so bracketing
+// around z=0 (parabolic) reliably locates the root — no Newton divergence.
 // Given r1_vec, r2_vec (metres), tof (seconds), mu (m^3/s^2),
-// returns { v1, v2 } velocity vectors or null on failure.
+// returns { v1, v2 } or null on failure.
 function solveLambertProblem(r1v, r2v, tof, mu) {
   const r1 = v3mag(r1v), r2 = v3mag(r2v);
   const cosDth = Math.max(-1, Math.min(1, v3dot(r1v, r2v) / (r1 * r2)));
 
-  // Prograde direction check: (r1 x r2)_y determines arc direction
-  // In our scene coords: y = ecliptic normal, prograde = CCW from +y
+  // Prograde direction check: y-component of (r1 × r2) in scene coords
+  // corresponds to ecliptic-normal component. < 0 ⇒ short arc CCW.
   const crossY = r1v[2]*r2v[0] - r1v[0]*r2v[2];
   const dtheta = crossY < 0
     ? Math.acos(cosDth)                   // short arc < PI
     : TWO_PI - Math.acos(cosDth);         // long arc > PI
 
   const sinDth = Math.sin(dtheta);
-  if (Math.abs(1 - cosDth) < 1e-14) return null;   // degenerate
+  if (Math.abs(1 - cosDth) < 1e-14) return null;       // r1 ≈ r2
+  if (Math.abs(sinDth) < 1e-6) return null;            // 180° degenerate (plane ambiguous)
   const A = sinDth * Math.sqrt(r1 * r2 / (1 - cosDth));
   if (Math.abs(A) < 1e-10) return null;
 
   const sqrtMu = Math.sqrt(mu);
+  const targetErr = 1e-8 * sqrtMu * tof;
 
-  // Newton-Raphson on universal variable z
-  let z = 0.1;   // small positive = mildly elliptical initial guess
-  for (let iter = 0; iter < 400; iter++) {
-    let C = stumpffC(z), S = stumpffS(z);
-    let sqC = Math.sqrt(Math.abs(C));
-    if (sqC < 1e-30) sqC = 1e-30;
-    let y = r1 + r2 + A * (z * S - 1) / sqC;
-    if (y < 0) { z = Math.abs(z) + 0.5; continue; }
-
+  function F(z) {
+    const C = stumpffC(z), S = stumpffS(z);
+    const sqC = Math.sqrt(Math.abs(C));
+    if (sqC < 1e-30) return NaN;
+    const y = r1 + r2 + A * (z * S - 1) / sqC;
+    if (y < 0) return NaN;
     const chi = Math.sqrt(y / C);
-    const F = chi*chi*chi * S + A * Math.sqrt(y) - sqrtMu * tof;
+    return chi * chi * chi * S + A * Math.sqrt(y) - sqrtMu * tof;
+  }
 
-    // Numerical derivative (robust against any z regime)
-    const eps = 1e-7 * (1 + Math.abs(z));
-    const C2 = stumpffC(z + eps), S2 = stumpffS(z + eps);
-    let sqC2 = Math.sqrt(Math.abs(C2));
-    if (sqC2 < 1e-30) sqC2 = 1e-30;
-    const y2 = r1 + r2 + A * ((z + eps) * S2 - 1) / sqC2;
-    if (y2 < 0) { z += 0.5; continue; }
-    const chi2 = Math.sqrt(y2 / C2);
-    const F2 = chi2*chi2*chi2 * S2 + A * Math.sqrt(y2) - sqrtMu * tof;
+  // Anchor sign at z=0 (parabolic transfer).
+  let F0 = F(0);
+  if (isNaN(F0)) {
+    for (const zt of [0.1, -0.1, 0.5, -0.5, 1, -1]) {
+      F0 = F(zt);
+      if (!isNaN(F0)) break;
+    }
+    if (isNaN(F0)) return null;
+  }
 
-    const dFdz = (F2 - F) / eps;
-    if (Math.abs(dFdz) < 1e-30) break;
-    const zNew = z - F / dFdz;
-    if (Math.abs(zNew - z) < 1e-10) { z = zNew; break; }
-    z = zNew;
+  // Expand outward to bracket a sign change.
+  // Elliptical regime upper limit is just below (2π)² ≈ 39.48 (full revolution).
+  let z_lo = null, z_hi = null, F_lo, F_hi;
+
+  // Positive side (elliptical, longer TOF)
+  {
+    let zp = 0.5, Fp = F(zp);
+    for (let i = 0; i < 60; i++) {
+      if (!isNaN(Fp) && Math.sign(Fp) !== Math.sign(F0)) {
+        z_lo = 0; z_hi = zp; F_lo = F0; F_hi = Fp;
+        break;
+      }
+      zp += 0.5;
+      if (zp > 39.3) break;   // avoid the (2π)² singularity
+      Fp = F(zp);
+    }
+  }
+  // Negative side (hyperbolic, shorter TOF)
+  if (z_lo === null) {
+    let zn = -0.5, Fn = F(zn);
+    for (let i = 0; i < 80; i++) {
+      if (!isNaN(Fn) && Math.sign(Fn) !== Math.sign(F0)) {
+        z_lo = zn; z_hi = 0; F_lo = Fn; F_hi = F0;
+        break;
+      }
+      zn *= 1.6;
+      if (zn < -1e6) break;
+      Fn = F(zn);
+    }
+  }
+  if (z_lo === null) return null;
+
+  // Bisection to convergence — O(log2(bracket/tol)) iters.
+  let z = 0.5 * (z_lo + z_hi);
+  for (let iter = 0; iter < 200; iter++) {
+    z = 0.5 * (z_lo + z_hi);
+    const Fz = F(z);
+    if (isNaN(Fz)) { z_lo = z; continue; }
+    if (Math.abs(Fz) < targetErr) break;
+    if (Math.sign(Fz) === Math.sign(F_lo)) { z_lo = z; F_lo = Fz; }
+    else { z_hi = z; F_hi = Fz; }
+    if (z_hi - z_lo < 1e-12) break;
   }
 
   const C = stumpffC(z), S = stumpffS(z);
-  let sqC = Math.sqrt(Math.abs(C));
+  const sqC = Math.sqrt(Math.abs(C));
   if (sqC < 1e-30) return null;
   const y = r1 + r2 + A * (z * S - 1) / sqC;
-  if (y < 0) return null;
+  if (y < 0 || !isFinite(y)) return null;
 
   const f    = 1 - y / r1;
   const g    = A * Math.sqrt(y / mu);
@@ -963,6 +1234,14 @@ function solveLambertProblem(r1v, r2v, tof, mu) {
 
   const v1 = v3scale(v3sub(r2v, v3scale(r1v, f)), 1 / g);
   const v2 = v3scale(v3sub(v3scale(r2v, gdot), r1v), 1 / g);
+
+  // Output validation: reject clearly-unphysical speeds.
+  // 50× local circular speed is already a ludicrous Δv (>1000 km/s near Earth).
+  const vCircRef = Math.sqrt(mu / r1);
+  const v1m = v3mag(v1), v2m = v3mag(v2);
+  if (!isFinite(v1m) || !isFinite(v2m)) return null;
+  if (v1m > 50 * vCircRef || v2m > 50 * vCircRef) return null;
+
   return { v1, v2 };
 }
 
@@ -1004,6 +1283,49 @@ function buildTransferOrbit(r1v, v1, mu) {
   return { a, e, p, p_hat, q_hat, w_hat, M0, n };
 }
 
+// ============================================================
+//  GRAVITY ASSIST — V∞, turning angle, periapsis feasibility
+// ============================================================
+// Given the hyperbolic excess velocities in and out of a flyby (both in
+// the planet's rest frame, m/s), return the geometry and feasibility.
+// Relations (patched-conic flyby):
+//   eccentricity:  e = 1 + r_p · V∞² / μ_planet
+//   turning angle: sin(δ/2) = 1/e
+//   so  δ_max at min r_p,  and  r_p(δ) = μ/V∞² · (1/sin(δ/2) − 1)
+function gravityAssistInfo(planet, vInfIn, vInfOut) {
+  const mu_p = G_CONST * planet.mass;
+  const minR = planet.radius * 1.1;    // 10% altitude buffer — grazes atmosphere for Earth/Venus
+
+  const magIn  = v3mag(vInfIn);
+  const magOut = v3mag(vInfOut);
+  const dvFlyby = Math.abs(magOut - magIn);   // "powered flyby" Δv if magnitudes don't match
+
+  const magAvg = 0.5 * (magIn + magOut);
+  const cosDelta = Math.max(-1, Math.min(1, v3dot(vInfIn, vInfOut) / (magIn * magOut)));
+  const turningAngle = Math.acos(cosDelta);
+
+  // Required periapsis for that turning angle at that V∞
+  const sinHalf = Math.sin(turningAngle / 2);
+  const rPeriapsis = sinHalf > 1e-6
+    ? mu_p / (magAvg * magAvg) * (1 / sinHalf - 1)
+    : Infinity;
+
+  // Maximum achievable turning at the minimum safe periapsis
+  const eMin = 1 + minR * magAvg * magAvg / mu_p;
+  const maxTurningAngle = 2 * Math.asin(1 / eMin);
+
+  return {
+    vInfInMag:  magIn,
+    vInfOutMag: magOut,
+    dvFlyby,
+    turningAngle,
+    rPeriapsis,
+    minR,
+    achievable: rPeriapsis >= minR,
+    maxTurningAngle,
+  };
+}
+
 // Propagate position on a transfer orbit after dt seconds from departure.
 // Returns [x,y,z] in metres.
 function propagateOrbit(orb, dt) {
@@ -1018,32 +1340,161 @@ function propagateOrbit(orb, dt) {
 }
 
 // --- Solve Lambert & cache the orbit on transferData ---
+// We solve twice:
+//   (1) VISUAL geometry (exaggerated inclinations) → orbit used for the drawn
+//       trajectory line and ship animation, so the ship lines up with the
+//       visually-tilted planets.
+//   (2) PHYSICAL geometry (real inclinations) → orbit used for the Δv
+//       numbers displayed to the user, so the mission cost is accurate.
+// After each solve we propagate the orbit to tof and reject if the endpoint
+// misses r2 by more than 1000 km (Lambert validator).
 function solveTransferOrbit(tData) {
-  const dep = getBodyPosition3D(tData.body1, tData.departureSimTime);
-  const arr = getBodyPosition3D(tData.body2, tData.arrivalSimTime);
   const mu  = G_CONST * SUN_DATA.mass;
 
-  // Convert scene coords (AU) to SI (metres)
-  const r1v = [dep.x * AU, dep.y * AU, dep.z * AU];
-  const r2v = [arr.x * AU, arr.y * AU, arr.z * AU];
+  // --- visual ---
+  const depV = getBodyPosition3D(tData.body1, tData.departureSimTime, true);
+  const arrV = getBodyPosition3D(tData.body2, tData.arrivalSimTime, true);
+  tData.dep3D = depV;
+  tData.arr3D = arrV;
 
-  const sol = solveLambertProblem(r1v, r2v, tData.transferTime, mu);
-  if (sol) {
-    tData.orbit = buildTransferOrbit(r1v, sol.v1, mu);
-    // Compute actual delta-v from Lambert solution
-    // Departure circular velocity
-    const v1c = Math.sqrt(mu / v3mag(r1v));
-    const v1dep = v3mag(sol.v1);
-    tData.dv1_lambert = Math.abs(v1dep - v1c);
-    const v2c = Math.sqrt(mu / v3mag(r2v));
-    const v2arr = v3mag(sol.v2);
-    tData.dv2_lambert = Math.abs(v2arr - v2c);
-    tData.dvTotal_lambert = tData.dv1_lambert + tData.dv2_lambert;
+  const r1vV = [depV.x * AU, depV.y * AU, depV.z * AU];
+  const r2vV = [arrV.x * AU, arrV.y * AU, arrV.z * AU];
+  const solV = solveLambertProblem(r1vV, r2vV, tData.transferTime, mu);
+  if (solV) {
+    const orb = buildTransferOrbit(r1vV, solV.v1, mu);
+    const hit = propagateOrbit(orb, tData.transferTime);
+    const miss = v3mag(v3sub(hit, r2vV));
+    tData.orbit = miss < 1e6 ? orb : null;    // reject if >1000 km off target
   } else {
     tData.orbit = null;
   }
-  tData.dep3D = dep;
-  tData.arr3D = arr;
+
+  // --- physical Δv (real inclinations) ---
+  const depP = getBodyPosition3D(tData.body1, tData.departureSimTime, false);
+  const arrP = getBodyPosition3D(tData.body2, tData.arrivalSimTime, false);
+  const r1vP = [depP.x * AU, depP.y * AU, depP.z * AU];
+  const r2vP = [arrP.x * AU, arrP.y * AU, arrP.z * AU];
+  const solP = solveLambertProblem(r1vP, r2vP, tData.transferTime, mu);
+  let physicsOk = false;
+  if (solP) {
+    const orbP = buildTransferOrbit(r1vP, solP.v1, mu);
+    const hitP = propagateOrbit(orbP, tData.transferTime);
+    const missP = v3mag(v3sub(hitP, r2vP));
+    if (missP < 1e6) {
+      physicsOk = true;
+      tData.orbitPhysical = orbP;
+      // Δv = vector diff between spacecraft state and planet heliocentric velocity.
+      // Uses the planet's ACTUAL velocity (elliptical, inclined) — not circular approx.
+      const vBody1 = getBodyVelocity3D(tData.body1, tData.departureSimTime, false);
+      const vBody2 = getBodyVelocity3D(tData.body2, tData.arrivalSimTime, false);
+      tData.dv1_lambert = v3mag(v3sub(solP.v1, vBody1));
+      tData.dv2_lambert = v3mag(v3sub(solP.v2, vBody2));
+      tData.dvTotal_lambert = tData.dv1_lambert + tData.dv2_lambert;
+    }
+  }
+  tData.lambertOk = physicsOk;
+}
+
+// ============================================================
+//  MULTI-LEG ROUTE — Lambert per leg, gravity assist at each flyby
+// ============================================================
+// waypoints: [{body, simTime}, …]  with length ≥ 2.  The first is origin,
+// the last is destination, everything in between is a flyby.  Returns a
+// structure similar in spirit to the single-leg transferData, plus per-leg
+// orbits and per-flyby feasibility info.
+function solveMultiLegRoute(waypoints) {
+  const mu = G_CONST * SUN_DATA.mass;
+  const legs = [];
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const a = waypoints[i], b = waypoints[i + 1];
+    const tof = b.simTime - a.simTime;
+    if (tof <= 0) { legs.push({ ok: false, reason: 'non-positive TOF' }); continue; }
+
+    // PHYSICAL — real inclinations — for Δv and validation
+    const pA = getBodyPosition3D(a.body, a.simTime, false);
+    const pB = getBodyPosition3D(b.body, b.simTime, false);
+    const r1P = [pA.x*AU, pA.y*AU, pA.z*AU];
+    const r2P = [pB.x*AU, pB.y*AU, pB.z*AU];
+    const solP = solveLambertProblem(r1P, r2P, tof, mu);
+
+    // VISUAL — exaggerated inclinations — for drawing
+    const pAV = getBodyPosition3D(a.body, a.simTime, true);
+    const pBV = getBodyPosition3D(b.body, b.simTime, true);
+    const r1V = [pAV.x*AU, pAV.y*AU, pAV.z*AU];
+    const r2V = [pBV.x*AU, pBV.y*AU, pBV.z*AU];
+    const solV = solveLambertProblem(r1V, r2V, tof, mu);
+
+    let orbP = null, orbV = null, ok = false;
+    if (solP) {
+      const o = buildTransferOrbit(r1P, solP.v1, mu);
+      const hit = propagateOrbit(o, tof);
+      if (v3mag(v3sub(hit, r2P)) < 1e6) { orbP = o; ok = true; }
+    }
+    if (solV) {
+      const o = buildTransferOrbit(r1V, solV.v1, mu);
+      const hit = propagateOrbit(o, tof);
+      if (v3mag(v3sub(hit, r2V)) < 1e6) orbV = o;
+    }
+
+    legs.push({
+      ok,
+      from: a.body.name, to: b.body.name,
+      departSimTime: a.simTime, arriveSimTime: b.simTime, tof,
+      v1: solP ? solP.v1 : null, v2: solP ? solP.v2 : null,
+      orbitPhysical: orbP,
+      orbit: orbV,              // used by the visual renderer
+      dep3D: pAV, arr3D: pBV,
+    });
+  }
+
+  // Per-waypoint maneuvers
+  const maneuvers = [];     // {type:'depart'|'flyby'|'arrive', body, dv, info?}
+  const flybys = [];
+  let dvTotal = 0;
+  for (let i = 0; i < waypoints.length; i++) {
+    const wp = waypoints[i];
+    const vPlanet = getBodyVelocity3D(wp.body, wp.simTime, false);
+    if (i === 0) {
+      const L = legs[0];
+      if (L && L.ok) {
+        const dv = v3mag(v3sub(L.v1, vPlanet));
+        maneuvers.push({ type: 'depart', body: wp.body.name, simTime: wp.simTime, dv });
+        dvTotal += dv;
+      }
+    } else if (i === waypoints.length - 1) {
+      const L = legs[i - 1];
+      if (L && L.ok) {
+        const dv = v3mag(v3sub(L.v2, vPlanet));
+        maneuvers.push({ type: 'arrive', body: wp.body.name, simTime: wp.simTime, dv });
+        dvTotal += dv;
+      }
+    } else {
+      const Lin = legs[i - 1], Lout = legs[i];
+      if (Lin && Lin.ok && Lout && Lout.ok) {
+        const vInfIn  = v3sub(Lin.v2, vPlanet);
+        const vInfOut = v3sub(Lout.v1, vPlanet);
+        const info = gravityAssistInfo(wp.body, vInfIn, vInfOut);
+        flybys.push({ body: wp.body.name, simTime: wp.simTime, ...info });
+        maneuvers.push({ type: 'flyby', body: wp.body.name, simTime: wp.simTime, dv: info.dvFlyby, info });
+        dvTotal += info.dvFlyby;
+      }
+    }
+  }
+
+  const firstOk = legs.find(l => l.ok);
+  const lastOk  = [...legs].reverse().find(l => l.ok);
+  return {
+    isMultiLeg: true,
+    waypoints,
+    legs, maneuvers, flybys,
+    dvTotalMultiLeg: dvTotal,
+    body1: waypoints[0].body,
+    body2: waypoints[waypoints.length - 1].body,
+    departureSimTime: waypoints[0].simTime,
+    arrivalSimTime:   waypoints[waypoints.length - 1].simTime,
+    transferTime:     waypoints[waypoints.length - 1].simTime - waypoints[0].simTime,
+    allLegsOk: legs.every(l => l.ok),
+  };
 }
 
 // --- Ship position using real orbital mechanics ---
@@ -1369,36 +1820,130 @@ let sunGlowSprite;
 // ============================================================
 //  PLANETS
 // ============================================================
+// Equirectangular surface maps (CC-licensed, served from jsDelivr).
+// If a texture fails to load, the material falls back to body.color.
+const TEX_BASE = 'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/';
+const PLANET_TEXTURES = {
+  Mercury: 'mercurymap.jpg',
+  Venus:   'venusmap.jpg',
+  Earth:   'earthmap1k.jpg',
+  Mars:    'marsmap1k.jpg',
+  Jupiter: 'jupitermap.jpg',
+  Saturn:  'saturnmap.jpg',
+  Uranus:  'uranusmap.jpg',
+  Neptune: 'neptunemap.jpg',
+};
+// Sidereal rotation period (seconds). Negative = retrograde (Venus, Uranus).
+const PLANET_ROTATION_SEC = {
+  Mercury:  5067360,    // 58.646 d
+  Venus:  -20996755,    // 243.02 d, retrograde
+  Earth:      86164,    // 0.997 d
+  Mars:       88642,    // 1.026 d
+  Jupiter:    35730,    // 0.414 d
+  Saturn:     38018,    // 0.440 d
+  Uranus:    -62064,    // 0.718 d, retrograde
+  Neptune:    57996,    // 0.671 d
+};
+
+const texLoader = new THREE.TextureLoader();
+texLoader.crossOrigin = 'anonymous';
+
 const planetMeshes = new Map();
 const planetLabels = new Map();
 const orbitLines = new Map();
 const bodyPositions = new Map();
+// Spinning children — the surface sphere only. Label/rings stay put.
+const planetTextureTargets = [];   // { map, period } for animate loop
 
 for (const body of BODIES) {
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(body.displayRadius, 32, 32),
-    new THREE.MeshStandardMaterial({
-      color: new THREE.Color(body.color), emissive: new THREE.Color(body.emissive),
-      emissiveIntensity: 0.3, roughness: 0.7, metalness: 0.1
-    })
+  // Outer group orbits; inner sphere holds the rotating texture.
+  const group = new THREE.Group();
+  scene.add(group);
+  planetMeshes.set(body.name, group);
+
+  const sphereMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(body.color),
+    emissive: new THREE.Color(body.emissive),
+    emissiveIntensity: 0.3, roughness: 0.9, metalness: 0.05,
+  });
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(body.displayRadius, 48, 48),
+    sphereMat
   );
-  scene.add(mesh);
-  planetMeshes.set(body.name, mesh);
+  group.add(sphere);
+
+  // Load planet surface map async; fall back to flat color if it fails.
+  const texFile = PLANET_TEXTURES[body.name];
+  if (texFile) {
+    texLoader.load(TEX_BASE + texFile,
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.wrapS = THREE.RepeatWrapping;
+        sphereMat.map = tex;
+        sphereMat.color.setHex(0xffffff);     // don't tint the photo
+        sphereMat.emissiveIntensity = 0.08;   // slight glow so night side isn't pitch black
+        sphereMat.needsUpdate = true;
+        planetTextureTargets.push({ map: tex, period: PLANET_ROTATION_SEC[body.name] });
+      },
+      undefined,
+      () => { /* keep solid-color fallback */ }
+    );
+  }
+
+  // Earth clouds — semi-transparent outer shell using the cloud map as alpha.
+  if (body.name === 'Earth') {
+    const cloudMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff, transparent: true, opacity: 0.55,
+      depthWrite: false, roughness: 1.0, metalness: 0.0,
+    });
+    const clouds = new THREE.Mesh(
+      new THREE.SphereGeometry(body.displayRadius * 1.015, 48, 48), cloudMat);
+    group.add(clouds);
+    texLoader.load(TEX_BASE + 'earthcloudmap.jpg', (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = THREE.RepeatWrapping;
+      cloudMat.map = tex;
+      cloudMat.alphaMap = tex;
+      cloudMat.needsUpdate = true;
+      // Clouds drift slightly faster than the surface (real Earth is the opposite,
+      // but the tiny offset reads as "atmosphere alive" on screen).
+      planetTextureTargets.push({ map: tex, period: PLANET_ROTATION_SEC.Earth * 0.9 });
+    });
+  }
 
   if (body.name === 'Saturn') {
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(body.displayRadius*1.4, body.displayRadius*2.3, 64),
-      new THREE.MeshBasicMaterial({ color: 0xd4b870, side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
-    );
+    const inner = body.displayRadius * 1.4;
+    const outer = body.displayRadius * 2.3;
+    const ringGeo = new THREE.RingGeometry(inner, outer, 128, 1);
+    // Default RingGeometry UVs run 0–1 across the face (planar). We need U to
+    // vary RADIALLY so a 1-D ring texture maps inner-edge → outer-edge.
+    const pos = ringGeo.attributes.position;
+    const uv  = ringGeo.attributes.uv;
+    for (let i = 0; i < pos.count; i++) {
+      const r = Math.hypot(pos.getX(i), pos.getY(i));
+      uv.setXY(i, (r - inner) / (outer - inner), 0.5);
+    }
+    uv.needsUpdate = true;
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff, side: THREE.DoubleSide,
+      transparent: true, opacity: 0.9, depthWrite: false,
+    });
+    texLoader.load(TEX_BASE + 'saturnringcolor.jpg', (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      ringMat.map = tex;
+      ringMat.alphaMap = tex;
+      ringMat.needsUpdate = true;
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = -PI / 2.3;
-    mesh.add(ring);
+    group.add(ring);   // on group (orbital frame), not sphere (spinning frame)
   }
 
   const div = document.createElement('div');
   div.className = 'planet-label'; div.textContent = body.name.toUpperCase(); div.style.color = body.color;
   const label = new CSS2DObject(div);
   label.position.set(body.displayRadius + 0.01, body.displayRadius * 0.5, 0);
-  mesh.add(label);
+  group.add(label);                 // label on group — immune to sphere spin
   planetLabels.set(body.name, div);
 
   const orbitGeo = new THREE.BufferGeometry().setFromPoints(generateOrbitPoints(body));
@@ -1447,15 +1992,30 @@ function generateMoonOrbitPoints(moon, segments = 64) {
 
 for (const moon of MOONS) {
   // Moon mesh
+  const moonMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(moon.color), emissive: new THREE.Color(moon.emissive),
+    emissiveIntensity: 0.3, roughness: 0.8, metalness: 0.05
+  });
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(moon.displayRadius, 16, 16),
-    new THREE.MeshStandardMaterial({
-      color: new THREE.Color(moon.color), emissive: new THREE.Color(moon.emissive),
-      emissiveIntensity: 0.3, roughness: 0.8, metalness: 0.05
-    })
+    moonMat
   );
   scene.add(mesh);
   moonMeshes.set(moon.name, mesh);
+
+  // Only Earth's Moon gets a texture — keeps load light; the other ~30 moons
+  // are too small on screen for detail to matter.
+  if (moon.name === 'Moon') {
+    texLoader.load(TEX_BASE + 'moonmap1k.jpg', (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = THREE.RepeatWrapping;
+      moonMat.map = tex;
+      moonMat.color.setHex(0xffffff);
+      moonMat.emissiveIntensity = 0.06;
+      moonMat.needsUpdate = true;
+      planetTextureTargets.push({ map: tex, period: 27.322 * DAY });  // tidally locked to Earth
+    });
+  }
 
   // Moon label
   const div = document.createElement('div');
@@ -1482,6 +2042,57 @@ for (const moon of MOONS) {
 }
 
 // ============================================================
+//  REAL SPACECRAFT — meshes, labels, escape-vector trails
+// ============================================================
+const spacecraftMeshes = new Map();
+const spacecraftLabels = new Map();
+const spacecraftTrails = new Map();
+
+for (const sc of SPACECRAFT) {
+  // A small tetrahedron marker — reads as "spacecraft" at a glance and is
+  // distinctive from the round planet/moon spheres.
+  const mesh = new THREE.Mesh(
+    new THREE.TetrahedronGeometry(0.18, 0),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(sc.color) })
+  );
+  scene.add(mesh);
+  spacecraftMeshes.set(sc.name, mesh);
+
+  // Label
+  const div = document.createElement('div');
+  div.className = 'planet-label';
+  div.textContent = sc.name.toUpperCase();
+  div.style.color = sc.color;
+  div.style.fontSize = '9px';
+  div.style.letterSpacing = '1px';
+  div.style.opacity = '0.85';
+  const label = new CSS2DObject(div);
+  label.position.set(0.25, 0.15, 0);
+  mesh.add(label);
+  spacecraftLabels.set(sc.name, div);
+
+  // Trail: a short thin line pointing back along the velocity vector so the
+  // direction of travel reads at a glance. Length scales with velocity so
+  // faster probes get longer streaks.
+  const speedAU_yr = Math.hypot(...sc.vel_m_s) * (86400 * 365.25) / AU;
+  const trailLen = Math.min(4, speedAU_yr * 0.8);
+  const vUnit = (() => {
+    const m = Math.hypot(...sc.vel_m_s);
+    return [sc.vel_m_s[0]/m, sc.vel_m_s[1]/m, sc.vel_m_s[2]/m];
+  })();
+  const trailGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(-vUnit[0] * trailLen, -vUnit[1] * trailLen, -vUnit[2] * trailLen),
+  ]);
+  const trailMat = new THREE.LineBasicMaterial({
+    color: new THREE.Color(sc.color), transparent: true, opacity: 0.35,
+  });
+  const trail = new THREE.Line(trailGeo, trailMat);
+  mesh.add(trail);
+  spacecraftTrails.set(sc.name, trail);
+}
+
+// ============================================================
 //  SELECTION RING
 // ============================================================
 const selectionRing = new THREE.Mesh(
@@ -1495,6 +2106,8 @@ scene.add(selectionRing);
 //  TRANSFER ORBIT VISUALS
 // ============================================================
 let transferLine = null;
+let extraLegLines = [];    // additional dashed lines for multi-leg routes
+let flybyMarkers = [];     // ring markers for gravity-assist waypoints
 const transferMarkers = {
   depart: new THREE.Mesh(
     new THREE.RingGeometry(0.015, 0.025, 32),
@@ -1630,6 +2243,7 @@ function getIntersectedBody(event) {
 let selectedBody = null;
 let routeOrigin = null;
 let routeDestination = null;
+let flybys = [];          // [{ bodyName, simTime }] — intermediate gravity-assist waypoints
 let transferData = null;
 let showTransferOrbit = false;
 let followMode = false;
@@ -1871,6 +2485,7 @@ document.getElementById('depart-date').addEventListener('change', () => {
 
 document.getElementById('calc-route').onclick = computeRoute;
 document.getElementById('clear-route').onclick = clearRoute;
+document.getElementById('btn-add-flyby').onclick = addFlyby;
 
 // ---- Date/time picker in bottom bar ----
 {
@@ -1936,6 +2551,297 @@ document.getElementById('clear-route').onclick = clearRoute;
       const fn = presetDates[btn.dataset.preset];
       if (fn) pickerInput.value = dateToInputValue(fn());
     };
+  });
+}
+
+// ============================================================
+//  PORKCHOP PLOT — launch window finder
+//  Sweeps (departure time × transit duration) and colors each cell
+//  by total Lambert Δv. Click to select a (departure, arrival) pair;
+//  USE SELECTED copies them into the main route planner.
+// ============================================================
+{
+  const GRID_X = 65;   // departure-date bins
+  const GRID_Y = 52;   // transit-duration bins
+  const canvas = document.getElementById('porkchop-canvas');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('porkchop-overlay');
+  const progressFill = document.getElementById('pc-progress-fill');
+  const applyBtn = document.getElementById('pc-apply');
+  const routeLabel = document.getElementById('pc-route-label');
+  const xaxisEl = document.getElementById('pc-xaxis');
+  const yaxisEl = document.getElementById('pc-yaxis');
+  const fmt = d => d.toISOString().slice(0,10);
+
+  let state = null;   // {body1,body2,departStart,departEnd,tofMin,tofMax,data,dvMin,dvMax,minCell,selectedCell}
+  let running = false;
+
+  function dvColor(t) {   // t in [0,1]
+    t = Math.max(0, Math.min(1, t));
+    const stops = [
+      [0.00,   0, 230, 118],
+      [0.20, 155, 210,   0],
+      [0.40, 255, 210,   0],
+      [0.60, 255, 152,   0],
+      [0.80, 255,  90,  60],
+      [1.00, 255,  45,  85],
+    ];
+    for (let i = 0; i < stops.length - 1; i++) {
+      if (t <= stops[i+1][0]) {
+        const f = (t - stops[i][0]) / (stops[i+1][0] - stops[i][0]);
+        const a = stops[i], b = stops[i+1];
+        return [(a[1]+(b[1]-a[1])*f)|0, (a[2]+(b[2]-a[2])*f)|0, (a[3]+(b[3]-a[3])*f)|0];
+      }
+    }
+    return [255, 45, 85];
+  }
+
+  function paintCell(ix, iy, color) {
+    const cw = canvas.width / GRID_X;
+    const ch = canvas.height / GRID_Y;
+    const px = Math.floor(ix * cw);
+    const py = canvas.height - Math.floor((iy + 1) * ch);  // flip Y (short TOF at bottom)
+    const pw = Math.ceil(cw) + 1;
+    const ph = Math.ceil(ch) + 1;
+    ctx.fillStyle = color;
+    ctx.fillRect(px, py, pw, ph);
+  }
+
+  function repaintAll() {
+    ctx.fillStyle = '#050810';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!state) return;
+    const { data, dvMin, dvMax } = state;
+    for (let iy = 0; iy < GRID_Y; iy++) {
+      for (let ix = 0; ix < GRID_X; ix++) {
+        const dv = data[iy * GRID_X + ix];
+        if (!isFinite(dv)) {
+          paintCell(ix, iy, 'rgba(30,30,36,0.6)');
+        } else {
+          const [r,g,b] = dvColor((dv - dvMin) / (dvMax - dvMin));
+          paintCell(ix, iy, `rgb(${r},${g},${b})`);
+        }
+      }
+    }
+    // Global min marker
+    if (state.minCell) {
+      const { ix, iy } = state.minCell;
+      drawCross(ix, iy, '#ffffff', 10);
+    }
+    // Selection marker
+    if (state.selectedCell) {
+      const { ix, iy } = state.selectedCell;
+      drawCross(ix, iy, '#00d4ff', 12);
+    }
+  }
+
+  function drawCross(ix, iy, color, size) {
+    const cw = canvas.width / GRID_X;
+    const ch = canvas.height / GRID_Y;
+    const cx = ix * cw + cw / 2;
+    const cy = canvas.height - (iy + 0.5) * ch;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - size, cy); ctx.lineTo(cx + size, cy);
+    ctx.moveTo(cx, cy - size); ctx.lineTo(cx, cy + size);
+    ctx.stroke();
+  }
+
+  function renderAxes(st) {
+    // X axis: 6 evenly spaced date ticks
+    xaxisEl.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+      const f = i / 5;
+      const t = st.departStart + f * (st.departEnd - st.departStart);
+      const s = document.createElement('span');
+      s.textContent = fmt(simTimeToDate(t));
+      xaxisEl.appendChild(s);
+    }
+    // Y axis: 5 ticks top→bottom (high TOF at top)
+    yaxisEl.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+      const f = i / 4;
+      const tof = st.tofMax - f * (st.tofMax - st.tofMin);
+      const s = document.createElement('span');
+      s.textContent = (tof / DAY).toFixed(0) + 'd';
+      yaxisEl.appendChild(s);
+    }
+  }
+
+  function synodicPeriod(b1, b2) {
+    const n1 = TWO_PI / b1.period, n2 = TWO_PI / b2.period;
+    const dn = Math.abs(n1 - n2);
+    return dn > 1e-20 ? TWO_PI / dn : b1.period;
+  }
+
+  function beginSweep(body1, body2, departStart) {
+    const mu = G_CONST * SUN_DATA.mass;
+    const aT = (body1.a + body2.a) * AU / 2;
+    const hohmannTof = PI * Math.sqrt(aT*aT*aT / mu);
+    const synodic = synodicPeriod(body1, body2);
+    // Show 3 synodic periods, capped to a sensible range
+    const departSpan = Math.max(2 * 365.25 * DAY, Math.min(3 * synodic, 10 * 365.25 * DAY));
+    const departEnd = departStart + departSpan;
+    const tofMin = Math.max(10 * DAY, 0.35 * hohmannTof);
+    const tofMax = 2.2 * hohmannTof;
+    const data = new Float64Array(GRID_X * GRID_Y);
+
+    state = {
+      body1, body2, departStart, departEnd, tofMin, tofMax,
+      data, dvMin: Infinity, dvMax: -Infinity,
+      hohmannTof, minCell: null, selectedCell: null,
+    };
+    renderAxes(state);
+    routeLabel.innerHTML = `${body1.name.toUpperCase()} &rarr; ${body2.name.toUpperCase()} &middot; ${fmt(simTimeToDate(departStart))} + ${(departSpan / (365.25 * DAY)).toFixed(1)}yr`;
+    repaintAll();
+    progressFill.style.width = '0%';
+    applyBtn.disabled = true;
+    document.getElementById('pc-depart').textContent = '—';
+    document.getElementById('pc-transit').textContent = '—';
+    document.getElementById('pc-arrive').textContent = '—';
+    document.getElementById('pc-dv').textContent = '—';
+
+    // Chunked sweep to keep UI responsive
+    running = true;
+    let iy = 0, ix = 0;
+    let minDv = Infinity, minIdx = null, maxDv = -Infinity;
+    function step() {
+      if (!running) return;
+      const endTime = performance.now() + 14;    // ~60fps budget per frame
+      while (performance.now() < endTime && iy < GRID_Y) {
+        const tof = tofMin + ((iy + 0.5) / GRID_Y) * (tofMax - tofMin);
+        const dep = departStart + ((ix + 0.5) / GRID_X) * (departEnd - departStart);
+        // Use REAL inclinations for accurate Δv
+        const d = getBodyPosition3D(body1, dep, false);
+        const a = getBodyPosition3D(body2, dep + tof, false);
+        const r1v = [d.x*AU, d.y*AU, d.z*AU];
+        const r2v = [a.x*AU, a.y*AU, a.z*AU];
+        const sol = solveLambertProblem(r1v, r2v, tof, mu);
+        let dv = NaN;
+        if (sol) {
+          const vb1 = getBodyVelocity3D(body1, dep, false);
+          const vb2 = getBodyVelocity3D(body2, dep + tof, false);
+          dv = v3mag(v3sub(sol.v1, vb1)) + v3mag(v3sub(sol.v2, vb2));
+          if (dv < minDv) { minDv = dv; minIdx = { ix, iy }; }
+          if (dv > maxDv) maxDv = dv;
+        }
+        data[iy * GRID_X + ix] = dv;
+        ix++;
+        if (ix >= GRID_X) { ix = 0; iy++; }
+      }
+      // Update dv scale live — cap max at 3× min for readable coloring
+      if (minDv < Infinity) {
+        state.dvMin = minDv;
+        state.dvMax = Math.min(maxDv, 3 * minDv);
+      }
+      state.minCell = minIdx;
+      repaintAll();
+      progressFill.style.width = (100 * iy / GRID_Y).toFixed(1) + '%';
+      document.getElementById('pc-scale-min').textContent = isFinite(state.dvMin) ? (state.dvMin/1000).toFixed(1) + ' km/s' : '—';
+      document.getElementById('pc-scale-max').textContent = isFinite(state.dvMax) ? '≥ ' + (state.dvMax/1000).toFixed(1) + ' km/s' : '—';
+      if (iy < GRID_Y) requestAnimationFrame(step);
+      else {
+        running = false;
+        progressFill.style.width = '100%';
+        // Pre-select the global minimum
+        if (minIdx) {
+          state.selectedCell = minIdx;
+          showSelection(minIdx);
+          applyBtn.disabled = false;
+        }
+        repaintAll();
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  function cellAt(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = (clientX - rect.left) / rect.width;
+    const cy = 1 - (clientY - rect.top) / rect.height;   // flip Y
+    if (cx < 0 || cx > 1 || cy < 0 || cy > 1) return null;
+    const ix = Math.max(0, Math.min(GRID_X - 1, Math.floor(cx * GRID_X)));
+    const iy = Math.max(0, Math.min(GRID_Y - 1, Math.floor(cy * GRID_Y)));
+    return { ix, iy };
+  }
+
+  function cellInfo(ix, iy) {
+    const dep = state.departStart + ((ix + 0.5) / GRID_X) * (state.departEnd - state.departStart);
+    const tof = state.tofMin + ((iy + 0.5) / GRID_Y) * (state.tofMax - state.tofMin);
+    const dv = state.data[iy * GRID_X + ix];
+    return { dep, tof, dv };
+  }
+
+  function showSelection(cell) {
+    const { dep, tof, dv } = cellInfo(cell.ix, cell.iy);
+    document.getElementById('pc-depart').textContent = fmt(simTimeToDate(dep));
+    document.getElementById('pc-transit').textContent = (tof / DAY).toFixed(0) + ' days';
+    document.getElementById('pc-arrive').textContent  = fmt(simTimeToDate(dep + tof));
+    document.getElementById('pc-dv').textContent = isFinite(dv) ? (dv / 1000).toFixed(2) + ' km/s' : 'no solution';
+  }
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (!state) return;
+    const c = cellAt(e.clientX, e.clientY);
+    if (!c) return;
+    showSelection(c);
+  });
+  canvas.addEventListener('mouseleave', () => {
+    if (!state || !state.selectedCell) return;
+    showSelection(state.selectedCell);
+  });
+  canvas.addEventListener('click', (e) => {
+    if (!state) return;
+    const c = cellAt(e.clientX, e.clientY);
+    if (!c) return;
+    const { dv } = cellInfo(c.ix, c.iy);
+    if (!isFinite(dv)) { notify('NO LAMBERT SOLUTION AT THIS CELL'); return; }
+    state.selectedCell = c;
+    showSelection(c);
+    applyBtn.disabled = false;
+    repaintAll();
+  });
+
+  document.getElementById('pc-close').onclick = () => {
+    running = false;
+    overlay.classList.remove('visible');
+  };
+  applyBtn.onclick = () => {
+    if (!state || !state.selectedCell) return;
+    const { dep, tof } = cellInfo(state.selectedCell.ix, state.selectedCell.iy);
+
+    // Sync simulation and departure-date input to the selected cell.
+    document.getElementById('depart-date').value = dateToInputValue(simTimeToDate(dep));
+    timeState.simTime = dep;
+    timeState.setSpeed(3);
+    timeState.updateDisplay();
+
+    // Build transferData with the porkchop's chosen TOF (not Hohmann's default).
+    transferData = hohmannTransfer(state.body1, state.body2, dep);
+    transferData.transferTime = tof;
+    transferData.arrivalSimTime = dep + tof;
+    solveTransferOrbit(transferData);
+    showTransferOrbit = true;
+    updateTransferOrbitVisual();
+
+    overlay.classList.remove('visible');
+    running = false;
+    renderRouteUI();
+    notify('LAUNCH WINDOW APPLIED');
+  };
+
+  document.getElementById('find-windows').onclick = () => {
+    if (!routeOrigin || !routeDestination) { notify('SET ORIGIN AND DESTINATION FIRST'); return; }
+    overlay.classList.add('visible');
+    beginSweep(routeOrigin, routeDestination, timeState.simTime);
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && overlay.classList.contains('visible')) {
+      running = false;
+      overlay.classList.remove('visible');
+    }
   });
 }
 
@@ -2112,24 +3018,28 @@ function selectBody(body) {
 
 function setRouteOrigin(body) {
   routeOrigin = body;
+  flybys = [];
   transferData = null; showTransferOrbit = false;
   document.getElementById('origin-name').textContent = body ? body.name : 'Drag or right-click';
   document.getElementById('origin-name').classList.toggle('empty', !body);
   if (body) notify(`ORIGIN: ${body.name.toUpperCase()}`);
   document.getElementById('transfer-results').innerHTML = '';
   document.getElementById('mission-controls').innerHTML = '';
+  if (typeof renderFlybyList === 'function') renderFlybyList();
   selectBody(selectedBody);
   updateBodyList();
 }
 
 function setRouteDestination(body) {
   routeDestination = body;
+  flybys = [];
   transferData = null; showTransferOrbit = false;
   document.getElementById('dest-name').textContent = body ? body.name : 'Drag or right-click';
   document.getElementById('dest-name').classList.toggle('empty', !body);
   if (body) notify(`DESTINATION: ${body.name.toUpperCase()}`);
   document.getElementById('transfer-results').innerHTML = '';
   document.getElementById('mission-controls').innerHTML = '';
+  if (typeof renderFlybyList === 'function') renderFlybyList();
   selectBody(selectedBody);
   updateBodyList();
 }
@@ -2138,6 +3048,8 @@ function clearRoute() {
   abortMission();
   setRouteOrigin(null);
   setRouteDestination(null);
+  flybys = [];
+  renderFlybyList();
   transferData = null; showTransferOrbit = false;
   updateTransferOrbitVisual();
   document.getElementById('transfer-results').innerHTML = '';
@@ -2147,29 +3059,87 @@ function clearRoute() {
 }
 
 // ============================================================
+//  FLYBY WAYPOINT MANAGEMENT
+// ============================================================
+function renderFlybyList() {
+  const list = document.getElementById('flyby-list');
+  if (flybys.length === 0) { list.innerHTML = ''; return; }
+  const options = BODIES.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
+  list.innerHTML = flybys.map((f, i) => `
+    <div class="flyby-row" data-index="${i}">
+      <select class="flyby-body">${options}</select>
+      <input type="datetime-local" class="flyby-date" step="1">
+      <button class="flyby-remove" title="Remove flyby">&times;</button>
+    </div>
+  `).join('');
+  flybys.forEach((f, i) => {
+    const row = list.querySelector(`.flyby-row[data-index="${i}"]`);
+    row.querySelector('.flyby-body').value = f.bodyName;
+    row.querySelector('.flyby-date').value = dateToInputValue(simTimeToDate(f.simTime));
+    row.querySelector('.flyby-body').addEventListener('change', (e) => {
+      flybys[i].bodyName = e.target.value;
+    });
+    row.querySelector('.flyby-date').addEventListener('change', (e) => {
+      const d = inputValueToDate(e.target.value);
+      if (d && !isNaN(d.getTime())) flybys[i].simTime = dateToSimTime(d);
+    });
+    row.querySelector('.flyby-remove').addEventListener('click', () => {
+      flybys.splice(i, 1);
+      renderFlybyList();
+    });
+  });
+}
+
+function addFlyby() {
+  if (!routeOrigin || !routeDestination) { notify('SET ORIGIN AND DESTINATION FIRST'); return; }
+  // Default: pick a planet interior/between origin and destination, with
+  // date halfway between current depart and Hohmann arrival.
+  const dateInput = document.getElementById('depart-date');
+  const depDate = inputValueToDate(dateInput.value);
+  const depSim = (depDate && !isNaN(depDate.getTime())) ? dateToSimTime(depDate) : timeState.simTime;
+  const h = hohmannTransfer(routeOrigin, routeDestination, depSim);
+  // Rough midpoint time
+  const lastSim = flybys.length > 0 ? flybys[flybys.length - 1].simTime : depSim;
+  const endSim = h.arrivalSimTime;
+  const midSim = 0.5 * (lastSim + endSim);
+  // Default planet: Venus if going outward past Earth, else Earth
+  const a1 = routeOrigin.a, a2 = routeDestination.a;
+  const goingOut = a2 > a1;
+  const defaultName = goingOut
+    ? (a1 < 1.0 ? 'Earth' : (a1 < 5.2 ? 'Jupiter' : 'Saturn'))
+    : (a1 > 1.0 ? 'Earth' : 'Venus');
+  flybys.push({ bodyName: defaultName, simTime: midSim });
+  renderFlybyList();
+}
+
+// ============================================================
 //  TRANSFER ORBIT VISUAL
 // ============================================================
 function updateTransferOrbitVisual() {
+  // Clear previous
   if (transferLine) { scene.remove(transferLine); transferLine = null; }
+  for (const l of extraLegLines) scene.remove(l);
+  extraLegLines = [];
+  for (const m of flybyMarkers) scene.remove(m);
+  flybyMarkers = [];
   transferMarkers.depart.visible = false;
   transferMarkers.arrive.visible = false;
   if (!showTransferOrbit || !transferData) return;
 
+  if (transferData.isMultiLeg) { renderMultiLegVisual(); return; }
+
+  // --- single-leg (existing path) ---
   const dep = transferData.dep3D || getBodyPosition3D(transferData.body1, transferData.departureSimTime);
   const arr = transferData.arr3D || getBodyPosition3D(transferData.body2, transferData.arrivalSimTime);
-
   const points = [];
   const N = 200;
-
   if (transferData.orbit) {
-    // Real Keplerian arc from Lambert solution
     for (let i = 0; i <= N; i++) {
       const dt = (i / N) * transferData.transferTime;
       const pos_m = propagateOrbit(transferData.orbit, dt);
       points.push(new THREE.Vector3(pos_m[0] / AU, pos_m[1] / AU, pos_m[2] / AU));
     }
   } else {
-    // Fallback: smooth polar interpolation
     for (let i = 0; i <= N; i++) {
       const t = i / N;
       const blend = 0.5 - 0.5 * Math.cos(PI * t);
@@ -2179,7 +3149,6 @@ function updateTransferOrbitVisual() {
         dep.z + (arr.z - dep.z) * blend));
     }
   }
-
   const geo = new THREE.BufferGeometry().setFromPoints(points);
   const mat = new THREE.LineDashedMaterial({
     color: 0xff9800, dashSize: 0.15, gapSize: 0.08,
@@ -2188,12 +3157,78 @@ function updateTransferOrbitVisual() {
   transferLine = new THREE.Line(geo, mat);
   transferLine.computeLineDistances();
   scene.add(transferLine);
-
-  // Markers at departure and arrival positions
   transferMarkers.depart.position.set(dep.x, dep.y, dep.z);
   transferMarkers.depart.visible = true;
   transferMarkers.arrive.position.set(arr.x, arr.y, arr.z);
   transferMarkers.arrive.visible = true;
+}
+
+// Palette cycled across legs so each one reads distinctly against the orbit lines.
+const LEG_COLORS = [0xff9800, 0x00d4ff, 0xd36bff, 0x00e676, 0xffeb3b, 0xff5a3c];
+
+function renderMultiLegVisual() {
+  const N = 160;    // samples per leg — fewer per leg keeps total draw calls bounded
+  for (let li = 0; li < transferData.legs.length; li++) {
+    const leg = transferData.legs[li];
+    if (!leg.ok) continue;
+    const pts = [];
+    if (leg.orbit) {
+      for (let i = 0; i <= N; i++) {
+        const dt = (i / N) * leg.tof;
+        const pm = propagateOrbit(leg.orbit, dt);
+        pts.push(new THREE.Vector3(pm[0]/AU, pm[1]/AU, pm[2]/AU));
+      }
+    } else {
+      // Fallback interp between waypoint scene positions
+      const a = leg.dep3D, b = leg.arr3D;
+      for (let i = 0; i <= N; i++) {
+        const t = i / N;
+        const blend = 0.5 - 0.5 * Math.cos(PI * t);
+        pts.push(new THREE.Vector3(
+          a.x + (b.x - a.x) * blend,
+          a.y + (b.y - a.y) * blend,
+          a.z + (b.z - a.z) * blend));
+      }
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineDashedMaterial({
+      color: LEG_COLORS[li % LEG_COLORS.length],
+      dashSize: 0.15, gapSize: 0.08,
+      transparent: true, opacity: 0.75,
+    });
+    const line = new THREE.Line(geo, mat);
+    line.computeLineDistances();
+    scene.add(line);
+    extraLegLines.push(line);
+  }
+
+  // Origin + final markers
+  const firstLeg = transferData.legs[0];
+  const lastLeg  = transferData.legs[transferData.legs.length - 1];
+  if (firstLeg && firstLeg.ok) {
+    transferMarkers.depart.position.set(firstLeg.dep3D.x, firstLeg.dep3D.y, firstLeg.dep3D.z);
+    transferMarkers.depart.visible = true;
+  }
+  if (lastLeg && lastLeg.ok) {
+    transferMarkers.arrive.position.set(lastLeg.arr3D.x, lastLeg.arr3D.y, lastLeg.arr3D.z);
+    transferMarkers.arrive.visible = true;
+  }
+
+  // Flyby markers — yellow ring at each intermediate waypoint's planet position
+  for (let i = 1; i < transferData.waypoints.length - 1; i++) {
+    const wp = transferData.waypoints[i];
+    const p = getBodyPosition3D(wp.body, wp.simTime, true);
+    const mesh = new THREE.Mesh(
+      new THREE.RingGeometry(0.018, 0.030, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0xffd54f, side: THREE.DoubleSide,
+        transparent: true, opacity: 0.85,
+      })
+    );
+    mesh.position.set(p.x, p.y, p.z);
+    scene.add(mesh);
+    flybyMarkers.push(mesh);
+  }
 }
 
 // ============================================================
@@ -2213,14 +3248,42 @@ function computeRoute() {
     dateInput.value = dateToInputValue(timeState.getDate());
   }
 
-  transferData = hohmannTransfer(routeOrigin, routeDestination, departureSimTime);
-  solveTransferOrbit(transferData);     // Lambert solver for real trajectory
+  if (flybys.length > 0) {
+    // Multi-leg route with gravity-assist flybys.
+    const waypoints = [
+      { body: routeOrigin, simTime: departureSimTime },
+      ...flybys.map(f => ({
+        body: BODIES.find(b => b.name === f.bodyName),
+        simTime: f.simTime,
+      })),
+      { body: routeDestination, simTime: 0 },   // dest time set below
+    ];
+    // Default destination time: last-flyby time + Hohmann estimate from that body to dest
+    const lastFlyby = waypoints[waypoints.length - 2];
+    const tailHohmann = hohmannTransfer(lastFlyby.body, routeDestination, lastFlyby.simTime);
+    waypoints[waypoints.length - 1].simTime = tailHohmann.arrivalSimTime;
+
+    transferData = solveMultiLegRoute(waypoints);
+  } else {
+    transferData = hohmannTransfer(routeOrigin, routeDestination, departureSimTime);
+    solveTransferOrbit(transferData);
+  }
   showTransferOrbit = true;
   updateTransferOrbitVisual();
+  renderRouteUI();
+  notify(flybys.length > 0 ? 'MULTI-LEG ROUTE COMPUTED' : 'TRANSFER ORBIT COMPUTED');
+}
 
+// Render the results panel + mission controls from current transferData.
+// Called by computeRoute() and by the porkchop-plot "USE SELECTED" flow,
+// which may have overridden transferTime/arrivalSimTime to non-Hohmann values.
+function renderRouteUI() {
+  if (!transferData) return;
+  if (transferData.isMultiLeg) { renderMultiLegRouteUI(); return; }
   const departDate = simTimeToDate(transferData.departureSimTime);
   const arriveDate = simTimeToDate(transferData.arrivalSimTime);
-  const lambertOk = !!transferData.orbit;
+  const lambertOk = !!transferData.lambertOk;
+  const orbPhys = transferData.orbitPhysical;
 
   const res = document.getElementById('transfer-results');
   res.innerHTML = `
@@ -2234,15 +3297,22 @@ function computeRoute() {
       <div class="info-row"><span class="key">Departure \u0394v</span><span class="val green">${formatVelocity(lambertOk ? transferData.dv1_lambert : transferData.dv1)}</span></div>
       <div class="info-row"><span class="key">Arrival \u0394v</span><span class="val green">${formatVelocity(lambertOk ? transferData.dv2_lambert : transferData.dv2)}</span></div>
       <div class="info-row"><span class="key">Total \u0394v</span><span class="val amber">${formatVelocity(lambertOk ? transferData.dvTotal_lambert : transferData.dvTotal)}</span></div>
-      ${lambertOk && transferData.orbit ? `
+      ${lambertOk && orbPhys ? `
       <div style="height:8px"></div>
-      <div class="info-row"><span class="key">Transfer semi-major</span><span class="val">${formatDist(transferData.orbit.a)}</span></div>
-      <div class="info-row"><span class="key">Eccentricity</span><span class="val">${transferData.orbit.e.toFixed(4)}</span></div>` : `
+      <div class="info-row"><span class="key">Transfer semi-major</span><span class="val">${formatDist(orbPhys.a)}</span></div>
+      <div class="info-row"><span class="key">Eccentricity</span><span class="val">${orbPhys.e.toFixed(4)}</span></div>` : `
       <div style="height:8px"></div>
       <div class="info-row"><span class="key">Transfer semi-major</span><span class="val">${formatDist(transferData.aT)}</span></div>`}
       <div class="info-row"><span class="key">Phase angle needed</span><span class="val">${(transferData.phaseAngle / DEG).toFixed(2)}&deg;</span></div>
       <div class="info-row"><span class="key">Phase at departure</span><span class="val">${(transferData.currentPhase / DEG).toFixed(2)}&deg;</span></div>
       <div class="info-row"><span class="key">Next optimal window</span><span class="val highlight">${formatTime(transferData.timeToWindow)}</span></div>
+      <div style="height:8px"></div>
+      <div class="info-row"><span class="key">Vehicle</span><span class="val">${VEHICLE_SPECS.combined.name}</span></div>
+      <div class="info-row"><span class="key">Super Heavy Δv (transfer)</span><span class="val">${formatVelocity(superHeavyDeltaV())}</span></div>
+      <div class="info-row"><span class="key">Starship Δv (reserved)</span><span class="val">${formatVelocity(starshipDeltaV())}</span></div>
+      <div class="info-row"><span class="key">Total stack Δv</span><span class="val">${formatVelocity(totalMissionDeltaV())}</span></div>
+      <div class="info-row"><span class="key">Usable transfer Δv</span><span class="val">${formatVelocity(transferDeltaV())}</span></div>
+      <div class="info-row"><span class="key">Mission feasible</span><span class="val ${transferDeltaV() >= (lambertOk ? transferData.dvTotal_lambert : transferData.dvTotal) ? 'green' : 'red-val'}">${transferDeltaV() >= (lambertOk ? transferData.dvTotal_lambert : transferData.dvTotal) ? 'YES' : 'NO'}</span></div>
     </div>`;
 
   // Show mission controls
@@ -2258,8 +3328,78 @@ function computeRoute() {
     timeState.updateDisplay();
     notify('JUMPED TO DEPARTURE DATE');
   };
+}
 
-  notify('TRANSFER ORBIT COMPUTED');
+// ----- multi-leg (gravity-assist) variant -----
+function renderMultiLegRouteUI() {
+  const td = transferData;
+  const res = document.getElementById('transfer-results');
+  const allOk = td.allLegsOk;
+  const totalDv = td.dvTotalMultiLeg;
+  const feasible = transferDeltaV() >= totalDv;
+
+  // Per-leg rows
+  const legRows = td.legs.map((L, i) => {
+    const color = ['#ff9800','#00d4ff','#d36bff','#00e676','#ffeb3b','#ff5a3c'][i % 6];
+    if (!L.ok) {
+      return `<div class="info-row"><span class="key" style="color:${color}">Leg ${i+1} ${L.from}→${L.to}</span><span class="val red-val">LAMBERT FAILED</span></div>`;
+    }
+    return `<div class="info-row"><span class="key" style="color:${color}">Leg ${i+1} ${L.from}→${L.to}</span><span class="val">${(L.tof/DAY).toFixed(0)}d</span></div>`;
+  }).join('');
+
+  // Per-maneuver Δv rows
+  const manRows = td.maneuvers.map((m) => {
+    if (m.type === 'depart') return `<div class="info-row"><span class="key">Depart ${m.body}</span><span class="val green">${formatVelocity(m.dv)}</span></div>`;
+    if (m.type === 'arrive') return `<div class="info-row"><span class="key">Arrive ${m.body}</span><span class="val amber">${formatVelocity(m.dv)}</span></div>`;
+    // flyby
+    const gi = m.info;
+    const tDeg = (gi.turningAngle / DEG).toFixed(1);
+    const tMax = (gi.maxTurningAngle / DEG).toFixed(1);
+    const rP = isFinite(gi.rPeriapsis) ? (gi.rPeriapsis / 1000).toFixed(0) + ' km' : '—';
+    const minR = (gi.minR / 1000).toFixed(0) + ' km';
+    const cls = gi.achievable ? 'green' : 'red-val';
+    const status = gi.achievable ? 'OK' : 'TOO SHARP';
+    return `
+      <div class="info-row"><span class="key">Flyby ${m.body}</span><span class="val ${cls}">${status}</span></div>
+      <div class="info-row"><span class="key">&nbsp;&nbsp;Turning angle</span><span class="val">${tDeg}&deg; / max ${tMax}&deg;</span></div>
+      <div class="info-row"><span class="key">&nbsp;&nbsp;Periapsis</span><span class="val">${rP} (min ${minR})</span></div>
+      <div class="info-row"><span class="key">&nbsp;&nbsp;V&infin; in / out</span><span class="val">${(gi.vInfInMag/1000).toFixed(2)} / ${(gi.vInfOutMag/1000).toFixed(2)} km/s</span></div>
+      ${gi.dvFlyby > 1 ? `<div class="info-row"><span class="key">&nbsp;&nbsp;Powered Δv</span><span class="val amber">${formatVelocity(gi.dvFlyby)}</span></div>` : ''}
+    `;
+  }).join('');
+
+  res.innerHTML = `
+    <div class="transfer-results">
+      <div class="result-title">${allOk ? 'MULTI-LEG TRANSFER' : 'MULTI-LEG (some legs failed)'}</div>
+      <div class="info-row"><span class="key">Depart ${td.body1.name}</span><span class="val green">${formatDateShort(simTimeToDate(td.departureSimTime))}</span></div>
+      <div class="info-row"><span class="key">Arrive ${td.body2.name}</span><span class="val amber">${formatDateShort(simTimeToDate(td.arrivalSimTime))}</span></div>
+      <div class="info-row"><span class="key">Total transit</span><span class="val highlight">${(td.transferTime / DAY).toFixed(0)} days</span></div>
+      <div style="height:8px"></div>
+      ${legRows}
+      <div style="height:8px"></div>
+      ${manRows}
+      <div style="height:8px"></div>
+      <div class="info-row"><span class="key">Total Δv</span><span class="val amber">${formatVelocity(totalDv)}</span></div>
+      <div style="height:8px"></div>
+      <div class="info-row"><span class="key">Vehicle</span><span class="val">${VEHICLE_SPECS.combined.name}</span></div>
+      <div class="info-row"><span class="key">Usable transfer Δv</span><span class="val">${formatVelocity(transferDeltaV())}</span></div>
+      <div class="info-row"><span class="key">Mission feasible</span><span class="val ${feasible ? 'green' : 'red-val'}">${feasible ? 'YES' : 'NO'}</span></div>
+    </div>`;
+
+  // Mission controls — launching multi-leg missions requires a ship that can
+  // be driven through multiple legs. Disable "Launch Mission" for now; the
+  // existing mission sim only handles single-leg transferData. Jump-to-depart
+  // still works.
+  const mc = document.getElementById('mission-controls');
+  mc.innerHTML = `
+    <button class="route-btn" id="btn-goto-depart" style="font-size:10px;padding:8px;">Jump to Departure Date</button>
+  `;
+  document.getElementById('btn-goto-depart').onclick = () => {
+    timeState.simTime = td.departureSimTime;
+    timeState.setSpeed(3);
+    timeState.updateDisplay();
+    notify('JUMPED TO DEPARTURE DATE');
+  };
 }
 
 // ============================================================
@@ -2499,12 +3639,30 @@ function animate() {
   const glowPulse = 0.58 + 0.06 * Math.sin(now * 0.0015);
   sunGlowSprite.scale.set(glowPulse, glowPulse, 1);
 
+  // Planet axial spin — drive equirectangular textures via UV offset so the
+  // mesh itself (and its children: labels, rings) stay put.
+  for (const t of planetTextureTargets) {
+    t.map.offset.x = (timeState.simTime / t.period) % 1;
+  }
+
   // Update planet positions
   for (const body of BODIES) {
     const pos = getBodyPosition3D(body, timeState.simTime);
     bodyPositions.set(body.name, pos);
     const mesh = planetMeshes.get(body.name);
     if (mesh) mesh.position.set(pos.x, pos.y, pos.z);
+  }
+
+  // Update spacecraft positions
+  for (const sc of SPACECRAFT) {
+    const mesh = spacecraftMeshes.get(sc.name);
+    if (!mesh) continue;
+    const pos = getSpacecraftPosition(sc, timeState.simTime);
+    if (!pos) { mesh.visible = false; continue; }
+    mesh.visible = true;
+    mesh.position.set(pos.x, pos.y, pos.z);
+    mesh.rotation.y += dt * 1.2;   // slow rotation for visual life
+    mesh.rotation.x += dt * 0.7;
   }
 
   // Update moon positions (relative to parent planet)
@@ -2540,6 +3698,7 @@ function animate() {
     transferMarkers.depart.lookAt(camera3D.position);
     transferMarkers.arrive.lookAt(camera3D.position);
   }
+  for (const m of flybyMarkers) m.lookAt(camera3D.position);
 
   // Mission update
   updateMission();

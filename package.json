@@ -4,5 +4,8 @@
   "description": "HELIOS Solar System Navigator with real HYG stellar data",
   "scripts": {
     "start": "node server.js"
+  },
+  "dependencies": {
+    "puppeteer": "^24.42.0"
   }
 }
