@@ -1648,8 +1648,55 @@ function solveMultiLegRoute(waypoints) {
   };
 }
 
-// --- Ship position using real orbital mechanics ---
+// Ship position using real orbital mechanics. Handles both single-leg
+// (tData.orbit) and multi-leg (tData.legs) routes. Returns heliocentric
+// scene coords (AU); callers add getSunBarycentricOffset(t) for barycentric.
+// For multi-leg, the returned object also carries `legIndex` so the UI can
+// show "LEG n/N" and `legProgress` for per-leg progress.
 function getShipPositionOnTransfer(departureSimTime, tData, currentSimTime) {
+  if (tData.isMultiLeg) {
+    const legs = tData.legs;
+    // Find which leg contains currentSimTime. If past the last leg's arrival,
+    // clamp to the end of that leg; if before the first leg's departure,
+    // clamp to its start. Skip any legs that failed to solve.
+    let active = null, activeIdx = -1;
+    const totalTime = tData.transferTime;
+    const totalElapsed = Math.max(0, currentSimTime - departureSimTime);
+    const overallProgress = Math.max(0, Math.min(1, totalElapsed / totalTime));
+
+    for (let i = 0; i < legs.length; i++) {
+      const L = legs[i];
+      if (!L.ok) continue;
+      if (currentSimTime <= L.arriveSimTime) { active = L; activeIdx = i; break; }
+    }
+    if (!active) {
+      // Past all legs — sit at final destination
+      const last = [...legs].reverse().find(l => l.ok);
+      if (!last) return null;
+      const pos_m = propagateOrbit(last.orbit, last.tof);
+      return { x: pos_m[0]/AU, y: pos_m[1]/AU, z: pos_m[2]/AU,
+               progress: 1, legIndex: legs.length - 1, legProgress: 1, currentLeg: last };
+    }
+
+    const elapsed = Math.max(0, currentSimTime - active.departSimTime);
+    const legProgress = Math.max(0, Math.min(1, elapsed / active.tof));
+    if (active.orbit) {
+      const pos_m = propagateOrbit(active.orbit, elapsed);
+      return { x: pos_m[0]/AU, y: pos_m[1]/AU, z: pos_m[2]/AU,
+               progress: overallProgress, legIndex: activeIdx, legProgress, currentLeg: active };
+    }
+    // Fallback interpolation per leg
+    const dep = active.dep3D, arr = active.arr3D;
+    const blend = 0.5 - 0.5 * Math.cos(PI * legProgress);
+    return {
+      x: dep.x + (arr.x - dep.x) * blend,
+      y: dep.y + (arr.y - dep.y) * blend,
+      z: dep.z + (arr.z - dep.z) * blend,
+      progress: overallProgress, legIndex: activeIdx, legProgress, currentLeg: active,
+    };
+  }
+
+  // --- single-leg ---
   const elapsed = currentSimTime - departureSimTime;
   const progress = Math.max(0, Math.min(1, elapsed / tData.transferTime));
 
@@ -2491,7 +2538,12 @@ const mission = {
   arrivalSimTime: 0,
   transferData: null,
   arrived: false,
-  lastTrailTime: 0
+  lastTrailTime: 0,
+  // Multi-leg extras: track which leg the ship is currently on and which
+  // flybys have already been announced, so we don't re-trigger their pulse
+  // on time-scrubs or speed changes.
+  currentLegIndex: -1,
+  flybysTriggered: new Set(),
 };
 
 // ============================================================
@@ -3720,14 +3772,17 @@ function renderMultiLegRouteUI() {
       <div class="info-row"><span class="key">Mission feasible</span><span class="val ${feasible ? 'green' : 'red-val'}">${feasible ? 'YES' : 'NO'}</span></div>
     </div>`;
 
-  // Mission controls — launching multi-leg missions requires a ship that can
-  // be driven through multiple legs. Disable "Launch Mission" for now; the
-  // existing mission sim only handles single-leg transferData. Jump-to-depart
-  // still works.
+  // Mission controls — multi-leg routes are now flyable: the mission sim
+  // walks the ship leg-by-leg, pulsing flyby markers as they're crossed.
   const mc = document.getElementById('mission-controls');
-  mc.innerHTML = `
+  mc.innerHTML = td.allLegsOk ? `
+    <button class="route-btn launch" id="btn-launch">Launch Mission</button>
+    <button class="route-btn" id="btn-goto-depart" style="font-size:9px;padding:7px;margin-top:4px;">Jump to Departure Date</button>
+  ` : `
+    <div class="info-row"><span class="key" style="color:var(--red)">Some legs failed Lambert</span><span class="val">Fix dates to launch</span></div>
     <button class="route-btn" id="btn-goto-depart" style="font-size:10px;padding:8px;">Jump to Departure Date</button>
   `;
+  if (td.allLegsOk) document.getElementById('btn-launch').onclick = launchMission;
   document.getElementById('btn-goto-depart').onclick = () => {
     timeState.simTime = td.departureSimTime;
     timeState.setSpeed(3);
@@ -3741,6 +3796,10 @@ function renderMultiLegRouteUI() {
 // ============================================================
 function launchMission() {
   if (!transferData) return;
+  if (transferData.isMultiLeg && !transferData.allLegsOk) {
+    notify('CANNOT LAUNCH: some legs failed Lambert');
+    return;
+  }
 
   mission.active = true;
   mission.arrived = false;
@@ -3748,6 +3807,8 @@ function launchMission() {
   mission.arrivalSimTime = transferData.arrivalSimTime;
   mission.transferData = transferData;
   mission.lastTrailTime = mission.departureSimTime;
+  mission.currentLegIndex = -1;
+  mission.flybysTriggered = new Set();
 
   // Jump simulation to departure time
   timeState.simTime = mission.departureSimTime;
@@ -3756,7 +3817,11 @@ function launchMission() {
   resetTrail();
   shipGroup.visible = true;
 
-  // Update mission controls
+  const isMulti = !!transferData.isMultiLeg;
+  const legRow = isMulti
+    ? `<div class="info-row"><span class="key">Leg</span><span class="val highlight" id="mission-leg">—</span></div>`
+    : '';
+
   const mc = document.getElementById('mission-controls');
   mc.innerHTML = `
     <div class="mission-status" id="mission-status-box">
@@ -3765,6 +3830,7 @@ function launchMission() {
       <div class="info-row"><span class="key">To</span><span class="val amber">${mission.transferData.body2.name}</span></div>
       <div class="info-row"><span class="key">Departed</span><span class="val">${formatDateShort(simTimeToDate(mission.departureSimTime))}</span></div>
       <div class="info-row"><span class="key">ETA</span><span class="val highlight" id="mission-eta">${formatDateShort(simTimeToDate(mission.arrivalSimTime))}</span></div>
+      ${legRow}
       <div class="progress-bar-wrap"><div class="progress-bar" id="mission-progress" style="width:0%"></div></div>
       <div class="info-row"><span class="key">Progress</span><span class="val" id="mission-pct">0%</span></div>
       <div class="info-row"><span class="key">Time remaining</span><span class="val highlight" id="mission-remaining">--</span></div>
@@ -3773,42 +3839,40 @@ function launchMission() {
   `;
   document.getElementById('btn-abort').onclick = abortMission;
 
-  notify(`MISSION LAUNCHED: ${mission.transferData.body1.name.toUpperCase()} -> ${mission.transferData.body2.name.toUpperCase()}`);
+  const label = isMulti
+    ? `MULTI-LEG MISSION LAUNCHED: ${mission.transferData.body1.name.toUpperCase()} -> ${mission.transferData.body2.name.toUpperCase()} (${mission.transferData.legs.length} LEGS)`
+    : `MISSION LAUNCHED: ${mission.transferData.body1.name.toUpperCase()} -> ${mission.transferData.body2.name.toUpperCase()}`;
+  notify(label);
 }
 
 function abortMission() {
   if (!mission.active) return;
   mission.active = false;
   mission.arrived = false;
+  mission.currentLegIndex = -1;
+  mission.flybysTriggered = new Set();
   shipGroup.visible = false;
   trailLine.visible = false;
   resetTrail();
-
-  const mc = document.getElementById('mission-controls');
-  if (transferData) {
-    mc.innerHTML = `
-      <button class="route-btn launch" id="btn-launch">Launch Mission</button>
-      <button class="route-btn" id="btn-goto-depart" style="font-size:9px;padding:7px;margin-top:4px;">Jump to Departure Date</button>
-    `;
-    document.getElementById('btn-launch').onclick = launchMission;
-    document.getElementById('btn-goto-depart').onclick = () => {
-      timeState.simTime = transferData.departureSimTime;
-      timeState.setSpeed(3);
-      timeState.updateDisplay();
-      notify('JUMPED TO DEPARTURE DATE');
-    };
-  } else {
-    mc.innerHTML = '';
+  // Reset any mid-pulse flyby markers to their resting state
+  for (const m of flybyMarkers) {
+    m.scale.set(1, 1, 1);
+    if (m.material) m.material.opacity = 0.85;
+    delete m.userData.pulseStart;
   }
+  // Delegate results-panel rebuild to the route renderer (knows single vs multi-leg)
+  if (transferData) renderRouteUI(); else document.getElementById('mission-controls').innerHTML = '';
   notify('MISSION ABORTED');
 }
 
 function updateMission() {
   if (!mission.active) return;
 
+  const td = mission.transferData;
   const t = timeState.simTime;
   const elapsed = t - mission.departureSimTime;
-  const progress = Math.max(0, Math.min(1, elapsed / mission.transferData.transferTime));
+  const progress = Math.max(0, Math.min(1, elapsed / td.transferTime));
+  const isMulti = !!td.isMultiLeg;
 
   // Before departure
   if (t < mission.departureSimTime) {
@@ -3821,7 +3885,7 @@ function updateMission() {
   if (progress >= 1 && !mission.arrived) {
     mission.arrived = true;
     timeState.setSpeed(3); // pause
-    notify(`ARRIVED AT ${mission.transferData.body2.name.toUpperCase()}`);
+    notify(`ARRIVED AT ${td.body2.name.toUpperCase()}`);
 
     const box = document.getElementById('mission-status-box');
     if (box) {
@@ -3832,36 +3896,77 @@ function updateMission() {
 
   // Position ship — ship trajectory is heliocentric, so shift by sunOff(t)
   // to place it in the barycentric scene frame where planets live.
+  let shipInfo = null;
   if (progress < 1) {
-    const shipPos = getShipPositionOnTransfer(mission.departureSimTime, mission.transferData, t);
-    const off = getSunBarycentricOffset(t);
-    const sx = shipPos.x + off.x, sy = shipPos.y + off.y, sz = shipPos.z + off.z;
-    shipGroup.position.set(sx, sy, sz);
+    shipInfo = getShipPositionOnTransfer(mission.departureSimTime, td, t);
+    if (shipInfo) {
+      const off = getSunBarycentricOffset(t);
+      const sx = shipInfo.x + off.x, sy = shipInfo.y + off.y, sz = shipInfo.z + off.z;
+      shipGroup.position.set(sx, sy, sz);
 
-    // Add trail points at intervals
-    const trailInterval = mission.transferData.transferTime / MAX_TRAIL_POINTS;
-    if (t - mission.lastTrailTime >= trailInterval) {
-      addTrailPoint(sx, sy, sz);
-      mission.lastTrailTime = t;
+      const trailInterval = td.transferTime / MAX_TRAIL_POINTS;
+      if (t - mission.lastTrailTime >= trailInterval) {
+        addTrailPoint(sx, sy, sz);
+        mission.lastTrailTime = t;
+      }
+      shipLabelDiv.textContent = `SHIP ${Math.round(progress * 100)}%`;
     }
-
-    shipLabelDiv.textContent = `SHIP ${Math.round(progress * 100)}%`;
   } else {
     // At destination — bodyPositions is already barycentric
-    const destPos = bodyPositions.get(mission.transferData.body2.name);
+    const destPos = bodyPositions.get(td.body2.name);
     if (destPos) shipGroup.position.set(destPos.x, destPos.y, destPos.z);
     shipLabelDiv.textContent = 'ARRIVED';
   }
 
-  // Update mission status UI
+  // --- Multi-leg specific: detect leg transitions and pulse flyby markers ---
+  if (isMulti && shipInfo && typeof shipInfo.legIndex === 'number') {
+    const newLeg = shipInfo.legIndex;
+    if (newLeg !== mission.currentLegIndex && newLeg > mission.currentLegIndex) {
+      // Crossed into a new leg; if previous leg index was ≥ 0 we just did a flyby.
+      const flybyIdx = newLeg - 1;
+      if (flybyIdx >= 0 && flybyIdx < flybyMarkers.length && !mission.flybysTriggered.has(flybyIdx)) {
+        mission.flybysTriggered.add(flybyIdx);
+        flybyMarkers[flybyIdx].userData.pulseStart = performance.now();
+        const wp = td.waypoints[flybyIdx + 1];
+        if (wp) notify(`FLYBY: ${wp.body.name.toUpperCase()}`);
+      }
+      mission.currentLegIndex = newLeg;
+    }
+    const legEl = document.getElementById('mission-leg');
+    if (legEl) {
+      const li = shipInfo.legIndex, L = td.legs[li];
+      legEl.textContent = `${li + 1}/${td.legs.length} · ${L.from} → ${L.to} · ${Math.round(shipInfo.legProgress * 100)}%`;
+    }
+  }
+
+  // Overall progress + time-remaining UI
   const pctEl = document.getElementById('mission-pct');
   const barEl = document.getElementById('mission-progress');
   const remEl = document.getElementById('mission-remaining');
   if (pctEl) pctEl.textContent = Math.round(progress * 100) + '%';
   if (barEl) barEl.style.width = Math.round(progress * 100) + '%';
   if (remEl) {
-    const remaining = Math.max(0, mission.transferData.transferTime - elapsed);
+    const remaining = Math.max(0, td.transferTime - elapsed);
     remEl.textContent = remaining > 0 ? formatTimePrecise(remaining) : 'ARRIVED';
+  }
+}
+
+// Animate any flyby markers with a pulseStart timestamp. Used by the mission
+// sim to flash the ring when the ship crosses a waypoint.
+function updateFlybyPulses(nowMs) {
+  for (const m of flybyMarkers) {
+    const t0 = m.userData.pulseStart;
+    if (!t0) continue;
+    const age = (nowMs - t0) / 1000;    // seconds since pulse fired
+    if (age < 1.5) {
+      const s = 1 + 1.8 * Math.exp(-age * 2.5) * Math.abs(Math.sin(age * 9));
+      m.scale.set(s, s, s);
+      if (m.material) m.material.opacity = Math.min(1, 0.85 + 0.6 * Math.exp(-age * 2));
+    } else {
+      m.scale.set(1, 1, 1);
+      if (m.material) m.material.opacity = 0.85;
+      delete m.userData.pulseStart;
+    }
   }
 }
 
@@ -4058,8 +4163,9 @@ function animate() {
   }
   for (const m of flybyMarkers) m.lookAt(camera3D.position);
 
-  // Mission update
+  // Mission update + any active flyby-marker pulses
   updateMission();
+  updateFlybyPulses(now);
 
   // Follow mode
   if (followMode && selectedBody) {
@@ -4105,6 +4211,9 @@ window.__HELIOS = {
   get FX() { return FX; },
   get potentialMesh() { return potentialMesh; },
   get hillMeshes() { return hillMeshes; },
+  get mission() { return mission; },
+  get flybyMarkers() { return flybyMarkers; },
+  get shipGroup() { return shipGroup; },
   getSunBarycentricOffset,
   getBodyPosition3D,
 };
