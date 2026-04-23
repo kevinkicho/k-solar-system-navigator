@@ -518,7 +518,10 @@ input[type="range"]::-webkit-slider-thumb {
     <div class="flyby-section">
       <div class="flyby-header">
         <span class="slot-label">Flyby waypoints</span>
-        <button class="btn-tiny" id="btn-add-flyby" title="Add a gravity-assist flyby between origin and destination">+ FLYBY</button>
+        <span style="display:flex;gap:4px;">
+          <button class="btn-tiny" id="btn-snap-flybys" title="Optimize flyby dates ±30 days for minimum Δv">SNAP</button>
+          <button class="btn-tiny" id="btn-add-flyby" title="Add a gravity-assist flyby between origin and destination">+ FLYBY</button>
+        </span>
       </div>
       <div id="flyby-list"></div>
     </div>
@@ -919,8 +922,10 @@ const MOONS = [
 // ============================================================
 //  REAL SPACECRAFT — deep-space probes on escape trajectories.
 //  State vectors anchored at J2000 (simTime=0) in scene coords (AU).
-//  Linear propagation is accurate to ~1% for these missions after their
-//  final planetary flyby — no more gravitational deflection to worry about.
+//  At init we build a heliocentric 2-body (hyperbolic) Kepler orbit from
+//  (pos, vel) so propagation stays accurate as solar gravity continues
+//  to decelerate the craft. All five probes are post-last-flyby by J2000,
+//  so the Sun is the only significant gravitating body.
 //  Positions before the spacecraft's launch date are not rendered.
 // ============================================================
 const SPACECRAFT = [
@@ -1033,15 +1038,16 @@ function getBodyPosition3D(body, timeSec, exaggerate = true) {
 }
 
 // Spacecraft position at simTime (seconds since J2000), scene coords (AU).
-// Linear propagation from J2000 anchor. Returns null if not yet launched.
+// 2-body Kepler propagation about the Sun. Returns null if not yet launched.
 function getSpacecraftPosition(sc, simTimeSec) {
   const launchSimTime = (sc.launchDate - J2000) / 1000;
   if (simTimeSec < launchSimTime) return null;
-  return {
-    x: sc.pos_AU[0] + sc.vel_m_s[0] * simTimeSec / AU,
-    y: sc.pos_AU[1] + sc.vel_m_s[1] * simTimeSec / AU,
-    z: sc.pos_AU[2] + sc.vel_m_s[2] * simTimeSec / AU,
-  };
+  if (!sc._orbit) {
+    const r0 = [sc.pos_AU[0] * AU, sc.pos_AU[1] * AU, sc.pos_AU[2] * AU];
+    sc._orbit = buildHelioOrbit(r0, sc.vel_m_s, G_CONST * SUN_DATA.mass);
+  }
+  const p = propagateHelioOrbit(sc._orbit, simTimeSec);
+  return { x: p[0] / AU, y: p[1] / AU, z: p[2] / AU };
 }
 
 // Heliocentric velocity of a body at time t (m/s), via centered finite
@@ -1137,16 +1143,18 @@ function stumpffS(z) {
 // around z=0 (parabolic) reliably locates the root — no Newton divergence.
 // Given r1_vec, r2_vec (metres), tof (seconds), mu (m^3/s^2),
 // returns { v1, v2 } or null on failure.
-function solveLambertProblem(r1v, r2v, tof, mu) {
+// longWay: null = geometric heuristic (prograde short-arc); true/false forces the branch.
+// Callers that want the cheaper of both branches should use solveLambertBestBranch.
+function solveLambertProblem(r1v, r2v, tof, mu, longWay = null) {
   const r1 = v3mag(r1v), r2 = v3mag(r2v);
   const cosDth = Math.max(-1, Math.min(1, v3dot(r1v, r2v) / (r1 * r2)));
 
-  // Prograde direction check: y-component of (r1 × r2) in scene coords
-  // corresponds to ecliptic-normal component. < 0 ⇒ short arc CCW.
+  // y-component of (r1 × r2) in scene coords. < 0 ⇒ short arc is prograde.
   const crossY = r1v[2]*r2v[0] - r1v[0]*r2v[2];
-  const dtheta = crossY < 0
-    ? Math.acos(cosDth)                   // short arc < PI
-    : TWO_PI - Math.acos(cosDth);         // long arc > PI
+  const useLong = longWay === null ? (crossY >= 0) : longWay;
+  const dtheta = useLong
+    ? TWO_PI - Math.acos(cosDth)          // long arc > PI
+    : Math.acos(cosDth);                  // short arc < PI
 
   const sinDth = Math.sin(dtheta);
   if (Math.abs(1 - cosDth) < 1e-14) return null;       // r1 ≈ r2
@@ -1245,6 +1253,26 @@ function solveLambertProblem(r1v, r2v, tof, mu) {
   return { v1, v2 };
 }
 
+// Solve Lambert twice (short-way and long-way), validate each by propagating
+// back to the target, and return the lower-Δv solution. vBody1/vBody2 (m/s)
+// give a proper Δv cost; if omitted, falls back to |v1|.
+// Returns { sol, orb, longWay, cost } or null.
+function solveLambertBestBranch(r1v, r2v, tof, mu, vBody1 = null, vBody2 = null) {
+  let best = null;
+  for (const lw of [false, true]) {
+    const sol = solveLambertProblem(r1v, r2v, tof, mu, lw);
+    if (!sol) continue;
+    const orb = buildTransferOrbit(r1v, sol.v1, mu);
+    const hit = propagateOrbit(orb, tof);
+    if (v3mag(v3sub(hit, r2v)) > 1e6) continue;      // >1000 km miss
+    const cost = (vBody1 && vBody2)
+      ? v3mag(v3sub(sol.v1, vBody1)) + v3mag(v3sub(sol.v2, vBody2))
+      : v3mag(sol.v1);
+    if (!best || cost < best.cost) best = { sol, orb, longWay: lw, cost };
+  }
+  return best;
+}
+
 // --- Compute transfer orbit parameters from state vector ---
 // Returns an orbit object that can be propagated with propagateOrbit()
 function buildTransferOrbit(r1v, v1, mu) {
@@ -1339,6 +1367,76 @@ function propagateOrbit(orb, dt) {
                v3scale(orb.q_hat, r * Math.sin(nu)));
 }
 
+// Heliocentric 2-body orbit from a Cartesian state (r_m, v_m_s). Handles
+// both elliptical (e<1) and hyperbolic (e>1) trajectories, so it's safe
+// for escape probes. Returns an orbit propagable with propagateHelioOrbit.
+function buildHelioOrbit(r0v, v0, mu) {
+  const r0 = v3mag(r0v), v0m = v3mag(v0);
+  const h_vec = v3cross(r0v, v0);
+  const h = v3mag(h_vec);
+  const vxh = v3cross(v0, h_vec);
+  const r0hat = v3scale(r0v, 1 / r0);
+  const e_vec = v3sub(v3scale(vxh, 1 / mu), r0hat);
+  const e = v3mag(e_vec);
+
+  const energy = v0m * v0m / 2 - mu / r0;
+  const a = -mu / (2 * energy);            // negative for hyperbolic
+  const p = h * h / mu;                    // semi-latus rectum, always positive
+
+  const p_hat = e > 1e-10 ? v3scale(e_vec, 1 / e) : r0hat;
+  const w_hat = v3scale(h_vec, 1 / h);
+  const q_hat = v3cross(w_hat, p_hat);
+
+  const cosNu0 = v3dot(r0hat, p_hat);
+  const sinNu0 = v3dot(r0hat, q_hat);
+  const nu0 = Math.atan2(sinNu0, cosNu0);
+
+  const hyperbolic = e > 1;
+  let M0, n;
+  if (hyperbolic) {
+    // H0 from nu0: tanh(H/2) = sqrt((e-1)/(e+1)) · tan(nu/2)
+    const H0 = 2 * Math.atanh(Math.sqrt((e - 1) / (e + 1)) * Math.tan(nu0 / 2));
+    M0 = e * Math.sinh(H0) - H0;
+    n  = Math.sqrt(mu / Math.pow(Math.abs(a), 3));
+  } else {
+    const E0 = 2 * Math.atan2(
+      Math.sqrt(Math.max(0, 1 - e)) * Math.sin(nu0 / 2),
+      Math.sqrt(1 + e) * Math.cos(nu0 / 2));
+    M0 = E0 - e * Math.sin(E0);
+    n  = Math.sqrt(mu / (a * a * a));
+  }
+  return { a, e, p, p_hat, q_hat, w_hat, M0, n, hyperbolic };
+}
+
+// Propagate a helio-orbit (from buildHelioOrbit) by dt seconds. Returns [x,y,z] in m.
+function propagateHelioOrbit(orb, dt) {
+  const M = orb.M0 + orb.n * dt;
+  let nu;
+  if (orb.hyperbolic) {
+    // Solve Kepler's hyperbolic equation M = e·sinh(H) − H via Newton–Raphson.
+    let H = Math.asinh(M / orb.e);
+    for (let i = 0; i < 60; i++) {
+      const f  = orb.e * Math.sinh(H) - H - M;
+      const df = orb.e * Math.cosh(H) - 1;
+      const dH = f / df;
+      H -= dH;
+      if (Math.abs(dH) < 1e-12) break;
+    }
+    // ν from H: tan(ν/2) = sqrt((e+1)/(e-1)) · tanh(H/2)
+    nu = 2 * Math.atan2(
+      Math.sqrt(orb.e + 1) * Math.sinh(H / 2),
+      Math.sqrt(orb.e - 1) * Math.cosh(H / 2));
+  } else {
+    const E = solveKepler(M, orb.e);
+    const cosNu = (Math.cos(E) - orb.e) / (1 - orb.e * Math.cos(E));
+    const sinNu = Math.sqrt(1 - orb.e * orb.e) * Math.sin(E) / (1 - orb.e * Math.cos(E));
+    nu = Math.atan2(sinNu, cosNu);
+  }
+  const r = orb.p / (1 + orb.e * Math.cos(nu));
+  return v3add(v3scale(orb.p_hat, r * Math.cos(nu)),
+               v3scale(orb.q_hat, r * Math.sin(nu)));
+}
+
 // --- Solve Lambert & cache the orbit on transferData ---
 // We solve twice:
 //   (1) VISUAL geometry (exaggerated inclinations) → orbit used for the drawn
@@ -1351,48 +1449,43 @@ function propagateOrbit(orb, dt) {
 function solveTransferOrbit(tData) {
   const mu  = G_CONST * SUN_DATA.mass;
 
-  // --- visual ---
-  const depV = getBodyPosition3D(tData.body1, tData.departureSimTime, true);
-  const arrV = getBodyPosition3D(tData.body2, tData.arrivalSimTime, true);
-  tData.dep3D = depV;
-  tData.arr3D = arrV;
-
-  const r1vV = [depV.x * AU, depV.y * AU, depV.z * AU];
-  const r2vV = [arrV.x * AU, arrV.y * AU, arrV.z * AU];
-  const solV = solveLambertProblem(r1vV, r2vV, tData.transferTime, mu);
-  if (solV) {
-    const orb = buildTransferOrbit(r1vV, solV.v1, mu);
-    const hit = propagateOrbit(orb, tData.transferTime);
-    const miss = v3mag(v3sub(hit, r2vV));
-    tData.orbit = miss < 1e6 ? orb : null;    // reject if >1000 km off target
-  } else {
-    tData.orbit = null;
-  }
-
-  // --- physical Δv (real inclinations) ---
+  // --- physical Δv (real inclinations) — branch chosen here, reused for visuals ---
   const depP = getBodyPosition3D(tData.body1, tData.departureSimTime, false);
   const arrP = getBodyPosition3D(tData.body2, tData.arrivalSimTime, false);
   const r1vP = [depP.x * AU, depP.y * AU, depP.z * AU];
   const r2vP = [arrP.x * AU, arrP.y * AU, arrP.z * AU];
-  const solP = solveLambertProblem(r1vP, r2vP, tData.transferTime, mu);
-  let physicsOk = false;
-  if (solP) {
-    const orbP = buildTransferOrbit(r1vP, solP.v1, mu);
-    const hitP = propagateOrbit(orbP, tData.transferTime);
-    const missP = v3mag(v3sub(hitP, r2vP));
-    if (missP < 1e6) {
-      physicsOk = true;
-      tData.orbitPhysical = orbP;
-      // Δv = vector diff between spacecraft state and planet heliocentric velocity.
-      // Uses the planet's ACTUAL velocity (elliptical, inclined) — not circular approx.
-      const vBody1 = getBodyVelocity3D(tData.body1, tData.departureSimTime, false);
-      const vBody2 = getBodyVelocity3D(tData.body2, tData.arrivalSimTime, false);
-      tData.dv1_lambert = v3mag(v3sub(solP.v1, vBody1));
-      tData.dv2_lambert = v3mag(v3sub(solP.v2, vBody2));
-      tData.dvTotal_lambert = tData.dv1_lambert + tData.dv2_lambert;
-    }
+  const vBody1 = getBodyVelocity3D(tData.body1, tData.departureSimTime, false);
+  const vBody2 = getBodyVelocity3D(tData.body2, tData.arrivalSimTime, false);
+  const bestP = solveLambertBestBranch(r1vP, r2vP, tData.transferTime, mu, vBody1, vBody2);
+
+  let physicsOk = false, chosenLongWay = null;
+  if (bestP) {
+    physicsOk = true;
+    chosenLongWay = bestP.longWay;
+    tData.orbitPhysical = bestP.orb;
+    tData.dv1_lambert = v3mag(v3sub(bestP.sol.v1, vBody1));
+    tData.dv2_lambert = v3mag(v3sub(bestP.sol.v2, vBody2));
+    tData.dvTotal_lambert = tData.dv1_lambert + tData.dv2_lambert;
+    tData.longWay = chosenLongWay;
   }
   tData.lambertOk = physicsOk;
+
+  // --- visual — same branch as physics, so drawn line matches displayed Δv ---
+  const depV = getBodyPosition3D(tData.body1, tData.departureSimTime, true);
+  const arrV = getBodyPosition3D(tData.body2, tData.arrivalSimTime, true);
+  tData.dep3D = depV;
+  tData.arr3D = arrV;
+  tData.orbit = null;
+  if (physicsOk) {
+    const r1vV = [depV.x * AU, depV.y * AU, depV.z * AU];
+    const r2vV = [arrV.x * AU, arrV.y * AU, arrV.z * AU];
+    const solV = solveLambertProblem(r1vV, r2vV, tData.transferTime, mu, chosenLongWay);
+    if (solV) {
+      const orb = buildTransferOrbit(r1vV, solV.v1, mu);
+      const hit = propagateOrbit(orb, tData.transferTime);
+      if (v3mag(v3sub(hit, r2vV)) < 1e6) tData.orbit = orb;
+    }
+  }
 }
 
 // ============================================================
@@ -1410,40 +1503,42 @@ function solveMultiLegRoute(waypoints) {
     const tof = b.simTime - a.simTime;
     if (tof <= 0) { legs.push({ ok: false, reason: 'non-positive TOF' }); continue; }
 
-    // PHYSICAL — real inclinations — for Δv and validation
+    // PHYSICAL — real inclinations — picks best branch (short vs long arc)
     const pA = getBodyPosition3D(a.body, a.simTime, false);
     const pB = getBodyPosition3D(b.body, b.simTime, false);
     const r1P = [pA.x*AU, pA.y*AU, pA.z*AU];
     const r2P = [pB.x*AU, pB.y*AU, pB.z*AU];
-    const solP = solveLambertProblem(r1P, r2P, tof, mu);
+    const vA = getBodyVelocity3D(a.body, a.simTime, false);
+    const vB = getBodyVelocity3D(b.body, b.simTime, false);
+    const bestP = solveLambertBestBranch(r1P, r2P, tof, mu, vA, vB);
 
-    // VISUAL — exaggerated inclinations — for drawing
+    // VISUAL — exaggerated inclinations, SAME branch as physics
     const pAV = getBodyPosition3D(a.body, a.simTime, true);
     const pBV = getBodyPosition3D(b.body, b.simTime, true);
-    const r1V = [pAV.x*AU, pAV.y*AU, pAV.z*AU];
-    const r2V = [pBV.x*AU, pBV.y*AU, pBV.z*AU];
-    const solV = solveLambertProblem(r1V, r2V, tof, mu);
 
-    let orbP = null, orbV = null, ok = false;
-    if (solP) {
-      const o = buildTransferOrbit(r1P, solP.v1, mu);
-      const hit = propagateOrbit(o, tof);
-      if (v3mag(v3sub(hit, r2P)) < 1e6) { orbP = o; ok = true; }
-    }
-    if (solV) {
-      const o = buildTransferOrbit(r1V, solV.v1, mu);
-      const hit = propagateOrbit(o, tof);
-      if (v3mag(v3sub(hit, r2V)) < 1e6) orbV = o;
+    let orbP = null, orbV = null, ok = false, v1 = null, v2 = null;
+    if (bestP) {
+      orbP = bestP.orb;
+      v1 = bestP.sol.v1; v2 = bestP.sol.v2; ok = true;
+      const r1V = [pAV.x*AU, pAV.y*AU, pAV.z*AU];
+      const r2V = [pBV.x*AU, pBV.y*AU, pBV.z*AU];
+      const solV = solveLambertProblem(r1V, r2V, tof, mu, bestP.longWay);
+      if (solV) {
+        const o = buildTransferOrbit(r1V, solV.v1, mu);
+        const hit = propagateOrbit(o, tof);
+        if (v3mag(v3sub(hit, r2V)) < 1e6) orbV = o;
+      }
     }
 
     legs.push({
       ok,
       from: a.body.name, to: b.body.name,
       departSimTime: a.simTime, arriveSimTime: b.simTime, tof,
-      v1: solP ? solP.v1 : null, v2: solP ? solP.v2 : null,
+      v1, v2,
       orbitPhysical: orbP,
       orbit: orbV,              // used by the visual renderer
       dep3D: pAV, arr3D: pBV,
+      longWay: bestP ? bestP.longWay : null,
     });
   }
 
@@ -2486,6 +2581,7 @@ document.getElementById('depart-date').addEventListener('change', () => {
 document.getElementById('calc-route').onclick = computeRoute;
 document.getElementById('clear-route').onclick = clearRoute;
 document.getElementById('btn-add-flyby').onclick = addFlyby;
+document.getElementById('btn-snap-flybys').onclick = snapFlybyDates;
 
 // ---- Date/time picker in bottom bar ----
 {
@@ -2717,12 +2813,12 @@ document.getElementById('btn-add-flyby').onclick = addFlyby;
         const a = getBodyPosition3D(body2, dep + tof, false);
         const r1v = [d.x*AU, d.y*AU, d.z*AU];
         const r2v = [a.x*AU, a.y*AU, a.z*AU];
-        const sol = solveLambertProblem(r1v, r2v, tof, mu);
+        const vb1 = getBodyVelocity3D(body1, dep, false);
+        const vb2 = getBodyVelocity3D(body2, dep + tof, false);
+        const best = solveLambertBestBranch(r1v, r2v, tof, mu, vb1, vb2);
         let dv = NaN;
-        if (sol) {
-          const vb1 = getBodyVelocity3D(body1, dep, false);
-          const vb2 = getBodyVelocity3D(body2, dep + tof, false);
-          dv = v3mag(v3sub(sol.v1, vb1)) + v3mag(v3sub(sol.v2, vb2));
+        if (best) {
+          dv = best.cost;
           if (dv < minDv) { minDv = dv; minIdx = { ix, iy }; }
           if (dv > maxDv) maxDv = dv;
         }
@@ -3110,6 +3206,69 @@ function addFlyby() {
     : (a1 > 1.0 ? 'Earth' : 'Venus');
   flybys.push({ bodyName: defaultName, simTime: midSim });
   renderFlybyList();
+}
+
+// Coordinate-descent optimizer: sweeps each flyby's date ±30 days (2-day
+// steps) to minimize total-mission Δv, up to 3 passes. Keeps departure and
+// destination-arrival logic consistent with computeRoute(). Infeasible
+// candidates (a Lambert leg fails or a flyby turning angle is too sharp)
+// are scored as Infinity so they're never picked.
+function snapFlybyDates() {
+  if (!routeOrigin || !routeDestination) { notify('SET ORIGIN AND DESTINATION FIRST'); return; }
+  if (flybys.length === 0) { notify('NO FLYBYS TO OPTIMIZE'); return; }
+
+  const dateInput = document.getElementById('depart-date');
+  const depDate = inputValueToDate(dateInput.value);
+  const depSim = (depDate && !isNaN(depDate.getTime())) ? dateToSimTime(depDate) : timeState.simTime;
+
+  const evalCost = (times) => {
+    const wps = [
+      { body: routeOrigin, simTime: depSim },
+      ...flybys.map((f, i) => ({
+        body: BODIES.find(b => b.name === f.bodyName),
+        simTime: times[i],
+      })),
+      { body: routeDestination, simTime: 0 },
+    ];
+    const lastF = wps[wps.length - 2];
+    const tail = hohmannTransfer(lastF.body, routeDestination, lastF.simTime);
+    wps[wps.length - 1].simTime = tail.arrivalSimTime;
+    const td = solveMultiLegRoute(wps);
+    if (!td.allLegsOk) return Infinity;
+    if (td.flybys.some(f => !f.achievable)) return Infinity;
+    return td.dvTotalMultiLeg;
+  };
+
+  const times = flybys.map(f => f.simTime);
+  let bestCost = evalCost(times);
+  const WINDOW = 30 * DAY;
+  const STEP = 2 * DAY;
+
+  for (let pass = 0; pass < 3; pass++) {
+    let improved = false;
+    for (let i = 0; i < times.length; i++) {
+      const loBound = (i === 0 ? depSim : times[i - 1]) + DAY;
+      const hiBound = (i === times.length - 1 ? Infinity : times[i + 1]) - DAY;
+      const tMin = Math.max(times[i] - WINDOW, loBound);
+      const tMax = Math.min(times[i] + WINDOW, hiBound);
+      let bestT = times[i];
+      for (let t = tMin; t <= tMax; t += STEP) {
+        const trial = times.slice();
+        trial[i] = t;
+        const c = evalCost(trial);
+        if (c < bestCost) { bestCost = c; bestT = t; improved = true; }
+      }
+      times[i] = bestT;
+    }
+    if (!improved) break;
+  }
+
+  if (!isFinite(bestCost)) { notify('NO FEASIBLE FLYBY DATES IN ±30-DAY WINDOW'); return; }
+
+  flybys.forEach((f, i) => { f.simTime = times[i]; });
+  renderFlybyList();
+  computeRoute();
+  notify(`FLYBY DATES SNAPPED · TOTAL Δv ${(bestCost / 1000).toFixed(2)} KM/S`);
 }
 
 // ============================================================

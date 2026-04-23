@@ -205,6 +205,25 @@ console.log(multiLegResults ? multiLegResults.slice(0, 2000) : '(empty)');
 await page.screenshot({ path: new URL('04-flyby.png', OUT).pathname });
 console.log('Saved 04-flyby.png');
 
+banner('4b. FLYBY DATE OPTIMIZER — click SNAP');
+const snapResult = await page.evaluate(() => {
+  const before = document.getElementById('transfer-results')?.innerText.trim() || '';
+  const btn = document.getElementById('btn-snap-flybys');
+  if (!btn) return { ok: false, reason: 'no snap btn' };
+  btn.click();
+  return { ok: true, beforeLen: before.length };
+});
+console.log('SNAP click:', snapResult);
+await new Promise(r => setTimeout(r, 1500));
+const snapPanel = await page.evaluate(() => {
+  const panel = document.getElementById('transfer-results');
+  const flybyDate = document.querySelector('.flyby-row .flyby-date')?.value;
+  return { panel: panel ? panel.innerText.trim() : null, flybyDate };
+});
+console.log('After SNAP, flyby date:', snapPanel.flybyDate);
+console.log(snapPanel.panel ? snapPanel.panel.slice(0, 1200) : '(empty)');
+await page.screenshot({ path: new URL('04b-snap.png', OUT).pathname });
+
 banner('5. CANVAS RENDER CHECK');
 // Grab the actual Three.js canvas; look at a small block of pixels.
 // A black canvas has mean RGB ≈ 0; a rendered scene should have much variance.
