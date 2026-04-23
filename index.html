@@ -91,6 +91,26 @@ html, body {
 }
 .body-item:hover { background: var(--cyan-glow); border-left-color: var(--cyan-dim); }
 .body-item.selected { background: rgba(0,212,255,0.08); border-left-color: var(--cyan); }
+.fx-panel {
+  border-top: 1px solid var(--border); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+}
+.fx-title {
+  font-family: var(--font-display); font-size: 9px; font-weight: 700; letter-spacing: 2px;
+  color: var(--text-dim); text-transform: uppercase; margin-bottom: 4px;
+}
+.fx-btn {
+  display: flex; align-items: center; gap: 8px;
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+  font: 10px var(--font-mono); letter-spacing: 1px; text-align: left;
+  padding: 7px 9px; cursor: pointer; transition: all 0.15s;
+}
+.fx-btn:hover { border-color: var(--cyan-dim); background: var(--cyan-glow); }
+.fx-btn .fx-dot {
+  width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--text-dim);
+  background: transparent; flex-shrink: 0; transition: all 0.15s;
+}
+.fx-btn.active { border-color: var(--amber); color: var(--amber); }
+.fx-btn.active .fx-dot { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 6px var(--amber); }
 .body-item.origin-set { border-left-color: var(--green); }
 .body-item.dest-set { border-left-color: var(--amber); }
 .body-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 6px currentColor; }
@@ -488,6 +508,15 @@ input[type="range"]::-webkit-slider-thumb {
 <div class="panel" id="left-panel">
   <div class="panel-title">Celestial Bodies</div>
   <div id="body-list"></div>
+  <div class="fx-panel">
+    <div class="fx-title">Gravitational Field</div>
+    <button class="fx-btn" id="fx-potential" title="Rubber-sheet potential well (Σ −Gmᵢ/rᵢ), log-scaled">
+      <span class="fx-dot"></span>Potential well
+    </button>
+    <button class="fx-btn" id="fx-hill" title="Hill sphere: region where this planet's gravity dominates over the Sun's">
+      <span class="fx-dot"></span>Hill spheres
+    </button>
+  </div>
 </div>
 
 <div class="panel" id="right-panel">
@@ -642,6 +671,11 @@ const J2000 = Date.UTC(2000, 0, 1, 12, 0, 0);
 // Exaggerate orbital inclinations so the 3D tilt is visible
 // Real inclinations are 0-7°; ×8 makes them 0-56° — dramatic but keeps relative order
 const INCL_EXAGGERATION = 8;
+// The Sun is not fixed — it orbits the solar-system barycenter under the tug
+// of Jupiter (and to a lesser extent Saturn/Uranus/Neptune). The physical
+// amplitude is ~0.005 AU (1.5 solar radii). We scale it up by this factor
+// so the wobble is visible at whole-system zoom. Set to 1 for physical.
+const SUN_WOBBLE_EXAGGERATION = 50;
 
 // ============================================================
 //  BODY DATA
@@ -1035,6 +1069,28 @@ function getBodyPosition3D(body, timeSec, exaggerate = true) {
   const ye = r * (sinO * cosWV + cosO * sinWV * cosI);
   const ze = r * (sinWV * sinI);
   return { x: xe, y: ze, z: ye, r, v, E };
+}
+
+// Sun's barycentric offset in scene coords (AU). In the heliocentric frame
+// the Sun is fixed at origin and the planets orbit it; in the barycentric
+// frame the barycenter is fixed at origin and the Sun wobbles under the
+// pull of the planets. r_sun_bary = −Σ mᵢ·rᵢ_helio / M_total.
+// `exaggerate=true` (default) scales by SUN_WOBBLE_EXAGGERATION so the
+// small-amplitude wobble is visible; physics callers should pass false.
+function getSunBarycentricOffset(timeSec, exaggerate = true) {
+  let sx = 0, sy = 0, sz = 0, mTotal = SUN_DATA.mass;
+  for (const body of BODIES) {
+    // Use the same inclination convention as the rendered planets, so the
+    // rendered system's center of mass stays balanced (mod exaggeration).
+    const p = getBodyPosition3D(body, timeSec, exaggerate);
+    sx += body.mass * p.x;
+    sy += body.mass * p.y;
+    sz += body.mass * p.z;
+    mTotal += body.mass;
+  }
+  const wobbleScale = exaggerate ? SUN_WOBBLE_EXAGGERATION : 1;
+  const k = -wobbleScale / mTotal;
+  return { x: sx * k, y: sy * k, z: sz * k };
 }
 
 // Spacecraft position at simTime (seconds since J2000), scene coords (AU).
@@ -2188,6 +2244,90 @@ for (const sc of SPACECRAFT) {
 }
 
 // ============================================================
+//  GRAVITATIONAL FIELD — educational FX layers
+// ============================================================
+// Rubber-sheet potential well: a mesh on the ecliptic (y=0), with vertex y
+// displaced by the combined Newtonian potential Φ = −Σ Gmᵢ/rᵢ from all
+// major bodies. Log-scaled so the Sun's deep well and planets' dimples both
+// show in the same frame. Updated on demand, not every frame (O(grid×bodies)).
+const FX = { potential: false, hill: false };
+const FIELD_EXTENT = 35;       // AU half-width
+const FIELD_GRID   = 120;      // vertices per side — 14400 total
+const FIELD_DEPTH  = 3.2;      // AU visual depth scale
+const FIELD_R_MIN  = 0.04;     // AU, singularity clamp
+const potentialGeo = new THREE.PlaneGeometry(FIELD_EXTENT * 2, FIELD_EXTENT * 2, FIELD_GRID - 1, FIELD_GRID - 1);
+potentialGeo.rotateX(-PI / 2); // align with ecliptic (scene xz-plane)
+const potentialColor = new Float32Array(potentialGeo.attributes.position.count * 3);
+potentialGeo.setAttribute('color', new THREE.BufferAttribute(potentialColor, 3));
+const potentialMat = new THREE.MeshBasicMaterial({
+  vertexColors: true, wireframe: true, transparent: true, opacity: 0.45,
+  depthWrite: false,
+});
+const potentialMesh = new THREE.Mesh(potentialGeo, potentialMat);
+potentialMesh.visible = false;
+potentialMesh.renderOrder = -1;   // render before planets so the sheet is behind
+scene.add(potentialMesh);
+
+function updatePotentialField() {
+  if (!potentialMesh.visible) return;
+  const pos = potentialGeo.attributes.position;
+  const col = potentialGeo.attributes.color;
+  // Collect mass positions in scene xz-plane. bodyPositions is barycentric.
+  const sunX = sunMesh.position.x, sunZ = sunMesh.position.z;
+  const masses = [{ m: SUN_DATA.mass, x: sunX, z: sunZ }];
+  for (const b of BODIES) {
+    const p = bodyPositions.get(b.name);
+    if (p) masses.push({ m: b.mass, x: p.x, z: p.z });
+  }
+  const PHI_REF = G_CONST * SUN_DATA.mass / AU;   // |Φ_sun| at 1 AU
+  const N = pos.count;
+  for (let i = 0; i < N; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    let phi = 0;
+    for (let k = 0; k < masses.length; k++) {
+      const m = masses[k];
+      const dx = x - m.x, dz = z - m.z;
+      const r = Math.max(Math.sqrt(dx * dx + dz * dz), FIELD_R_MIN);
+      phi -= G_CONST * m.m / (r * AU);
+    }
+    const normDepth = Math.log1p(Math.abs(phi) / PHI_REF);    // 0 at infinity
+    pos.setY(i, -FIELD_DEPTH * normDepth);
+    // Colour deep = amber-hot, shallow = cyan. Lerp in linear space.
+    const t = Math.min(1, normDepth / 3.0);
+    col.setXYZ(i, 0.0 + t * 1.0, 0.4 + t * 0.1, 0.8 - t * 0.8);
+  }
+  pos.needsUpdate = true;
+  col.needsUpdate = true;
+}
+
+// Hill-sphere bubbles: R_H = a · cbrt(m / 3M_sun). Region where this planet's
+// gravity dominates over the Sun's tidal force. Real scales — Jupiter's is
+// huge (≈0.35 AU), Mercury's is tiny (≈0.001 AU, barely visible).
+const hillMeshes = new Map();
+for (const b of BODIES) {
+  const rHillAU = b.a * Math.cbrt(b.mass / (3 * SUN_DATA.mass));
+  const geo = new THREE.SphereGeometry(rHillAU, 32, 20);
+  const mat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(b.color),
+    transparent: true, opacity: 0.09, depthWrite: false,
+    side: THREE.DoubleSide,       // depthWrite:false keeps planet visible through the bubble
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.visible = false;
+  scene.add(mesh);
+  hillMeshes.set(b.name, { mesh, rHillAU });
+}
+
+function updateHillSpheres() {
+  if (!FX.hill) return;
+  for (const b of BODIES) {
+    const p = bodyPositions.get(b.name);
+    const h = hillMeshes.get(b.name);
+    if (p && h) h.mesh.position.set(p.x, p.y, p.z);
+  }
+}
+
+// ============================================================
 //  SELECTION RING
 // ============================================================
 const selectionRing = new THREE.Mesh(
@@ -2322,7 +2462,8 @@ function getIntersectedBody(event) {
     }
   }
   {
-    const sphere = new THREE.Sphere(new THREE.Vector3(0,0,0), SUN_DATA.displayRadius * 1.5);
+    // Sun sphere tracks the mesh position (which wobbles around the barycenter)
+    const sphere = new THREE.Sphere(sunMesh.position, SUN_DATA.displayRadius * 1.5);
     const target = new THREE.Vector3();
     if (raycaster.ray.intersectSphere(sphere, target)) {
       const d = target.distanceTo(camera3D.position);
@@ -2379,13 +2520,17 @@ renderer.domElement.addEventListener('mousemove', (e) => {
     tooltip.style.left = (e.clientX + 16) + 'px';
     tooltip.style.top = (e.clientY - 10) + 'px';
     if (hoveredBody === SUN_DATA) {
-      tooltip.innerHTML = `<b style="color:#fff4d6">Sun</b><br>Mass: ${formatMass(SUN_DATA.mass)}`;
+      // Physical (un-exaggerated) barycentric offset for an honest readout
+      const phys = getSunBarycentricOffset(timeState.simTime, false);
+      const offAU = Math.sqrt(phys.x*phys.x + phys.y*phys.y + phys.z*phys.z);
+      const offSolarRadii = offAU * AU / SUN_DATA.radius;
+      tooltip.innerHTML = `<b style="color:#fff4d6">Sun</b><br>Mass: ${formatMass(SUN_DATA.mass)}<br>Wobble: ${offSolarRadii.toFixed(2)} R☉ (×${SUN_WOBBLE_EXAGGERATION} shown)`;
     } else if (hoveredBody.parent) {
       // Moon
       tooltip.innerHTML = `<b style="color:${hoveredBody.color}">${hoveredBody.name}</b><br><span style="opacity:0.6">${hoveredBody.parent} satellite</span><br>Period: ${formatTime(hoveredBody.period)}`;
     } else {
       const pos = bodyPositions.get(hoveredBody.name);
-      const dist = pos ? Math.sqrt(pos.x*pos.x + pos.y*pos.y + pos.z*pos.z) : 0;
+      const dist = pos ? pos.r : 0;     // heliocentric distance (AU)
       tooltip.innerHTML = `<b style="color:${hoveredBody.color}">${hoveredBody.name}</b><br>Dist: ${formatDist(dist*AU)}<br>Period: ${formatTime(hoveredBody.period)}`;
     }
     renderer.domElement.style.cursor = 'pointer';
@@ -2582,6 +2727,20 @@ document.getElementById('calc-route').onclick = computeRoute;
 document.getElementById('clear-route').onclick = clearRoute;
 document.getElementById('btn-add-flyby').onclick = addFlyby;
 document.getElementById('btn-snap-flybys').onclick = snapFlybyDates;
+
+// FX toggles — gravitational-field visualization layers
+document.getElementById('fx-potential').onclick = (e) => {
+  FX.potential = !FX.potential;
+  potentialMesh.visible = FX.potential;
+  e.currentTarget.classList.toggle('active', FX.potential);
+  if (FX.potential) updatePotentialField();   // paint once immediately
+};
+document.getElementById('fx-hill').onclick = (e) => {
+  FX.hill = !FX.hill;
+  for (const { mesh } of hillMeshes.values()) mesh.visible = FX.hill;
+  e.currentTarget.classList.toggle('active', FX.hill);
+  if (FX.hill) updateHillSpheres();
+};
 
 // ---- Date/time picker in bottom bar ----
 {
@@ -3062,7 +3221,7 @@ function updateBodyList() {
     const pos = bodyPositions.get(body.name);
     if (!pos) continue;
     const el = document.getElementById(`dist-${body.name}`);
-    if (el) el.textContent = Math.sqrt(pos.x*pos.x + pos.y*pos.y + pos.z*pos.z).toFixed(2) + ' AU';
+    if (el) el.textContent = pos.r.toFixed(2) + ' AU';   // heliocentric
     const item = document.querySelector(`.body-item[data-name="${body.name}"]`);
     if (item) {
       item.classList.toggle('selected', selectedBody === body);
@@ -3288,24 +3447,36 @@ function updateTransferOrbitVisual() {
   if (transferData.isMultiLeg) { renderMultiLegVisual(); return; }
 
   // --- single-leg (existing path) ---
-  const dep = transferData.dep3D || getBodyPosition3D(transferData.body1, transferData.departureSimTime);
-  const arr = transferData.arr3D || getBodyPosition3D(transferData.body2, transferData.arrivalSimTime);
+  // Each point on the trajectory happens at a specific time; apply that
+  // moment's Sun-barycentric offset so the drawn arc meets the wobbled
+  // planets at departure and arrival.
+  const depT = transferData.departureSimTime;
+  const arrT = transferData.arrivalSimTime;
+  const dep = transferData.dep3D || getBodyPosition3D(transferData.body1, depT);
+  const arr = transferData.arr3D || getBodyPosition3D(transferData.body2, arrT);
+  const depOff = getSunBarycentricOffset(depT);
+  const arrOff = getSunBarycentricOffset(arrT);
   const points = [];
   const N = 200;
   if (transferData.orbit) {
     for (let i = 0; i <= N; i++) {
       const dt = (i / N) * transferData.transferTime;
       const pos_m = propagateOrbit(transferData.orbit, dt);
-      points.push(new THREE.Vector3(pos_m[0] / AU, pos_m[1] / AU, pos_m[2] / AU));
+      const off = getSunBarycentricOffset(depT + dt);
+      points.push(new THREE.Vector3(
+        pos_m[0] / AU + off.x,
+        pos_m[1] / AU + off.y,
+        pos_m[2] / AU + off.z));
     }
   } else {
     for (let i = 0; i <= N; i++) {
       const t = i / N;
       const blend = 0.5 - 0.5 * Math.cos(PI * t);
+      const off = getSunBarycentricOffset(depT + t * transferData.transferTime);
       points.push(new THREE.Vector3(
-        dep.x + (arr.x - dep.x) * blend,
-        dep.y + (arr.y - dep.y) * blend,
-        dep.z + (arr.z - dep.z) * blend));
+        dep.x + (arr.x - dep.x) * blend + off.x,
+        dep.y + (arr.y - dep.y) * blend + off.y,
+        dep.z + (arr.z - dep.z) * blend + off.z));
     }
   }
   const geo = new THREE.BufferGeometry().setFromPoints(points);
@@ -3316,9 +3487,9 @@ function updateTransferOrbitVisual() {
   transferLine = new THREE.Line(geo, mat);
   transferLine.computeLineDistances();
   scene.add(transferLine);
-  transferMarkers.depart.position.set(dep.x, dep.y, dep.z);
+  transferMarkers.depart.position.set(dep.x + depOff.x, dep.y + depOff.y, dep.z + depOff.z);
   transferMarkers.depart.visible = true;
-  transferMarkers.arrive.position.set(arr.x, arr.y, arr.z);
+  transferMarkers.arrive.position.set(arr.x + arrOff.x, arr.y + arrOff.y, arr.z + arrOff.z);
   transferMarkers.arrive.visible = true;
 }
 
@@ -3335,18 +3506,19 @@ function renderMultiLegVisual() {
       for (let i = 0; i <= N; i++) {
         const dt = (i / N) * leg.tof;
         const pm = propagateOrbit(leg.orbit, dt);
-        pts.push(new THREE.Vector3(pm[0]/AU, pm[1]/AU, pm[2]/AU));
+        const off = getSunBarycentricOffset(leg.departSimTime + dt);
+        pts.push(new THREE.Vector3(pm[0]/AU + off.x, pm[1]/AU + off.y, pm[2]/AU + off.z));
       }
     } else {
-      // Fallback interp between waypoint scene positions
       const a = leg.dep3D, b = leg.arr3D;
       for (let i = 0; i <= N; i++) {
         const t = i / N;
         const blend = 0.5 - 0.5 * Math.cos(PI * t);
+        const off = getSunBarycentricOffset(leg.departSimTime + t * leg.tof);
         pts.push(new THREE.Vector3(
-          a.x + (b.x - a.x) * blend,
-          a.y + (b.y - a.y) * blend,
-          a.z + (b.z - a.z) * blend));
+          a.x + (b.x - a.x) * blend + off.x,
+          a.y + (b.y - a.y) * blend + off.y,
+          a.z + (b.z - a.z) * blend + off.z));
       }
     }
     const geo = new THREE.BufferGeometry().setFromPoints(pts);
@@ -3365,11 +3537,13 @@ function renderMultiLegVisual() {
   const firstLeg = transferData.legs[0];
   const lastLeg  = transferData.legs[transferData.legs.length - 1];
   if (firstLeg && firstLeg.ok) {
-    transferMarkers.depart.position.set(firstLeg.dep3D.x, firstLeg.dep3D.y, firstLeg.dep3D.z);
+    const o = getSunBarycentricOffset(firstLeg.departSimTime);
+    transferMarkers.depart.position.set(firstLeg.dep3D.x + o.x, firstLeg.dep3D.y + o.y, firstLeg.dep3D.z + o.z);
     transferMarkers.depart.visible = true;
   }
   if (lastLeg && lastLeg.ok) {
-    transferMarkers.arrive.position.set(lastLeg.arr3D.x, lastLeg.arr3D.y, lastLeg.arr3D.z);
+    const o = getSunBarycentricOffset(lastLeg.arriveSimTime);
+    transferMarkers.arrive.position.set(lastLeg.arr3D.x + o.x, lastLeg.arr3D.y + o.y, lastLeg.arr3D.z + o.z);
     transferMarkers.arrive.visible = true;
   }
 
@@ -3377,6 +3551,7 @@ function renderMultiLegVisual() {
   for (let i = 1; i < transferData.waypoints.length - 1; i++) {
     const wp = transferData.waypoints[i];
     const p = getBodyPosition3D(wp.body, wp.simTime, true);
+    const o = getSunBarycentricOffset(wp.simTime);
     const mesh = new THREE.Mesh(
       new THREE.RingGeometry(0.018, 0.030, 32),
       new THREE.MeshBasicMaterial({
@@ -3384,7 +3559,7 @@ function renderMultiLegVisual() {
         transparent: true, opacity: 0.85,
       })
     );
-    mesh.position.set(p.x, p.y, p.z);
+    mesh.position.set(p.x + o.x, p.y + o.y, p.z + o.z);
     scene.add(mesh);
     flybyMarkers.push(mesh);
   }
@@ -3655,21 +3830,24 @@ function updateMission() {
     }
   }
 
-  // Position ship
+  // Position ship — ship trajectory is heliocentric, so shift by sunOff(t)
+  // to place it in the barycentric scene frame where planets live.
   if (progress < 1) {
     const shipPos = getShipPositionOnTransfer(mission.departureSimTime, mission.transferData, t);
-    shipGroup.position.set(shipPos.x, shipPos.y, shipPos.z);
+    const off = getSunBarycentricOffset(t);
+    const sx = shipPos.x + off.x, sy = shipPos.y + off.y, sz = shipPos.z + off.z;
+    shipGroup.position.set(sx, sy, sz);
 
     // Add trail points at intervals
     const trailInterval = mission.transferData.transferTime / MAX_TRAIL_POINTS;
     if (t - mission.lastTrailTime >= trailInterval) {
-      addTrailPoint(shipPos.x, shipPos.y, shipPos.z);
+      addTrailPoint(sx, sy, sz);
       mission.lastTrailTime = t;
     }
 
     shipLabelDiv.textContent = `SHIP ${Math.round(progress * 100)}%`;
   } else {
-    // At destination
+    // At destination — bodyPositions is already barycentric
     const destPos = bodyPositions.get(mission.transferData.body2.name);
     if (destPos) shipGroup.position.set(destPos.x, destPos.y, destPos.z);
     shipLabelDiv.textContent = 'ARRIVED';
@@ -3732,7 +3910,7 @@ function updateInfoPanel() {
 
   // Planet info panel
   const pos = bodyPositions.get(body.name);
-  const dist = pos ? Math.sqrt(pos.x*pos.x + pos.y*pos.y + pos.z*pos.z) * AU : 0;
+  const dist = pos ? pos.r * AU : 0;    // heliocentric distance (m)
   const vel = dist > 0 ? Math.sqrt(G_CONST * SUN_DATA.mass / dist) : 0;
   const moons = moonsByParent[body.name];
   const moonInfo = moons ? `<div class="info-row"><span class="key">Known satellites</span><span class="val highlight">${moons.length}</span></div>` : '';
@@ -3793,7 +3971,11 @@ function animate() {
     timeState.updateDisplay();
   }
 
-  // Sun rotation & glow pulse
+  // Sun's barycentric wobble — compute once per frame, then apply the same
+  // offset to everything that should follow the Sun (planets, spacecraft,
+  // orbit lines). Heliocentric physics (Lambert, Δv) is unaffected.
+  const sunOff = getSunBarycentricOffset(timeState.simTime);
+  sunMesh.position.set(sunOff.x, sunOff.y, sunOff.z);
   sunMesh.rotation.y += dt * 0.05;
   const glowPulse = 0.58 + 0.06 * Math.sin(now * 0.0015);
   sunGlowSprite.scale.set(glowPulse, glowPulse, 1);
@@ -3804,22 +3986,33 @@ function animate() {
     t.map.offset.x = (timeState.simTime / t.period) % 1;
   }
 
-  // Update planet positions
+  // Update planet positions. Scene coords are barycentric (helio + sun offset);
+  // we store `r` = true heliocentric distance so UI distance readouts remain
+  // physically meaningful regardless of wobble exaggeration.
   for (const body of BODIES) {
-    const pos = getBodyPosition3D(body, timeState.simTime);
-    bodyPositions.set(body.name, pos);
+    const helio = getBodyPosition3D(body, timeState.simTime);
+    const scenePos = {
+      x: helio.x + sunOff.x, y: helio.y + sunOff.y, z: helio.z + sunOff.z,
+      r: helio.r, v: helio.v, E: helio.E,
+    };
+    bodyPositions.set(body.name, scenePos);
     const mesh = planetMeshes.get(body.name);
-    if (mesh) mesh.position.set(pos.x, pos.y, pos.z);
+    if (mesh) mesh.position.set(scenePos.x, scenePos.y, scenePos.z);
   }
 
-  // Update spacecraft positions
+  // Orbit lines ride along with the Sun so planets stay on their traced paths.
+  for (const { line } of orbitLines.values()) {
+    line.position.set(sunOff.x, sunOff.y, sunOff.z);
+  }
+
+  // Update spacecraft positions (barycentric, consistent with planets)
   for (const sc of SPACECRAFT) {
     const mesh = spacecraftMeshes.get(sc.name);
     if (!mesh) continue;
     const pos = getSpacecraftPosition(sc, timeState.simTime);
     if (!pos) { mesh.visible = false; continue; }
     mesh.visible = true;
-    mesh.position.set(pos.x, pos.y, pos.z);
+    mesh.position.set(pos.x + sunOff.x, pos.y + sunOff.y, pos.z + sunOff.z);
     mesh.rotation.y += dt * 1.2;   // slow rotation for visual life
     mesh.rotation.x += dt * 0.7;
   }
@@ -3839,6 +4032,12 @@ function animate() {
     const orbitData = moonOrbitLines.get(moon.name);
     if (orbitData) orbitData.line.position.set(parentPos.x, parentPos.y, parentPos.z);
   }
+
+  // Gravitational-field FX layers. Hill spheres track planets every frame
+  // (cheap). Potential well is 14400 × N_bodies ops — refresh every 6th
+  // frame; planets move slowly enough that the user won't see the stepping.
+  if (FX.hill) updateHillSpheres();
+  if (FX.potential && (frameCount % 6 === 0)) updatePotentialField();
 
   // Selection ring
   if (selectedBody && selectionRing.visible) {
@@ -3890,6 +4089,25 @@ timeState.updateDisplay();
 document.getElementById('depart-date').value = dateToInputValue(timeState.getDate());
 
 setTimeout(() => { document.getElementById('help-hint').style.opacity = '0'; }, 8000);
+
+// Test hook — exposes live scene state to automation (Playwright, Puppeteer).
+// Cheap to keep in production; useful for debugging in the console too.
+window.__HELIOS = {
+  get scene() { return scene; },
+  get sunMesh() { return sunMesh; },
+  get planetMeshes() { return planetMeshes; },
+  get bodyPositions() { return bodyPositions; },
+  get transferMarkers() { return transferMarkers; },
+  get transferLine() { return transferLine; },
+  get transferData() { return transferData; },
+  get timeState() { return timeState; },
+  get SUN_WOBBLE_EXAGGERATION() { return SUN_WOBBLE_EXAGGERATION; },
+  get FX() { return FX; },
+  get potentialMesh() { return potentialMesh; },
+  get hillMeshes() { return hillMeshes; },
+  getSunBarycentricOffset,
+  getBodyPosition3D,
+};
 
 animate();
 </script>
