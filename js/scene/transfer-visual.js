@@ -22,6 +22,7 @@ export function clearMultiLegVisuals() {
   for (const m of flybyMarkers) scene.remove(m);
   flybyMarkers.length = 0;
   clearFlybyGhosts();
+  clearDateMarkers();
 }
 
 // Persistent depart/arrive ring markers (visibility toggled by route logic).
@@ -87,4 +88,30 @@ export function addFlybyGhost(opts) {
 export function clearFlybyGhosts() {
   for (const g of flybyGhosts) scene.remove(g);
   flybyGhosts.length = 0;
+}
+
+// Date markers along a transfer trajectory — small spheres at fixed-time
+// intervals.  Visually they cluster near perihelion (where Kepler's 2nd law
+// makes the spacecraft sweep arc fast) and spread out toward apoapsis (slow).
+// This is the visual cue that distinguishes a real Keplerian transfer from
+// a uniform spline interpolation, which is what most users expect to see.
+export const dateMarkers = [];
+export function addDateMarker(x, y, z, color = 0xffd54f, isMajor = false) {
+  const r = isMajor ? 0.012 : 0.007;
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(r, 12, 12),
+    new THREE.MeshBasicMaterial({
+      color, transparent: true,
+      opacity: isMajor ? 0.95 : 0.55,
+      depthWrite: false,
+    }),
+  );
+  m.position.set(x, y, z);
+  m.renderOrder = 6;
+  scene.add(m);
+  dateMarkers.push(m);
+}
+export function clearDateMarkers() {
+  for (const m of dateMarkers) scene.remove(m);
+  dateMarkers.length = 0;
 }

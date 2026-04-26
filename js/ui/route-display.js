@@ -6,9 +6,9 @@ import { getBodyPosition3D, getBodyVelocity3D, getSunBarycentricOffset } from '.
 import { propagateOrbit } from '../physics/helio.js';
 import { v3dot, v3mag, v3sub } from '../physics/vec3.js';
 import {
-  addFlybyGhost, addFlybyMarker, addLegLine, clearMultiLegVisuals,
-  hideArrivalGhost, hideDepartureGhost, setArrivalGhost, setDepartureGhost,
-  setTransferLine, transferMarkers,
+  addDateMarker, addFlybyGhost, addFlybyMarker, addLegLine, clearDateMarkers,
+  clearMultiLegVisuals, hideArrivalGhost, hideDepartureGhost,
+  setArrivalGhost, setDepartureGhost, setTransferLine, transferMarkers,
 } from '../scene/transfer-visual.js';
 import {
   formatDateShort, formatDist, formatTime, formatTimePrecise, formatVelocity, simTimeToDate,
@@ -26,6 +26,7 @@ export function bindMissionHandlers({ launch }) {
 export function updateTransferOrbitVisual() {
   setTransferLine(null);
   clearMultiLegVisuals();
+  clearDateMarkers();
   transferMarkers.depart.visible = false;
   transferMarkers.arrive.visible = false;
   hideArrivalGhost();
@@ -89,6 +90,37 @@ export function updateTransferOrbitVisual() {
     radius: td.body2.displayRadius * 1.6,
     color: parseInt(td.body2.color.replace('#', ''), 16),
   });
+  // Date markers — fixed-time samples along the trajectory.  Their visual
+  // density (clustered near perihelion, spread near apoapsis) makes the
+  // Keplerian variable-speed nature of the orbit obvious; without these the
+  // dashed line's uniform arc-length spacing hides what's actually a Kepler
+  // ellipse and looks like a smooth spline.
+  if (td.orbit) addDateMarkersAlongOrbit(td.orbit, depT, td.transferTime, 0xffd54f);
+}
+
+// Choose tick cadence so a transfer gets ~10–14 minor ticks plus a few
+// labelled major ticks.  For Earth→Mars (~258d) ticks are weekly-ish, for
+// Earth→Jupiter (~1000d) they're monthly-ish.
+function chooseTickIntervals(transferTimeDays) {
+  if (transferTimeDays < 90)   return { minor: 7,   major: 30  };
+  if (transferTimeDays < 365)  return { minor: 30,  major: 90  };
+  if (transferTimeDays < 1500) return { minor: 60,  major: 180 };
+  return { minor: 180, major: 360 };
+}
+
+function addDateMarkersAlongOrbit(orbit, departSimTime, transferTime, color) {
+  const { minor, major } = chooseTickIntervals(transferTime / DAY);
+  for (let day = minor; day < transferTime / DAY; day += minor) {
+    const dt = day * DAY;
+    if (dt >= transferTime) break;
+    const pos_m = propagateOrbit(orbit, dt);
+    const off = getSunBarycentricOffset(departSimTime + dt);
+    const isMajor = Math.abs(day % major) < 1e-6;
+    addDateMarker(
+      pos_m[0]/AU + off.x, pos_m[1]/AU + off.y, pos_m[2]/AU + off.z,
+      color, isMajor,
+    );
+  }
 }
 
 function renderMultiLegVisual() {
@@ -126,6 +158,13 @@ function renderMultiLegVisual() {
     const line = new THREE.Line(geo, mat);
     line.computeLineDistances();
     addLegLine(line);
+    // Per-leg date markers reveal Keplerian variable speed.
+    if (leg.orbit) {
+      addDateMarkersAlongOrbit(
+        leg.orbit, leg.departSimTime, leg.tof,
+        LEG_COLORS[li % LEG_COLORS.length],
+      );
+    }
   }
 
   const firstLeg = td.legs[0];
