@@ -267,11 +267,22 @@ export function renderRouteUI() {
   const periAU  = orbPhys ? (orbPhys.a * (1 - orbPhys.e)) / AU : null;
   const apoAU   = orbPhys ? (orbPhys.a * (1 + orbPhys.e)) / AU : null;
   const totalDv = lambertOk ? td.dvTotal_lambert : td.dvTotal;
+  // When either endpoint is a moon, the Δv we display is the heliocentric
+  // transfer leg only — escape from the parent planet's gravity well and
+  // capture into the destination's parent are NOT included.  Be honest about
+  // it so a mission designer doesn't take the number as a complete budget.
+  const usesMoon = !!(td.body1?.parent || td.body2?.parent);
 
   const res = document.getElementById('transfer-results');
   res.innerHTML = `
     <div class="transfer-results">
       <div class="result-title">${lambertOk ? 'LAMBERT TRANSFER ORBIT' : 'HOHMANN ESTIMATE (Lambert failed)'}</div>
+      ${usesMoon ? `
+      <div class="route-note">
+        Δv shown is the <strong>heliocentric transfer leg only</strong>.
+        Escape Δv from the parent planet's gravity well (a few km/s for moons
+        like Moon, Europa, Titan) is not included.
+      </div>` : ''}
       <div class="info-row"><span class="key">Departure</span><span class="val green">${formatDateShort(departDate)}</span></div>
       <div class="info-row"><span class="key">Arrival</span><span class="val amber">${formatDateShort(arriveDate)}</span></div>
       <div class="info-row"><span class="key">Transit duration</span><span class="val highlight">${formatTimePrecise(td.transferTime)}</span></div>

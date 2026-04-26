@@ -36,7 +36,20 @@ function evolvedElements(body, T) {
 // exaggerate=true (default) uses INCL_EXAGGERATION for the visual scene;
 // exaggerate=false returns real-inclination heliocentric coordinates for
 // physics. Underlying elements are time-evolved using JPL rates regardless.
+//
+// If `body` is a moon (has body.parent), returns the moon's actual
+// heliocentric position by combining its parent planet's heliocentric
+// position with the moon's offset around the parent (using real distance
+// units, not the visualisation-scaled `displayOrbit`).
 export function getBodyPosition3D(body, timeSec, exaggerate = true) {
+  if (body.parent) {
+    const parent = BODIES.find(b => b.name === body.parent);
+    if (!parent) return { x: 0, y: 0, z: 0, r: 0, v: 0, E: 0 };
+    const ph = getBodyPosition3D(parent, timeSec, exaggerate);
+    const mp = getMoonRelativePositionAU(body, timeSec);
+    const x = ph.x + mp.x, y = ph.y + mp.y, z = ph.z + mp.z;
+    return { x, y, z, r: Math.sqrt(x*x + y*y + z*z), v: ph.v, E: ph.E };
+  }
   const T = timeSec / CENTURY_SEC;
   const el = evolvedElements(body, T);
   const M = el.L - el.wBar;
@@ -55,6 +68,29 @@ export function getBodyPosition3D(body, timeSec, exaggerate = true) {
   const ye = r * (sinO * cosWV + cosO * sinWV * cosI);
   const ze = r * (sinWV * sinI);
   return { x: xe, y: ze, z: ye, r, v, E };
+}
+
+// Moon position RELATIVE to its parent planet, in AU.  Uses the real
+// `a_km` semi-major axis (not the visualisation-scaled `displayOrbit`) so
+// the returned offset is physically correct — suitable for combining with
+// the parent's heliocentric position to get the moon's true heliocentric
+// coordinates.  Inclination is the moon's real I (not exaggerated), since
+// the moon's tiny orbital scale doesn't benefit from visual stretching.
+export function getMoonRelativePositionAU(moon, timeSec) {
+  const n = TWO_PI / moon.period;
+  const M = moon.M0 + n * timeSec;
+  const E = solveKepler(M, moon.e);
+  const cosE = Math.cos(E), sinE = Math.sin(E);
+  const cosV = (cosE - moon.e) / (1 - moon.e * cosE);
+  const sinV = (Math.sqrt(1 - moon.e * moon.e) * sinE) / (1 - moon.e * cosE);
+  const v = Math.atan2(sinV, cosV);
+  const a_AU = (moon.a_km * 1000) / AU;
+  const r = a_AU * (1 - moon.e * cosE);
+  const Irad = moon.I * DEG;
+  const x = r * Math.cos(v);
+  const z = r * Math.sin(v) * Math.cos(Irad);
+  const y = r * Math.sin(v) * Math.sin(Irad);
+  return { x, y, z };
 }
 
 // In the heliocentric frame the Sun is fixed at origin; in the barycentric frame the
@@ -119,10 +155,24 @@ export function generateMoonOrbitPoints(moon, segments = 64) {
   return points;
 }
 
+// Returns the heliocentric Keplerian elements (semi-major axis, period) of
+// the body's *Sun-orbit*.  For planets that's just (body.a, body.period);
+// for moons it's (parent.a, parent.period) since the moon co-orbits the Sun
+// with its parent.  Used by hohmannTransfer to size the heliocentric leg.
+function helioElements(body) {
+  if (body.parent) {
+    const parent = BODIES.find(b => b.name === body.parent);
+    if (parent) return { a: parent.a, period: parent.period };
+  }
+  return { a: body.a, period: body.period };
+}
+
 export function hohmannTransfer(body1, body2, departureSimTime) {
   const pos1 = getBodyPosition3D(body1, departureSimTime);
   const pos2 = getBodyPosition3D(body2, departureSimTime);
-  const r1 = body1.a, r2 = body2.a;
+  const e1 = helioElements(body1);
+  const e2 = helioElements(body2);
+  const r1 = e1.a, r2 = e2.a;
   const mu = G_CONST * SUN_DATA.mass;
   const r1m = r1 * AU, r2m = r2 * AU;
   const aT_m = (r1m + r2m) / 2;
@@ -139,7 +189,7 @@ export function hohmannTransfer(body1, body2, departureSimTime) {
   const angle1 = Math.atan2(pos1.z, pos1.x);
   const angle2 = Math.atan2(pos2.z, pos2.x);
   const currentPhase = ((angle2 - angle1) % TWO_PI + TWO_PI) % TWO_PI;
-  const n2 = TWO_PI / body2.period, n1 = TWO_PI / body1.period;
+  const n2 = TWO_PI / e2.period, n1 = TWO_PI / e1.period;
   const relativeRate = n2 - n1;
   const phaseDiff = ((phaseAngle - currentPhase) % TWO_PI + TWO_PI) % TWO_PI;
   const timeToWindow = Math.abs(relativeRate) > 1e-20 ? phaseDiff / Math.abs(relativeRate) : Infinity;

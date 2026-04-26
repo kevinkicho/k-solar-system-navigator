@@ -1,4 +1,4 @@
-import { BODIES, findBodyByName } from '../data/bodies.js';
+import { BODIES, findBodyByName, findRoutingBodySync } from '../data/bodies.js';
 import { MOONS, moonsByParent } from '../data/moons.js';
 import { state } from '../state.js';
 import { notify } from './format.js';
@@ -51,6 +51,15 @@ export function buildBodyList() {
         mItem.innerHTML = `<div class="moon-dot" style="color:${moon.color};background:${moon.color}"></div>
           <span class="moon-name">${moon.name}</span>`;
         mItem.onclick = () => selectBody(moon);
+        // Right-click sets origin/destination just like planets.
+        mItem.oncontextmenu = (ev) => {
+          ev.preventDefault();
+          if (!setRouteOrigin || !setRouteDestination) return;
+          if (!state.routeOrigin) setRouteOrigin(moon);
+          else if (!state.routeDestination && moon !== state.routeOrigin) setRouteDestination(moon);
+          else { setRouteOrigin(moon); setRouteDestination(null); }
+        };
+        makeDraggable(mItem, moon.name);
         moonContainer.appendChild(mItem);
       }
       el.appendChild(moonContainer);
@@ -104,7 +113,8 @@ export function setupRouteDropTargets() {
       ev.preventDefault();
       slotEl.classList.remove('drag-over');
       const name = ev.dataTransfer.getData('text/plain');
-      const body = findBodyByName(name);
+      // Search planets first, then moons.
+      const body = findRoutingBodySync(name, MOONS);
       if (body) setFn(body);
     });
   }

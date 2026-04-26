@@ -163,3 +163,25 @@ export function findBodyByName(name) {
   if (!name) return null;
   return BODIES.find(b => b.name === name) || null;
 }
+
+// Search across both planets and moons — used by the route planner now that
+// moons are valid origin/destination targets.  Imports MOONS lazily to keep
+// this module side-effect free.
+let _MOONS = null;
+export async function findRoutingBody(name) {
+  if (!name) return null;
+  const planet = BODIES.find(b => b.name === name);
+  if (planet) return planet;
+  if (!_MOONS) _MOONS = (await import('./moons.js')).MOONS;
+  return _MOONS.find(m => m.name === name) || null;
+}
+
+// Synchronous variant for hot paths — caller must have ensured moons are
+// loaded by importing them at module init time.  Returns null if not found.
+export function findRoutingBodySync(name, MOONS) {
+  if (!name) return null;
+  const planet = BODIES.find(b => b.name === name);
+  if (planet) return planet;
+  if (MOONS) return MOONS.find(m => m.name === name) || null;
+  return null;
+}
