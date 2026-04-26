@@ -1,5 +1,6 @@
 import {
-  AU, DEG, G_CONST, INCL_EXAGGERATION, PI, SUN_WOBBLE_EXAGGERATION, TWO_PI,
+  AU, CENTURY_SEC, DEG, G_CONST, INCL_EXAGGERATION, PI,
+  SUN_WOBBLE_EXAGGERATION, TWO_PI,
 } from '../constants.js';
 import { BODIES, SUN_DATA } from '../data/bodies.js';
 
@@ -14,22 +15,41 @@ export function solveKepler(M, e, tol = 1e-10) {
   return E;
 }
 
+// Evaluate orbital elements at time T (Julian centuries past J2000) using
+// JPL's "Approximate Positions of Major Planets" linear-rate model, plus the
+// great-inequality / long-period correction (b·T² + c·cos(fT) + s·sin(fT))
+// added to the mean longitude L for Jupiter through Neptune.
+function evolvedElements(body, T) {
+  const a    = body.a    + (body.a_dot    || 0) * T;
+  const e    = body.e    + (body.e_dot    || 0) * T;
+  const I    = body.I    + (body.I_dot    || 0) * T;
+  let   L    = body.L0   + (body.L_dot    || 0) * T;
+  const wBar = body.wBar + (body.wBar_dot || 0) * T;
+  const omega = body.omega + (body.omega_dot || 0) * T;
+  if (body.f !== undefined) {
+    const fT = body.f * T;
+    L += body.b * T * T + body.c * Math.cos(fT) + body.s * Math.sin(fT);
+  }
+  return { a, e, I, L, wBar, omega };
+}
+
 // exaggerate=true (default) uses INCL_EXAGGERATION for the visual scene;
-// exaggerate=false returns the real-inclination heliocentric position (for Δv/physics).
+// exaggerate=false returns real-inclination heliocentric coordinates for
+// physics. Underlying elements are time-evolved using JPL rates regardless.
 export function getBodyPosition3D(body, timeSec, exaggerate = true) {
-  const n = TWO_PI / body.period;
-  const M0 = body.L0 - body.wBar;
-  const M = M0 + n * timeSec;
-  const E = solveKepler(M, body.e);
+  const T = timeSec / CENTURY_SEC;
+  const el = evolvedElements(body, T);
+  const M = el.L - el.wBar;
+  const E = solveKepler(M, el.e);
   const cosE = Math.cos(E), sinE = Math.sin(E);
-  const cosV = (cosE - body.e) / (1 - body.e * cosE);
-  const sinV = (Math.sqrt(1 - body.e * body.e) * sinE) / (1 - body.e * cosE);
+  const cosV = (cosE - el.e) / (1 - el.e * cosE);
+  const sinV = (Math.sqrt(1 - el.e * el.e) * sinE) / (1 - el.e * cosE);
   const v = Math.atan2(sinV, cosV);
-  const r = body.a * (1 - body.e * cosE);
-  const w = body.wBar - body.omega;
-  const cosO = Math.cos(body.omega), sinO = Math.sin(body.omega);
+  const r = el.a * (1 - el.e * cosE);
+  const w = el.wBar - el.omega;
+  const cosO = Math.cos(el.omega), sinO = Math.sin(el.omega);
   const cosWV = Math.cos(w + v), sinWV = Math.sin(w + v);
-  const Ivis = body.I * (exaggerate ? INCL_EXAGGERATION : 1);
+  const Ivis = el.I * (exaggerate ? INCL_EXAGGERATION : 1);
   const cosI = Math.cos(Ivis), sinI = Math.sin(Ivis);
   const xe = r * (cosO * cosWV - sinO * sinWV * cosI);
   const ye = r * (sinO * cosWV + cosO * sinWV * cosI);

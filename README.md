@@ -40,7 +40,7 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 
 | Component | Method |
 |---|---|
-| Planet positions | Keplerian elements from J2000, Newton–Raphson solver for eccentric anomaly |
+| Planet positions | JPL "Approximate Positions of Major Planets" 1800–2050: linear element rates per Julian century + great-inequality corrections (b·T² + c·cos(f·T) + s·sin(f·T) added to mean longitude L for Jupiter–Neptune). Newton–Raphson solver for eccentric anomaly. |
 | Transfer orbit | Lambert's problem via universal-variable formulation, bracketed-bisection solver |
 | Trajectory propagation | Kepler in perifocal frame (p̂, q̂, ŵ) |
 | Δv | Vector difference `|v_transfer − v_planet|` (both from physical-inclination state) |
@@ -59,6 +59,7 @@ node tests/gravity_assist_sim.mjs     # multi-leg VEEGA-style routes
 node tests/spacecraft_check.mjs       # Voyager/Pioneer distances vs NASA tracking
 node tests/visual_alignment.mjs       # trajectory-line-vs-marker accuracy
 node tests/module_integration.mjs     # imports js/* modules: load, accuracy, perf budgets
+node tests/ephemeris_check.mjs        # JPL element-rate model: J2000 self-consistency, perihelion/aphelion, Mars opposition, drift vs frozen-J2000
 ```
 
 End-to-end UI test (requires Puppeteer):
@@ -84,7 +85,7 @@ Open that URL in your browser.
 
 ## Data sources
 
-- **Planetary orbits** — JPL J2000 mean orbital elements
+- **Planetary orbits** — JPL "Approximate Positions of Major Planets" (1800–2050 valid range): J2000 elements + per-century rates + great-inequality corrections for Jupiter through Neptune
 - **Star data** — [HYG Database v4.2](https://github.com/astronexus/HYG-Database) (~119,600 stars)
 - **Moon data** — NASA/JPL planetary satellite ephemerides
 - **Planet surface textures** — [threex.planets](https://github.com/jeromeetienne/threex.planets) (NASA public-domain maps)

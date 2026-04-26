@@ -6,6 +6,9 @@ export const TWO_PI = 2 * PI;
 export const DEG = PI / 180;
 export const J2000 = Date.UTC(2000, 0, 1, 12, 0, 0);
 
+// One Julian century = 36525 days (used by JPL ephemeris rates).
+export const CENTURY_SEC = 36525 * DAY;
+
 // Real inclinations are 0-7°; ×8 makes them 0-56° — dramatic but keeps relative order.
 export const INCL_EXAGGERATION = 8;
 
