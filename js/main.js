@@ -39,7 +39,7 @@ import { abortMission, launchMission } from './mission.js';
 import { animate } from './animation.js';
 
 // Wire dependency-injected handlers (breaks the route ↔ mission cycle).
-bindMissionHandlers({ launch: launchMission, abort: abortMission });
+bindMissionHandlers({ launch: launchMission });
 bindAbortHandler(abortMission);
 bindRouteSetters({ origin: setRouteOrigin, destination: setRouteDestination });
 

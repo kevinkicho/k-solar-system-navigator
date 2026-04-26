@@ -4,8 +4,10 @@ import { getShipPositionOnTransfer } from './physics/routing.js';
 import {
   addTrailPoint, resetTrail, shipGroup, shipLabelDiv, trailLine,
 } from './scene/ship.js';
-import { flybyMarkers, hideArrivalGhost, transferMarkers } from './scene/transfer-visual.js';
-import { formatDateShort, notify, simTimeToDate } from './ui/format.js';
+import {
+  flybyMarkers, hideArrivalGhost, hideDepartureGhost, transferMarkers,
+} from './scene/transfer-visual.js';
+import { formatDateShort, formatTimePrecise, notify, simTimeToDate } from './ui/format.js';
 import { renderRouteUI } from './ui/route-display.js';
 import { timeState } from './ui/time-system.js';
 import { MAX_TRAIL_POINTS } from './constants.js';
@@ -71,6 +73,14 @@ export function abortMission() {
   shipGroup.visible = false;
   trailLine.visible = false;
   resetTrail();
+  // Re-show the rendezvous markers if we still have transferData — abort
+  // doesn't clear the route, so the user may want to re-launch.
+  if (state.transferData && state.showTransferOrbit) {
+    // Re-render transfer visuals (which re-creates depart/arrival ghosts).
+    import('./ui/route-display.js').then(({ updateTransferOrbitVisual }) => {
+      updateTransferOrbitVisual();
+    });
+  }
   for (const fm of flybyMarkers) {
     fm.scale.set(1, 1, 1);
     if (fm.material) fm.material.opacity = 0.85;
@@ -108,7 +118,9 @@ export function updateMission() {
     // Once arrived, ship & destination coincide, so the markers become
     // misleading if the user later scrubs time forward.
     hideArrivalGhost();
+    hideDepartureGhost();
     transferMarkers.arrive.visible = false;
+    transferMarkers.depart.visible = false;
 
     const box = document.getElementById('mission-status-box');
     if (box) {
@@ -186,16 +198,3 @@ export function updateFlybyPulses(nowMs) {
   }
 }
 
-// formatTimePrecise is imported lazily because it lives in ui/format and we
-// don't want a hard dep on the entire ui layer at module-eval time.
-function formatTimePrecise(seconds) {
-  if (seconds === Infinity || isNaN(seconds)) return '--';
-  const DAY = 86400;
-  const days = Math.floor(seconds / DAY);
-  const hrs = Math.floor((seconds % DAY) / 3600);
-  const years = Math.floor(days / 365.25);
-  const remDays = days - Math.floor(years * 365.25);
-  if (years > 0) return `${years}y ${remDays}d ${hrs}h`;
-  if (days > 0) return `${days}d ${hrs}h`;
-  return `${hrs}h`;
-}

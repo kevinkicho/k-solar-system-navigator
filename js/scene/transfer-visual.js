@@ -21,6 +21,7 @@ export function clearMultiLegVisuals() {
   extraLegLines.length = 0;
   for (const m of flybyMarkers) scene.remove(m);
   flybyMarkers.length = 0;
+  clearFlybyGhosts();
 }
 
 // Persistent depart/arrive ring markers (visibility toggled by route logic).
@@ -43,22 +44,47 @@ scene.add(transferMarkers.arrive);
 // planet, parked at "where the destination WILL BE at arrival time." Makes
 // the trajectory's target visually obvious before launch and during flight,
 // then hides once the mission has arrived (the rendezvous already happened).
-export const arrivalGhost = new THREE.Mesh(
-  new THREE.SphereGeometry(0.04, 24, 24),    // resized per route in setArrivalGhost
-  new THREE.MeshBasicMaterial({
-    color: 0xff9800, transparent: true, opacity: 0.22,
-    depthWrite: false, side: THREE.DoubleSide,
-  }),
-);
-arrivalGhost.visible = false;
-arrivalGhost.renderOrder = 5;   // draw after planets so it shows through
-scene.add(arrivalGhost);
-
-export function setArrivalGhost({ x, y, z, radius, color }) {
-  arrivalGhost.position.set(x, y, z);
-  arrivalGhost.scale.setScalar(Math.max(radius, 0.03) / 0.04);
-  arrivalGhost.material.color.setHex(color);
-  arrivalGhost.visible = true;
+function makeGhost(defaultColor) {
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(0.04, 24, 24),
+    new THREE.MeshBasicMaterial({
+      color: defaultColor, transparent: true, opacity: 0.22,
+      depthWrite: false, side: THREE.DoubleSide,
+    }),
+  );
+  m.visible = false;
+  m.renderOrder = 5;
+  return m;
 }
 
-export function hideArrivalGhost() { arrivalGhost.visible = false; }
+export const arrivalGhost   = makeGhost(0xff9800);
+export const departureGhost = makeGhost(0x00e676);   // green, mirrors depart marker
+scene.add(arrivalGhost);
+scene.add(departureGhost);
+
+function placeGhost(mesh, { x, y, z, radius, color }) {
+  mesh.position.set(x, y, z);
+  mesh.scale.setScalar(Math.max(radius, 0.03) / 0.04);
+  mesh.material.color.setHex(color);
+  mesh.visible = true;
+}
+
+export function setArrivalGhost(opts)   { placeGhost(arrivalGhost, opts); }
+export function setDepartureGhost(opts) { placeGhost(departureGhost, opts); }
+export function hideArrivalGhost()   { arrivalGhost.visible = false; }
+export function hideDepartureGhost() { departureGhost.visible = false; }
+
+// Per-flyby ghosts — for multi-leg routes, mirror the arrivalGhost pattern
+// at each intermediate flyby planet's planned-flyby-time position.  Created
+// on demand and reset by clearMultiLegVisuals.
+export const flybyGhosts = [];
+export function addFlybyGhost(opts) {
+  const m = makeGhost(opts.color);
+  placeGhost(m, opts);
+  scene.add(m);
+  flybyGhosts.push(m);
+}
+export function clearFlybyGhosts() {
+  for (const g of flybyGhosts) scene.remove(g);
+  flybyGhosts.length = 0;
+}

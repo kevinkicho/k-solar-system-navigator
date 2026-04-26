@@ -9,11 +9,20 @@ import { selectBody } from './selection.js';
 import { timeState } from './time-system.js';
 import { updateBodyList } from './body-list.js';
 
+// Mission abort handler — injected by main.js so route-planner can cancel an
+// in-flight mission without importing mission.js (which would create a cycle).
+let _abortMission = () => {};
+export function bindAbortHandler(fn) { _abortMission = fn; }
+
 export function setRouteOrigin(body) {
+  // If a mission was in flight (or arrived), changing the origin invalidates
+  // it — the "From X" label and progress bar would be stale.  Bail cleanly.
+  if (state.mission.active) _abortMission();
   state.routeOrigin = body;
   state.flybys = [];
   state.transferData = null;
   state.showTransferOrbit = false;
+  updateTransferOrbitVisual();   // tear down dashed line + ghost target
   document.getElementById('origin-name').textContent = body ? body.name : 'Drag or right-click';
   document.getElementById('origin-name').classList.toggle('empty', !body);
   if (body) notify(`ORIGIN: ${body.name.toUpperCase()}`);
@@ -25,10 +34,12 @@ export function setRouteOrigin(body) {
 }
 
 export function setRouteDestination(body) {
+  if (state.mission.active) _abortMission();
   state.routeDestination = body;
   state.flybys = [];
   state.transferData = null;
   state.showTransferOrbit = false;
+  updateTransferOrbitVisual();
   document.getElementById('dest-name').textContent = body ? body.name : 'Drag or right-click';
   document.getElementById('dest-name').classList.toggle('empty', !body);
   if (body) notify(`DESTINATION: ${body.name.toUpperCase()}`);
@@ -38,11 +49,6 @@ export function setRouteDestination(body) {
   selectBody(state.selectedBody);
   updateBodyList();
 }
-
-// `clearRoute` aborts any in-flight mission via the injected handler set by main.js,
-// to avoid the route-planner ↔ mission cycle.
-let _abortMission = () => {};
-export function bindAbortHandler(fn) { _abortMission = fn; }
 
 export function clearRoute() {
   _abortMission();

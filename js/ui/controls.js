@@ -5,6 +5,7 @@ import { camera3D, controls } from '../scene/setup.js';
 import { FX, hillMeshes, potentialMesh, updateHillSpheres, updatePotentialField } from '../scene/gravity-field.js';
 import { dateToInputValue, inputValueToDate, dateToSimTime, notify, simTimeToDate } from './format.js';
 import { addFlyby, computeRoute, clearRoute, snapFlybyDates } from './route-planner.js';
+import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
 import { selectBody } from './selection.js';
 import { timeState } from './time-system.js';
 
@@ -67,6 +68,20 @@ export function wireControls() {
       timeState.simTime = dateToSimTime(d);
       timeState.setSpeed(3);
       timeState.updateDisplay();
+      // The current transferData was solved against the old departure date —
+      // re-solve so the dashed line and Δv numbers match the new input.
+      // Without this the user can edit the date and see the SAME old route,
+      // which is exactly the kind of stale-state confusion that prompted
+      // this audit pass.
+      if (state.routeOrigin && state.routeDestination && state.transferData) {
+        computeRoute();
+      } else if (state.transferData) {
+        state.transferData = null;
+        state.showTransferOrbit = false;
+        updateTransferOrbitVisual();
+        document.getElementById('transfer-results').innerHTML = '';
+        document.getElementById('mission-controls').innerHTML = '';
+      }
       notify('SOLAR SYSTEM SET TO DEPARTURE DATE');
     }
   });

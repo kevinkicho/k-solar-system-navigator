@@ -6,19 +6,20 @@ import { getBodyPosition3D, getBodyVelocity3D, getSunBarycentricOffset } from '.
 import { propagateOrbit } from '../physics/helio.js';
 import { v3dot, v3mag, v3sub } from '../physics/vec3.js';
 import {
-  addFlybyMarker, addLegLine, clearMultiLegVisuals, hideArrivalGhost,
-  setArrivalGhost, setTransferLine, transferMarkers,
+  addFlybyGhost, addFlybyMarker, addLegLine, clearMultiLegVisuals,
+  hideArrivalGhost, hideDepartureGhost, setArrivalGhost, setDepartureGhost,
+  setTransferLine, transferMarkers,
 } from '../scene/transfer-visual.js';
 import {
   formatDateShort, formatDist, formatTime, formatTimePrecise, formatVelocity, simTimeToDate,
 } from './format.js';
 import { timeState } from './time-system.js';
 
-// Mission action handlers (injected by main.js to break the route ↔ mission cycle).
-let _launchMission = null, _abortMission = null;
-export function bindMissionHandlers({ launch, abort }) {
+// Launch handler — injected by main.js to break the route ↔ mission cycle.
+// (Abort uses bindAbortHandler in route-planner.js for the same reason.)
+let _launchMission = null;
+export function bindMissionHandlers({ launch }) {
   _launchMission = launch;
-  _abortMission = abort;
 }
 
 // ---- Scene-side: dashed transfer-orbit lines + depart/arrive/flyby ring markers ----
@@ -28,6 +29,7 @@ export function updateTransferOrbitVisual() {
   transferMarkers.depart.visible = false;
   transferMarkers.arrive.visible = false;
   hideArrivalGhost();
+  hideDepartureGhost();
   if (!state.showTransferOrbit || !state.transferData) return;
 
   const td = state.transferData;
@@ -74,8 +76,14 @@ export function updateTransferOrbitVisual() {
   transferMarkers.depart.visible = true;
   transferMarkers.arrive.position.set(arr.x + arrOff.x, arr.y + arrOff.y, arr.z + arrOff.z);
   transferMarkers.arrive.visible = true;
-  // Ghost target — a faded planet-sized sphere at "where the destination will
-  // be when the ship arrives." Makes the rendezvous geometry obvious to viewers.
+  // Ghosts at endpoints — faded planet-sized spheres at "where Origin/Destination
+  // are at the planned moment." Makes the rendezvous geometry obvious to a
+  // viewer who hasn't pressed Launch yet.
+  setDepartureGhost({
+    x: dep.x + depOff.x, y: dep.y + depOff.y, z: dep.z + depOff.z,
+    radius: td.body1.displayRadius * 1.6,
+    color: parseInt(td.body1.color.replace('#', ''), 16),
+  });
   setArrivalGhost({
     x: arr.x + arrOff.x, y: arr.y + arrOff.y, z: arr.z + arrOff.z,
     radius: td.body2.displayRadius * 1.6,
@@ -126,6 +134,11 @@ function renderMultiLegVisual() {
     const o = getSunBarycentricOffset(firstLeg.departSimTime);
     transferMarkers.depart.position.set(firstLeg.dep3D.x + o.x, firstLeg.dep3D.y + o.y, firstLeg.dep3D.z + o.z);
     transferMarkers.depart.visible = true;
+    setDepartureGhost({
+      x: firstLeg.dep3D.x + o.x, y: firstLeg.dep3D.y + o.y, z: firstLeg.dep3D.z + o.z,
+      radius: td.body1.displayRadius * 1.6,
+      color: parseInt(td.body1.color.replace('#', ''), 16),
+    });
   }
   if (lastLeg && lastLeg.ok) {
     const o = getSunBarycentricOffset(lastLeg.arriveSimTime);
@@ -135,6 +148,19 @@ function renderMultiLegVisual() {
       x: lastLeg.arr3D.x + o.x, y: lastLeg.arr3D.y + o.y, z: lastLeg.arr3D.z + o.z,
       radius: td.body2.displayRadius * 1.6,
       color: parseInt(td.body2.color.replace('#', ''), 16),
+    });
+  }
+  // Per-flyby ghosts at each intermediate planet, parked at the planned-flyby-
+  // time position so the user sees the planet "where the ship will meet it"
+  // even when sim time is currently elsewhere.
+  for (let i = 1; i < td.waypoints.length - 1; i++) {
+    const wp = td.waypoints[i];
+    const p = getBodyPosition3D(wp.body, wp.simTime, true);
+    const o = getSunBarycentricOffset(wp.simTime);
+    addFlybyGhost({
+      x: p.x + o.x, y: p.y + o.y, z: p.z + o.z,
+      radius: wp.body.displayRadius * 1.5,
+      color: parseInt(wp.body.color.replace('#', ''), 16),
     });
   }
 
@@ -219,7 +245,7 @@ function renderMultiLegRouteUI() {
   const feasible = transferDeltaV() >= totalDv;
 
   const legRows = td.legs.map((L, i) => {
-    const color = ['#ff9800','#00d4ff','#d36bff','#00e676','#ffeb3b','#ff5a3c'][i % 6];
+    const color = '#' + LEG_COLORS[i % LEG_COLORS.length].toString(16).padStart(6, '0');
     if (!L.ok) {
       return `<div class="info-row"><span class="key" style="color:${color}">Leg ${i+1} ${L.from}→${L.to}</span><span class="val red-val">LAMBERT FAILED</span></div>`;
     }
@@ -285,11 +311,6 @@ function renderMultiLegRouteUI() {
   document.getElementById('btn-export-plan').onclick = () => exportMissionPlan(td);
 }
 
-// `_abortMission` referenced just to silence unused-var; consumed elsewhere via DI.
-export function _attachAbortHandlerTo(buttonId) {
-  const btn = document.getElementById(buttonId);
-  if (btn && _abortMission) btn.onclick = _abortMission;
-}
 
 // ---- Mission plan JSON export ----
 //
