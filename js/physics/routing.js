@@ -1,10 +1,84 @@
-import { AU, G_CONST, PI } from '../constants.js';
+import { AU, DAY, G_CONST, PI } from '../constants.js';
 import { SUN_DATA } from '../data/bodies.js';
 import { v3mag, v3sub } from './vec3.js';
 import { getBodyPosition3D, getBodyVelocity3D } from './kepler.js';
 import { buildTransferOrbit, propagateOrbit } from './helio.js';
 import { solveLambertBestBranch, solveLambertProblem } from './lambert.js';
 import { gravityAssistInfo } from './gravity-assist.js';
+
+// Minimum perihelion (AU) below which a heliocentric transfer is treated as
+// non-physical (Sun-grazing).  Mercury sits at 0.39 AU; below 0.3 AU the
+// spacecraft enters a regime where solar radiation, structural load and
+// thermal management dominate, and no real interplanetary mission flies it.
+export const MIN_PERIHELION_AU = 0.3;
+
+// Quick search for the nearest feasible (low-Δv, non-Sun-grazing) departure
+// at or after a hint date.  Used when the user clicks Compute with a Hohmann-
+// TOF guess that produces a pathological orbit due to bad planetary phasing
+// — instead of showing a Sun-grazer with absurd Δv, we slide the launch
+// date forward and find the next real launch window.
+//
+// The search is one-sided (forward in time) by default because users clicking
+// "Compute" with a current-time hint expect a future launch, not a past one.
+// To explicitly allow past windows (e.g. for historical reproductions), pass
+// `allowPast: true`.
+//
+// Returns { departureSimTime, transferTime, dvTotal, perihelionAU } for the
+// minimum-Δv cell on a 30×30 (departure × TOF) grid, or null.
+export function findNearestFeasibleTransfer(body1, body2, depHint, tofHint, opts = {}) {
+  const mu = G_CONST * SUN_DATA.mass;
+  const N_DEP = 40, N_TOF = 35;   // ~1400 cells
+
+  const synodic = synodicPeriod(body1, body2);
+  // Forward window: cover at least 3 synodic periods (so we always find at
+  // least one Hohmann-quality minimum) but no more than 10 calendar years.
+  // Backward slack: small — users clicking Compute expect future launches.
+  const allowPast = !!opts.allowPast;
+  const lookBack    = allowPast ? synodic : 30 * DAY;
+  const lookForward = Math.max(2 * 365.25 * DAY, Math.min(3 * synodic, 10 * 365.25 * DAY));
+  const departStart = depHint - lookBack;
+  const departEnd   = depHint + lookForward;
+  // TOF spread wide enough to include both Hohmann (~1×) and faster transfers
+  // (~0.4×) the textbook value, since cheap windows often involve faster TOFs.
+  const tofMin = 0.35 * tofHint;
+  const tofMax = 2.2 * tofHint;
+
+  let best = null;
+  for (let i = 0; i < N_DEP; i++) {
+    const dep = departStart + (i + 0.5) / N_DEP * (departEnd - departStart);
+    for (let j = 0; j < N_TOF; j++) {
+      const tof = tofMin + (j + 0.5) / N_TOF * (tofMax - tofMin);
+      const arr = dep + tof;
+      const p1 = getBodyPosition3D(body1, dep, false);
+      const p2 = getBodyPosition3D(body2, arr, false);
+      const r1 = [p1.x*AU, p1.y*AU, p1.z*AU];
+      const r2 = [p2.x*AU, p2.y*AU, p2.z*AU];
+      const vb1 = getBodyVelocity3D(body1, dep, false);
+      const vb2 = getBodyVelocity3D(body2, arr, false);
+      const sol = solveLambertBestBranch(r1, r2, tof, mu, vb1, vb2);
+      if (!sol) continue;
+      const periAU = sol.orb.a * (1 - sol.orb.e) / AU;
+      if (!isFinite(periAU) || periAU < MIN_PERIHELION_AU) continue;
+      if (!best || sol.cost < best.dvTotal) {
+        best = {
+          departureSimTime: dep,
+          transferTime: tof,
+          arrivalSimTime: arr,
+          dvTotal: sol.cost,
+          perihelionAU: periAU,
+        };
+      }
+    }
+  }
+  return best;
+}
+
+function synodicPeriod(b1, b2) {
+  const TWO_PI = 2 * PI;
+  const n1 = TWO_PI / b1.period, n2 = TWO_PI / b2.period;
+  const dn = Math.abs(n1 - n2);
+  return dn > 1e-20 ? TWO_PI / dn : b1.period;
+}
 
 // Solve Lambert for the single-leg transfer described in tData and cache the orbit.
 // We solve twice:

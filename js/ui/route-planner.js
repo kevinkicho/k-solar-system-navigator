@@ -1,8 +1,11 @@
-import { DAY } from '../constants.js';
+import { AU, DAY } from '../constants.js';
 import { BODIES } from '../data/bodies.js';
 import { state } from '../state.js';
 import { hohmannTransfer } from '../physics/kepler.js';
-import { solveMultiLegRoute, solveTransferOrbit } from '../physics/routing.js';
+import {
+  MIN_PERIHELION_AU, findNearestFeasibleTransfer,
+  solveMultiLegRoute, solveTransferOrbit,
+} from '../physics/routing.js';
 import { dateToInputValue, dateToSimTime, inputValueToDate, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
 import { selectBody } from './selection.js';
@@ -206,12 +209,57 @@ export function computeRoute() {
     waypoints[waypoints.length - 1].simTime = tailHohmann.arrivalSimTime;
 
     state.transferData = solveMultiLegRoute(waypoints);
-  } else {
-    state.transferData = hohmannTransfer(state.routeOrigin, state.routeDestination, departureSimTime);
-    solveTransferOrbit(state.transferData);
+    state.showTransferOrbit = true;
+    updateTransferOrbitVisual();
+    renderRouteUI();
+    notify('MULTI-LEG ROUTE COMPUTED');
+    return;
   }
+
+  // Single-leg path. Try the user's exact date with the textbook Hohmann TOF
+  // first.  When Earth and the destination aren't phased for a direct
+  // transfer, that produces a Sun-grazing trajectory with absurd Δv — instead
+  // of displaying it, sweep the surrounding window and snap to the nearest
+  // *feasible* (perihelion ≥ 0.3 AU) launch opportunity.  This is the kind of
+  // thing the OPT button does for one specific case; doing it implicitly on
+  // Compute means the user always sees a real mission.
+  state.transferData = hohmannTransfer(state.routeOrigin, state.routeDestination, departureSimTime);
+  solveTransferOrbit(state.transferData);
+
+  let adjusted = false;
+  const orb = state.transferData.orbitPhysical;
+  const periAU = orb ? (orb.a * (1 - orb.e)) / AU : Infinity;
+  const totalDv = state.transferData.dvTotal_lambert ?? state.transferData.dvTotal;
+  const pathological = !isFinite(periAU) || periAU < MIN_PERIHELION_AU || totalDv > 30000;
+
+  if (pathological) {
+    const fix = findNearestFeasibleTransfer(
+      state.routeOrigin, state.routeDestination,
+      departureSimTime, state.transferData.transferTime,
+    );
+    if (fix) {
+      // Re-build transferData around the feasible date/TOF.
+      state.transferData = hohmannTransfer(state.routeOrigin, state.routeDestination, fix.departureSimTime);
+      state.transferData.transferTime  = fix.transferTime;
+      state.transferData.arrivalSimTime = fix.arrivalSimTime;
+      solveTransferOrbit(state.transferData);
+      // Reflect the adjusted launch in the UI: update the date input and
+      // jump simulation time so the planets are shown in the right phase.
+      dateInput.value = dateToInputValue(simTimeToDate(fix.departureSimTime));
+      timeState.simTime = fix.departureSimTime;
+      timeState.setSpeed(3);
+      timeState.updateDisplay();
+      adjusted = true;
+    }
+  }
+
   state.showTransferOrbit = true;
   updateTransferOrbitVisual();
   renderRouteUI();
-  notify(state.flybys.length > 0 ? 'MULTI-LEG ROUTE COMPUTED' : 'TRANSFER ORBIT COMPUTED');
+  if (adjusted) {
+    const newDate = simTimeToDate(state.transferData.departureSimTime).toISOString().slice(0, 10);
+    notify(`LAUNCH ADJUSTED TO ${newDate} (NEAREST FEASIBLE WINDOW)`);
+  } else {
+    notify('TRANSFER ORBIT COMPUTED');
+  }
 }

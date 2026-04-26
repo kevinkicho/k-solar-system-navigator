@@ -191,41 +191,32 @@ export function renderRouteUI() {
   const lambertOk = !!td.lambertOk;
   const orbPhys = td.orbitPhysical;
 
-  // Pathology check.  When Earth and the destination aren't phased for a
-  // direct transfer, Lambert can return a Sun-grazing solution (perihelion
-  // inside Mercury's orbit) with absurd Δv.  The math is correct but the
-  // result is unflyable — surface it clearly so the user is steered toward
-  // OPT or "Find Launch Windows."
+  // computeRoute auto-snaps to the nearest feasible launch window when the
+  // user's hint date would have produced a Sun-grazer, so by the time the
+  // results panel renders, perihelion is already ≥ 0.3 AU and Δv is in a
+  // realistic range. Just display the orbit's diagnostics; perihelion is the
+  // most useful number a mission designer wants to see.
   const periAU  = orbPhys ? (orbPhys.a * (1 - orbPhys.e)) / AU : null;
   const apoAU   = orbPhys ? (orbPhys.a * (1 + orbPhys.e)) / AU : null;
   const totalDv = lambertOk ? td.dvTotal_lambert : td.dvTotal;
-  const sunGrazing = periAU !== null && periAU < 0.3;
-  const absurdDv   = totalDv > 30000;
-  const pathological = sunGrazing || absurdDv;
 
   const res = document.getElementById('transfer-results');
   res.innerHTML = `
     <div class="transfer-results">
       <div class="result-title">${lambertOk ? 'LAMBERT TRANSFER ORBIT' : 'HOHMANN ESTIMATE (Lambert failed)'}</div>
-      ${pathological ? `
-      <div class="route-warning">
-        ⚠ <strong>UNREALISTIC TRAJECTORY</strong> — ${sunGrazing ? `perihelion is <strong>${periAU.toFixed(3)} AU</strong> (inside Mercury's orbit)` : ''}${sunGrazing && absurdDv ? ' and ' : ''}${absurdDv ? `Δv is <strong>${(totalDv/1000).toFixed(0)} km/s</strong>` : ''}.
-        Earth and ${td.body2.name} are not phased for a direct transfer right now.
-        Use <strong>OPT</strong> for the next Hohmann window, or <strong>Find Launch Windows</strong> for a porkchop sweep.
-      </div>` : ''}
       <div class="info-row"><span class="key">Departure</span><span class="val green">${formatDateShort(departDate)}</span></div>
       <div class="info-row"><span class="key">Arrival</span><span class="val amber">${formatDateShort(arriveDate)}</span></div>
       <div class="info-row"><span class="key">Transit duration</span><span class="val highlight">${formatTimePrecise(td.transferTime)}</span></div>
       <div class="info-row"><span class="key">Transit (days)</span><span class="val">${(td.transferTime / DAY).toFixed(1)} days</span></div>
       <div style="height:8px"></div>
-      <div class="info-row"><span class="key">Departure Δv</span><span class="val ${td.dv1_lambert > 15000 ? 'red-val' : 'green'}">${formatVelocity(lambertOk ? td.dv1_lambert : td.dv1)}</span></div>
-      <div class="info-row"><span class="key">Arrival Δv</span><span class="val ${td.dv2_lambert > 15000 ? 'red-val' : 'green'}">${formatVelocity(lambertOk ? td.dv2_lambert : td.dv2)}</span></div>
-      <div class="info-row"><span class="key">Total Δv</span><span class="val ${absurdDv ? 'red-val' : 'amber'}">${formatVelocity(totalDv)}</span></div>
+      <div class="info-row"><span class="key">Departure Δv</span><span class="val green">${formatVelocity(lambertOk ? td.dv1_lambert : td.dv1)}</span></div>
+      <div class="info-row"><span class="key">Arrival Δv</span><span class="val green">${formatVelocity(lambertOk ? td.dv2_lambert : td.dv2)}</span></div>
+      <div class="info-row"><span class="key">Total Δv</span><span class="val amber">${formatVelocity(totalDv)}</span></div>
       ${lambertOk && orbPhys ? `
       <div style="height:8px"></div>
       <div class="info-row"><span class="key">Transfer semi-major</span><span class="val">${formatDist(orbPhys.a)}</span></div>
-      <div class="info-row"><span class="key">Eccentricity</span><span class="val ${orbPhys.e > 0.9 ? 'red-val' : ''}">${orbPhys.e.toFixed(4)}</span></div>
-      <div class="info-row"><span class="key">Perihelion</span><span class="val ${sunGrazing ? 'red-val' : ''}">${periAU.toFixed(3)} AU</span></div>
+      <div class="info-row"><span class="key">Eccentricity</span><span class="val">${orbPhys.e.toFixed(4)}</span></div>
+      <div class="info-row"><span class="key">Perihelion</span><span class="val">${periAU.toFixed(3)} AU</span></div>
       <div class="info-row"><span class="key">Apoapsis</span><span class="val">${apoAU.toFixed(3)} AU</span></div>` : `
       <div style="height:8px"></div>
       <div class="info-row"><span class="key">Transfer semi-major</span><span class="val">${formatDist(td.aT)}</span></div>`}
