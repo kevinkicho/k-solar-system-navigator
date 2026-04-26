@@ -5,6 +5,7 @@ import { state } from '../state.js';
 import { getBodyPosition3D, getBodyVelocity3D, getSunBarycentricOffset } from '../physics/kepler.js';
 import { propagateOrbit } from '../physics/helio.js';
 import { v3dot, v3mag, v3sub } from '../physics/vec3.js';
+import { computeMissionBudget } from '../physics/mission-budget.js';
 import {
   addDateMarker, addFlybyGhost, addFlybyMarker, addLegLine, clearDateMarkers,
   clearMultiLegVisuals, hideArrivalGhost, hideDepartureGhost,
@@ -267,30 +268,39 @@ export function renderRouteUI() {
   const periAU  = orbPhys ? (orbPhys.a * (1 - orbPhys.e)) / AU : null;
   const apoAU   = orbPhys ? (orbPhys.a * (1 + orbPhys.e)) / AU : null;
   const totalDv = lambertOk ? td.dvTotal_lambert : td.dvTotal;
-  // When either endpoint is a moon, the Δv we display is the heliocentric
-  // transfer leg only — escape from the parent planet's gravity well and
-  // capture into the destination's parent are NOT included.  Be honest about
-  // it so a mission designer doesn't take the number as a complete budget.
   const usesMoon = !!(td.body1?.parent || td.body2?.parent);
+  // Patched-conic mission budget — full Δv from low parking orbit at origin
+  // to low parking orbit at destination, including parent-SOI escape/capture
+  // for moon endpoints.  Always displayed when computable; gives users an
+  // honest end-to-end cost.
+  const budget = lambertOk ? computeMissionBudget(td) : null;
 
   const res = document.getElementById('transfer-results');
   res.innerHTML = `
     <div class="transfer-results">
       <div class="result-title">${lambertOk ? 'LAMBERT TRANSFER ORBIT' : 'HOHMANN ESTIMATE (Lambert failed)'}</div>
-      ${usesMoon ? `
-      <div class="route-note">
-        Δv shown is the <strong>heliocentric transfer leg only</strong>.
-        Escape Δv from the parent planet's gravity well (a few km/s for moons
-        like Moon, Europa, Titan) is not included.
-      </div>` : ''}
       <div class="info-row"><span class="key">Departure</span><span class="val green">${formatDateShort(departDate)}</span></div>
       <div class="info-row"><span class="key">Arrival</span><span class="val amber">${formatDateShort(arriveDate)}</span></div>
       <div class="info-row"><span class="key">Transit duration</span><span class="val highlight">${formatTimePrecise(td.transferTime)}</span></div>
       <div class="info-row"><span class="key">Transit (days)</span><span class="val">${(td.transferTime / DAY).toFixed(1)} days</span></div>
       <div style="height:8px"></div>
-      <div class="info-row"><span class="key">Departure Δv</span><span class="val green">${formatVelocity(lambertOk ? td.dv1_lambert : td.dv1)}</span></div>
-      <div class="info-row"><span class="key">Arrival Δv</span><span class="val green">${formatVelocity(lambertOk ? td.dv2_lambert : td.dv2)}</span></div>
-      <div class="info-row"><span class="key">Total Δv</span><span class="val amber">${formatVelocity(totalDv)}</span></div>
+      <div class="info-row"><span class="key">Departure Δv (heliocentric)</span><span class="val green">${formatVelocity(lambertOk ? td.dv1_lambert : td.dv1)}</span></div>
+      <div class="info-row"><span class="key">Arrival Δv (heliocentric)</span><span class="val green">${formatVelocity(lambertOk ? td.dv2_lambert : td.dv2)}</span></div>
+      <div class="info-row"><span class="key">Heliocentric leg total</span><span class="val">${formatVelocity(totalDv)}</span></div>
+      ${budget ? `
+      <div style="height:8px"></div>
+      <div class="result-subtitle">FULL MISSION Δv  (low parking → low parking, ${(budget.parkingAlt_m/1000).toFixed(0)} km)</div>
+      ${budget.departure.phases.map(p =>
+        `<div class="info-row"><span class="key">↗ ${p.label}</span><span class="val">${formatVelocity(p.dv)}</span></div>`
+      ).join('')}
+      <div class="info-row"><span class="key">Departure subtotal</span><span class="val green">${formatVelocity(budget.departure.total)}</span></div>
+      <div style="height:4px"></div>
+      ${budget.arrival.phases.map(p =>
+        `<div class="info-row"><span class="key">↘ ${p.label}</span><span class="val">${formatVelocity(p.dv)}</span></div>`
+      ).join('')}
+      <div class="info-row"><span class="key">Arrival subtotal</span><span class="val amber">${formatVelocity(budget.arrival.total)}</span></div>
+      <div style="height:4px"></div>
+      <div class="info-row"><span class="key"><strong>Mission total Δv</strong></span><span class="val amber"><strong>${formatVelocity(budget.totalMission)}</strong></span></div>` : ''}
       ${lambertOk && orbPhys ? `
       <div style="height:8px"></div>
       <div class="info-row"><span class="key">Transfer semi-major</span><span class="val">${formatDist(orbPhys.a)}</span></div>

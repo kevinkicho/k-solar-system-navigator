@@ -104,6 +104,13 @@ export function solveTransferOrbit(tData) {
     physicsOk = true;
     chosenLongWay = bestP.longWay;
     tData.orbitPhysical = bestP.orb;
+    // Store the raw Lambert velocity vectors (heliocentric, m/s) so the
+    // mission-budget calculator can compute V∞ relative to each SOI parent
+    // (= V_lambert − V_parent_helio).  Required when an endpoint is a moon
+    // and we want the patched-conic full mission Δv (escape + capture)
+    // rather than just the heliocentric leg.
+    tData.v1_lambert = bestP.sol.v1;
+    tData.v2_lambert = bestP.sol.v2;
     tData.dv1_lambert = v3mag(v3sub(bestP.sol.v1, vBody1));
     tData.dv2_lambert = v3mag(v3sub(bestP.sol.v2, vBody2));
     tData.dvTotal_lambert = tData.dv1_lambert + tData.dv2_lambert;

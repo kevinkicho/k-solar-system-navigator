@@ -88,9 +88,11 @@ await page.waitForTimeout(600);
 const resultsText = (await page.locator('#transfer-results').textContent()).trim();
 check('transfer-results populated',    resultsText.length > 50);
 check('results mention Lambert',        /LAMBERT|HOHMANN/i.test(resultsText));
-const dvMatch = resultsText.match(/Total\s*Δv\s*([\d.]+)\s*km\/s/);
+// "Heliocentric leg total" is the post-budget-refactor label; keep
+// matching the older "Total Δv" form too in case anyone reverts.
+const dvMatch = resultsText.match(/(?:Heliocentric leg total|Total\s*Δv)\s*([\d.]+)\s*km\/s/);
 const totalDv = dvMatch ? parseFloat(dvMatch[1]) : NaN;
-check(`Total Δv plausible (3–50 km/s): ${isFinite(totalDv) ? totalDv.toFixed(2) + ' km/s' : 'MISSING'}`,
+check(`Heliocentric leg Δv plausible (3–50 km/s): ${isFinite(totalDv) ? totalDv.toFixed(2) + ' km/s' : 'MISSING'}`,
       isFinite(totalDv) && totalDv > 3 && totalDv < 50);
 
 await page.screenshot({ path: new URL('pw-01-route.png', OUT).pathname });
