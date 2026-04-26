@@ -6,7 +6,8 @@ import { getBodyPosition3D, getBodyVelocity3D, getSunBarycentricOffset } from '.
 import { propagateOrbit } from '../physics/helio.js';
 import { v3dot, v3mag, v3sub } from '../physics/vec3.js';
 import {
-  addFlybyMarker, addLegLine, clearMultiLegVisuals, setTransferLine, transferMarkers,
+  addFlybyMarker, addLegLine, clearMultiLegVisuals, hideArrivalGhost,
+  setArrivalGhost, setTransferLine, transferMarkers,
 } from '../scene/transfer-visual.js';
 import {
   formatDateShort, formatDist, formatTime, formatTimePrecise, formatVelocity, simTimeToDate,
@@ -26,6 +27,7 @@ export function updateTransferOrbitVisual() {
   clearMultiLegVisuals();
   transferMarkers.depart.visible = false;
   transferMarkers.arrive.visible = false;
+  hideArrivalGhost();
   if (!state.showTransferOrbit || !state.transferData) return;
 
   const td = state.transferData;
@@ -72,6 +74,13 @@ export function updateTransferOrbitVisual() {
   transferMarkers.depart.visible = true;
   transferMarkers.arrive.position.set(arr.x + arrOff.x, arr.y + arrOff.y, arr.z + arrOff.z);
   transferMarkers.arrive.visible = true;
+  // Ghost target — a faded planet-sized sphere at "where the destination will
+  // be when the ship arrives." Makes the rendezvous geometry obvious to viewers.
+  setArrivalGhost({
+    x: arr.x + arrOff.x, y: arr.y + arrOff.y, z: arr.z + arrOff.z,
+    radius: td.body2.displayRadius * 1.6,
+    color: parseInt(td.body2.color.replace('#', ''), 16),
+  });
 }
 
 function renderMultiLegVisual() {
@@ -122,6 +131,11 @@ function renderMultiLegVisual() {
     const o = getSunBarycentricOffset(lastLeg.arriveSimTime);
     transferMarkers.arrive.position.set(lastLeg.arr3D.x + o.x, lastLeg.arr3D.y + o.y, lastLeg.arr3D.z + o.z);
     transferMarkers.arrive.visible = true;
+    setArrivalGhost({
+      x: lastLeg.arr3D.x + o.x, y: lastLeg.arr3D.y + o.y, z: lastLeg.arr3D.z + o.z,
+      radius: td.body2.displayRadius * 1.6,
+      color: parseInt(td.body2.color.replace('#', ''), 16),
+    });
   }
 
   for (let i = 1; i < td.waypoints.length - 1; i++) {

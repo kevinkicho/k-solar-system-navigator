@@ -38,3 +38,27 @@ transferMarkers.depart.visible = false;
 transferMarkers.arrive.visible = false;
 scene.add(transferMarkers.depart);
 scene.add(transferMarkers.arrive);
+
+// Ghost mesh at the arrival point — a faded sphere sized to the destination
+// planet, parked at "where the destination WILL BE at arrival time." Makes
+// the trajectory's target visually obvious before launch and during flight,
+// then hides once the mission has arrived (the rendezvous already happened).
+export const arrivalGhost = new THREE.Mesh(
+  new THREE.SphereGeometry(0.04, 24, 24),    // resized per route in setArrivalGhost
+  new THREE.MeshBasicMaterial({
+    color: 0xff9800, transparent: true, opacity: 0.22,
+    depthWrite: false, side: THREE.DoubleSide,
+  }),
+);
+arrivalGhost.visible = false;
+arrivalGhost.renderOrder = 5;   // draw after planets so it shows through
+scene.add(arrivalGhost);
+
+export function setArrivalGhost({ x, y, z, radius, color }) {
+  arrivalGhost.position.set(x, y, z);
+  arrivalGhost.scale.setScalar(Math.max(radius, 0.03) / 0.04);
+  arrivalGhost.material.color.setHex(color);
+  arrivalGhost.visible = true;
+}
+
+export function hideArrivalGhost() { arrivalGhost.visible = false; }

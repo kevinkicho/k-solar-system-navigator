@@ -4,7 +4,7 @@ import { getShipPositionOnTransfer } from './physics/routing.js';
 import {
   addTrailPoint, resetTrail, shipGroup, shipLabelDiv, trailLine,
 } from './scene/ship.js';
-import { flybyMarkers } from './scene/transfer-visual.js';
+import { flybyMarkers, hideArrivalGhost, transferMarkers } from './scene/transfer-visual.js';
 import { formatDateShort, notify, simTimeToDate } from './ui/format.js';
 import { renderRouteUI } from './ui/route-display.js';
 import { timeState } from './ui/time-system.js';
@@ -95,10 +95,20 @@ export function updateMission() {
 
   shipGroup.visible = true;
 
-  if (progress >= 1 && !m.arrived) {
+  // Arrival check: compare simTime directly to arrivalSimTime, not via
+  // `progress >= 1`. The ratio elapsed/transferTime can round to just below
+  // 1 (e.g. 0.9999999999999998) due to IEEE-754 ULP error even when
+  // simTime exactly equals arrivalSimTime — that race causes the arrival
+  // pause to miss its intended frame, and time overshoots.
+  if (timeState.simTime >= m.arrivalSimTime && !m.arrived) {
     m.arrived = true;
     timeState.setSpeed(3);
     notify(`ARRIVED AT ${td.body2.name.toUpperCase()}`);
+    // Hide the rendezvous markers — they were aids for the pre-flight view.
+    // Once arrived, ship & destination coincide, so the markers become
+    // misleading if the user later scrubs time forward.
+    hideArrivalGhost();
+    transferMarkers.arrive.visible = false;
 
     const box = document.getElementById('mission-status-box');
     if (box) {

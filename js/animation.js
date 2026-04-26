@@ -34,7 +34,20 @@ export function animate() {
   }
 
   if (timeState.timeScale !== 0) {
-    timeState.simTime += timeState.timeScale * dt;
+    let newSim = timeState.simTime + timeState.timeScale * dt;
+    // If we'd cross the planned arrival of an active mission this frame,
+    // clamp simTime to *exactly* arrivalSimTime so the rendezvous geometry
+    // matches what Lambert solved for. Without this, fast-forwarding can
+    // carry simTime past arrival before updateMission detects it, leaving
+    // the ship snapped to "destination wherever it is now" instead of
+    // "destination at the planned arrival moment."
+    const m = state.mission;
+    if (m.active && !m.arrived && timeState.timeScale > 0
+        && timeState.simTime < m.arrivalSimTime
+        && newSim >= m.arrivalSimTime) {
+      newSim = m.arrivalSimTime;
+    }
+    timeState.simTime = newSim;
     timeState.updateDisplay();
   }
 
