@@ -36,8 +36,15 @@ export function updateTransferOrbitVisual() {
   const td = state.transferData;
   if (td.isMultiLeg) { renderMultiLegVisual(); return; }
 
-  // Each point on the trajectory occurs at a specific time; apply that moment's
-  // Sun-barycentric offset so the drawn arc meets the wobbled planets at endpoints.
+  // The trajectory is a polyline of *one vertex per day*: vertex N is the
+  // spacecraft's position on day N of the transfer, computed by the same
+  // Kepler propagator the live ship animation uses (propagateOrbit).  So
+  // when the ship animation runs, it really does fly through these exact
+  // dots — they're not a smoothed spline, they're the day-by-day cartesian
+  // coordinates the propagator emits.
+  //
+  // Sun-barycentric wobble is applied per-vertex at that vertex's time, so
+  // the arc meets the wobbled planets at departure and arrival.
   const depT = td.departureSimTime;
   const arrT = td.arrivalSimTime;
   const dep = td.dep3D || getBodyPosition3D(td.body1, depT);
@@ -45,18 +52,32 @@ export function updateTransferOrbitVisual() {
   const depOff = getSunBarycentricOffset(depT);
   const arrOff = getSunBarycentricOffset(arrT);
   const points = [];
-  const N = 200;
+  const transferDays = Math.floor(td.transferTime / DAY);
+  // Cap-and-stride: for very long transfers (Saturn, Neptune) we'd have
+  // thousands of vertices.  At >3000d, switch to one-per-2-days etc., but
+  // always keep the FIRST and LAST samples at exactly t=0 and t=transferTime.
+  const stride = Math.max(1, Math.ceil(transferDays / 3000));
   if (td.orbit) {
-    for (let i = 0; i <= N; i++) {
-      const dt = (i / N) * td.transferTime;
+    // Integer-day samples first.
+    for (let day = 0; day <= transferDays; day += stride) {
+      const dt = day * DAY;
       const pos_m = propagateOrbit(td.orbit, dt);
       const off = getSunBarycentricOffset(depT + dt);
       points.push(new THREE.Vector3(
         pos_m[0] / AU + off.x, pos_m[1] / AU + off.y, pos_m[2] / AU + off.z));
     }
+    // Plus the exact arrival point — transferTime usually isn't an integer
+    // number of days, so the last integer-day sample falls a few hours short.
+    const pos_m = propagateOrbit(td.orbit, td.transferTime);
+    points.push(new THREE.Vector3(
+      pos_m[0] / AU + arrOff.x, pos_m[1] / AU + arrOff.y, pos_m[2] / AU + arrOff.z));
   } else {
-    for (let i = 0; i <= N; i++) {
-      const t = i / N;
+    // Lambert failed — fall back to cosine interpolation just so the line
+    // doesn't disappear; the user has already been notified that the
+    // trajectory is unreliable in this case.
+    const NF = 200;
+    for (let i = 0; i <= NF; i++) {
+      const t = i / NF;
       const blend = 0.5 - 0.5 * Math.cos(PI * t);
       const off = getSunBarycentricOffset(depT + t * td.transferTime);
       points.push(new THREE.Vector3(
@@ -125,22 +146,30 @@ function addDateMarkersAlongOrbit(orbit, departSimTime, transferTime, color) {
 
 function renderMultiLegVisual() {
   const td = state.transferData;
-  const N = 160;
   for (let li = 0; li < td.legs.length; li++) {
     const leg = td.legs[li];
     if (!leg.ok) continue;
+    // Same per-day vertex strategy as single-leg: each vertex is the
+    // spacecraft's actual cartesian position on that day of the leg, plus
+    // an exact arrival vertex at leg.tof.
+    const legDays = Math.floor(leg.tof / DAY);
+    const stride = Math.max(1, Math.ceil(legDays / 3000));
     const pts = [];
     if (leg.orbit) {
-      for (let i = 0; i <= N; i++) {
-        const dt = (i / N) * leg.tof;
+      for (let day = 0; day <= legDays; day += stride) {
+        const dt = day * DAY;
         const pm = propagateOrbit(leg.orbit, dt);
         const off = getSunBarycentricOffset(leg.departSimTime + dt);
         pts.push(new THREE.Vector3(pm[0]/AU + off.x, pm[1]/AU + off.y, pm[2]/AU + off.z));
       }
+      const pm = propagateOrbit(leg.orbit, leg.tof);
+      const off = getSunBarycentricOffset(leg.arriveSimTime);
+      pts.push(new THREE.Vector3(pm[0]/AU + off.x, pm[1]/AU + off.y, pm[2]/AU + off.z));
     } else {
       const a = leg.dep3D, b = leg.arr3D;
-      for (let i = 0; i <= N; i++) {
-        const t = i / N;
+      const NF = 160;
+      for (let i = 0; i <= NF; i++) {
+        const t = i / NF;
         const blend = 0.5 - 0.5 * Math.cos(PI * t);
         const off = getSunBarycentricOffset(leg.departSimTime + t * leg.tof);
         pts.push(new THREE.Vector3(
