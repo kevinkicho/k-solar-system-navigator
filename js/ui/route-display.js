@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { VEHICLE_SPECS, reservedDeltaV, starshipDeltaV, superHeavyDeltaV, totalMissionDeltaV, transferDeltaV } from '../../trajectory-calculator.js';
 import { AU, DAY, DEG, LEG_COLORS, PI } from '../constants.js';
 import { state } from '../state.js';
-import { getBodyPosition3D, getSunBarycentricOffset } from '../physics/kepler.js';
+import { getBodyPosition3D, getBodyVelocity3D, getSunBarycentricOffset } from '../physics/kepler.js';
 import { propagateOrbit } from '../physics/helio.js';
+import { v3dot, v3mag, v3sub } from '../physics/vec3.js';
 import {
   addFlybyMarker, addLegLine, clearMultiLegVisuals, setTransferLine, transferMarkers,
 } from '../scene/transfer-visual.js';
@@ -184,6 +185,7 @@ export function renderRouteUI() {
   mc.innerHTML = `
     <button class="route-btn launch" id="btn-launch">Launch Mission</button>
     <button class="route-btn" id="btn-goto-depart" style="font-size:9px;padding:7px;margin-top:4px;">Jump to Departure Date</button>
+    <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
   `;
   document.getElementById('btn-launch').onclick = () => _launchMission && _launchMission();
   document.getElementById('btn-goto-depart').onclick = () => {
@@ -192,6 +194,7 @@ export function renderRouteUI() {
     timeState.updateDisplay();
     import('./format.js').then(({ notify }) => notify('JUMPED TO DEPARTURE DATE'));
   };
+  document.getElementById('btn-export-plan').onclick = () => exportMissionPlan(td);
 }
 
 function renderMultiLegRouteUI() {
@@ -250,9 +253,11 @@ function renderMultiLegRouteUI() {
   mc.innerHTML = td.allLegsOk ? `
     <button class="route-btn launch" id="btn-launch">Launch Mission</button>
     <button class="route-btn" id="btn-goto-depart" style="font-size:9px;padding:7px;margin-top:4px;">Jump to Departure Date</button>
+    <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
   ` : `
     <div class="info-row"><span class="key" style="color:var(--red)">Some legs failed Lambert</span><span class="val">Fix dates to launch</span></div>
     <button class="route-btn" id="btn-goto-depart" style="font-size:10px;padding:8px;">Jump to Departure Date</button>
+    <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
   `;
   if (td.allLegsOk) {
     document.getElementById('btn-launch').onclick = () => _launchMission && _launchMission();
@@ -263,10 +268,154 @@ function renderMultiLegRouteUI() {
     timeState.updateDisplay();
     import('./format.js').then(({ notify }) => notify('JUMPED TO DEPARTURE DATE'));
   };
+  document.getElementById('btn-export-plan').onclick = () => exportMissionPlan(td);
 }
 
 // `_abortMission` referenced just to silence unused-var; consumed elsewhere via DI.
 export function _attachAbortHandlerTo(buttonId) {
   const btn = document.getElementById(buttonId);
   if (btn && _abortMission) btn.onclick = _abortMission;
+}
+
+// ---- Mission plan JSON export ----
+//
+// Builds a structured object describing the entire trajectory plan, then
+// triggers a download. Format is intended for downstream tooling — every
+// vector is in m/s or m, every epoch is ISO-8601 UTC, every angle is degrees.
+function exportMissionPlan(td) {
+  const plan = buildPlanObject(td);
+  const json = JSON.stringify(plan, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `helios-mission-${td.body1.name}-to-${td.body2.name}-${plan.summary.departure_utc.slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  import('./format.js').then(({ notify }) => notify('MISSION PLAN EXPORTED'));
+}
+
+function buildPlanObject(td) {
+  const isMulti = !!td.isMultiLeg;
+  const totalDv = isMulti ? td.dvTotalMultiLeg
+                          : (td.lambertOk ? td.dvTotal_lambert : td.dvTotal);
+  const feasible = transferDeltaV() >= totalDv;
+  const isoUTC = (simT) => new Date(simT * 1000 + Date.UTC(2000, 0, 1, 12, 0, 0)).toISOString();
+
+  const plan = {
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    frame: 'Heliocentric Ecliptic J2000',
+    units: { distance: 'm', velocity: 'm/s', angle: 'deg', time: 'ISO-8601 UTC' },
+    summary: {
+      origin: td.body1.name,
+      destination: td.body2.name,
+      departure_utc: isoUTC(td.departureSimTime),
+      arrival_utc:   isoUTC(td.arrivalSimTime),
+      transit_days:  td.transferTime / DAY,
+      total_dv_m_s:  totalDv,
+      multi_leg:     isMulti,
+      n_flybys:      isMulti ? td.flybys.length : 0,
+    },
+    feasibility: {
+      vehicle: VEHICLE_SPECS.combined.name,
+      transfer_dv_budget_m_s: transferDeltaV(),
+      total_stack_dv_m_s: totalMissionDeltaV(),
+      reserved_dv_m_s: reservedDeltaV(),
+      feasible,
+    },
+  };
+
+  if (!isMulti) {
+    plan.maneuvers = [
+      buildSingleLegManeuvers(td),
+    ].flat();
+    if (td.orbitPhysical) plan.transfer_orbit = serializeOrbit(td.orbitPhysical);
+  } else {
+    plan.legs = td.legs.map((L, i) => ({
+      index: i,
+      from: L.from,
+      to:   L.to,
+      depart_utc: isoUTC(L.departSimTime),
+      arrive_utc: isoUTC(L.arriveSimTime),
+      tof_days: L.tof / DAY,
+      v1_m_s: L.v1, v2_m_s: L.v2,
+      transfer_orbit: L.orbitPhysical ? serializeOrbit(L.orbitPhysical) : null,
+      lambert_ok: L.ok,
+    }));
+    plan.maneuvers = td.maneuvers.map(m => {
+      const base = { type: m.type, body: m.body, epoch_utc: isoUTC(m.simTime), dv_m_s: m.dv };
+      if (m.type === 'flyby' && m.info) {
+        base.flyby = {
+          v_inf_in_m_s:   m.info.vInfInMag,
+          v_inf_out_m_s:  m.info.vInfOutMag,
+          turning_angle_deg: m.info.turningAngle / DEG,
+          max_turning_deg:   m.info.maxTurningAngle / DEG,
+          periapsis_required_m: m.info.rPeriapsis,
+          periapsis_min_m:      m.info.minR,
+          achievable: m.info.achievable,
+        };
+      }
+      return base;
+    });
+  }
+
+  return plan;
+}
+
+function buildSingleLegManeuvers(td) {
+  if (!td.lambertOk || !td.orbitPhysical) {
+    // Lambert failed — fall back to coarse Hohmann numbers.
+    return [
+      { type: 'depart', body: td.body1.name, epoch_utc: new Date(td.departureSimTime*1000 + Date.UTC(2000,0,1,12)).toISOString(), dv_m_s: td.dv1 },
+      { type: 'arrive', body: td.body2.name, epoch_utc: new Date(td.arrivalSimTime*1000 + Date.UTC(2000,0,1,12)).toISOString(), dv_m_s: td.dv2 },
+    ];
+  }
+  // Compute V∞ at departure & arrival from the Lambert solution.
+  const depP = getBodyPosition3D(td.body1, td.departureSimTime, false);
+  const arrP = getBodyPosition3D(td.body2, td.arrivalSimTime, false);
+  const vBody1 = getBodyVelocity3D(td.body1, td.departureSimTime, false);
+  const vBody2 = getBodyVelocity3D(td.body2, td.arrivalSimTime, false);
+  const r1m = [depP.x*AU, depP.y*AU, depP.z*AU];
+  // Re-derive v1 from the orbit's M0 (orbit was built from r1, v1 originally).
+  // Easier: use the fact that orbit propagated 0s gives r1, and (orb.p_hat, orb.q_hat, orb.M0, orb.n)
+  // implicitly defines v1; we can recover it by infinitesimal propagation.
+  const r1 = propagateOrbit(td.orbitPhysical, 0);
+  const r2 = propagateOrbit(td.orbitPhysical, td.transferTime);
+  const dt = 60;
+  const r1plus  = propagateOrbit(td.orbitPhysical, dt);
+  const r2minus = propagateOrbit(td.orbitPhysical, td.transferTime - dt);
+  const v1 = [(r1plus[0]-r1[0])/dt, (r1plus[1]-r1[1])/dt, (r1plus[2]-r1[2])/dt];
+  const v2 = [(r2[0]-r2minus[0])/dt, (r2[1]-r2minus[1])/dt, (r2[2]-r2minus[2])/dt];
+  const vInfDep = v3sub(v1, vBody1);
+  const vInfArr = v3sub(v2, vBody2);
+  const c3 = v3dot(vInfDep, vInfDep);
+
+  const isoUTC = (simT) => new Date(simT * 1000 + Date.UTC(2000, 0, 1, 12, 0, 0)).toISOString();
+  return [
+    {
+      type: 'depart', body: td.body1.name,
+      epoch_utc: isoUTC(td.departureSimTime),
+      dv_m_s: td.dv1_lambert,
+      v_inf_m_s: vInfDep, c3_m2_s2: c3,
+    },
+    {
+      type: 'arrive', body: td.body2.name,
+      epoch_utc: isoUTC(td.arrivalSimTime),
+      dv_m_s: td.dv2_lambert,
+      v_inf_m_s: vInfArr,
+    },
+  ];
+}
+
+function serializeOrbit(o) {
+  return {
+    semi_major_axis_m: o.a,
+    eccentricity: o.e,
+    semi_latus_rectum_m: o.p,
+    p_hat: o.p_hat, q_hat: o.q_hat, w_hat: o.w_hat,
+    M0_rad: o.M0, mean_motion_rad_s: o.n,
+  };
 }

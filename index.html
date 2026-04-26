@@ -58,7 +58,72 @@ html, body {
 #top-bar .logo span { color: var(--text-dim); font-weight: 400; font-size: 11px; letter-spacing: 3px; margin-left: 12px; }
 #top-bar .center-info { font-family: var(--font-mono); font-size: 13px; display: flex; gap: 30px; align-items: center; }
 #top-bar .center-info .label { color: var(--text-dim); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-right: 6px; }
-#top-bar .right-info { font-size: 11px; color: var(--text-dim); display: flex; gap: 20px; }
+#top-bar .right-info { font-size: 11px; color: var(--text-dim); display: flex; gap: 16px; align-items: center; }
+.frame-badge {
+  font-family: var(--font-display); font-size: 10px; font-weight: 700;
+  letter-spacing: 1.5px; color: var(--cyan); text-transform: uppercase;
+}
+#btn-about {
+  font-family: var(--font-display); font-size: 9px; font-weight: 700;
+  letter-spacing: 1.5px; color: var(--text-dim);
+  background: rgba(0,0,0,0.25); border: 1px solid var(--border);
+  padding: 4px 9px; border-radius: 3px; cursor: pointer; transition: all 0.15s;
+}
+#btn-about:hover { color: var(--cyan); border-color: var(--cyan); background: rgba(0,212,255,0.08); }
+
+/* About / methodology modal */
+#about-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 200; background: rgba(4,8,16,0.8); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+#about-overlay.visible { display: flex; animation: fadeIn 0.2s ease-out; }
+#about-modal {
+  width: 720px; max-width: 92vw; max-height: 88vh; overflow-y: auto;
+  background: var(--bg-panel); border: 1px solid var(--cyan);
+  border-radius: 6px; padding: 24px 30px;
+  box-shadow: 0 0 60px rgba(0,212,255,0.18), 0 8px 32px rgba(0,0,0,0.7);
+  font-family: var(--font-mono); color: var(--text); font-size: 12px; line-height: 1.55;
+}
+#about-modal::-webkit-scrollbar { width: 4px; }
+#about-modal::-webkit-scrollbar-thumb { background: var(--cyan-dim); border-radius: 4px; }
+#about-modal h2 {
+  font-family: var(--font-display); font-size: 14px; font-weight: 900;
+  letter-spacing: 4px; color: var(--cyan); margin-bottom: 4px; text-transform: uppercase;
+}
+#about-modal h2 .sub {
+  font-family: var(--font-mono); font-weight: 400; font-size: 10px;
+  color: var(--text-dim); letter-spacing: 1px; text-transform: none;
+  display: block; margin-top: 2px;
+}
+#about-modal h3 {
+  font-family: var(--font-display); font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; color: var(--amber); margin: 18px 0 8px;
+  text-transform: uppercase; padding-bottom: 4px; border-bottom: 1px solid var(--border);
+}
+#about-modal p { margin: 6px 0; color: var(--text); }
+#about-modal code {
+  font-family: var(--font-mono); font-size: 11px; color: var(--cyan);
+  background: rgba(0,212,255,0.08); padding: 1px 5px; border-radius: 2px;
+}
+#about-modal table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11px; }
+#about-modal td { padding: 4px 8px; border-bottom: 1px solid rgba(0,160,220,0.08); }
+#about-modal td:first-child { color: var(--text-dim); width: 38%; }
+#about-modal td:last-child  { color: var(--text); }
+#about-modal .pill {
+  display: inline-block; padding: 2px 8px; margin-right: 6px;
+  font-family: var(--font-display); font-size: 9px; letter-spacing: 1.5px;
+  color: var(--green); background: rgba(0,230,118,0.08);
+  border: 1px solid rgba(0,230,118,0.3); border-radius: 3px;
+}
+#about-modal .pill.amber { color: var(--amber); background: rgba(255,152,0,0.08); border-color: rgba(255,152,0,0.3); }
+#about-modal .close-row { display: flex; justify-content: flex-end; margin-top: 18px; }
+#about-modal .close-btn {
+  padding: 7px 18px; font-family: var(--font-display); font-size: 10px; font-weight: 700;
+  letter-spacing: 2px; color: var(--cyan); background: rgba(0,212,255,0.08);
+  border: 1px solid var(--cyan); border-radius: 3px; cursor: pointer; transition: all 0.15s;
+}
+#about-modal .close-btn:hover { background: rgba(0,212,255,0.18); }
 
 /* PANELS */
 .panel {
@@ -153,6 +218,28 @@ html, body {
 
 .route-section { padding: 12px 16px; }
 .route-section h3 { font-family: var(--font-display); font-size: 9px; font-weight: 700; letter-spacing: 2px; color: var(--amber); margin-bottom: 10px; text-transform: uppercase; }
+.scenario-row { margin-bottom: 10px; }
+#scenario-select {
+  width: 100%; padding: 7px 10px;
+  font-family: var(--font-display); font-size: 10px; letter-spacing: 1px;
+  color: var(--cyan); background: rgba(0,212,255,0.04);
+  border: 1px solid var(--border); border-radius: 3px;
+  outline: none; cursor: pointer; transition: border-color 0.15s;
+  appearance: none; -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--cyan) 50%),
+                    linear-gradient(135deg, var(--cyan) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 26px;
+}
+#scenario-select:hover { border-color: var(--cyan); }
+#scenario-select:focus { border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,212,255,0.15); }
+#scenario-select option { background: var(--bg-deep); color: var(--text); }
+#scenario-summary {
+  font-size: 10px; color: var(--text-dim); margin-top: 4px;
+  font-style: italic; min-height: 14px;
+}
 .route-slot {
   display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 6px;
   background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 4px;
@@ -362,7 +449,25 @@ html, body {
 }
 #porkchop-overlay .pc-route {
   font-family: var(--font-display); font-size: 10px; color: var(--text-dim);
-  letter-spacing: 2px; margin-bottom: 12px; text-align: center;
+  letter-spacing: 2px; margin-bottom: 8px; text-align: center;
+}
+#porkchop-overlay .pc-metric-row {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 0 10px 44px;
+}
+#porkchop-overlay .pc-metric-label {
+  font-size: 9px; color: var(--text-dim); letter-spacing: 1px;
+  font-family: var(--font-display); margin-right: 4px;
+}
+#porkchop-overlay .pc-metric-btn {
+  padding: 4px 10px; font-family: var(--font-display); font-size: 9px;
+  font-weight: 700; letter-spacing: 1px; color: var(--text-dim);
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+  border-radius: 3px; cursor: pointer; transition: all 0.15s;
+}
+#porkchop-overlay .pc-metric-btn:hover { color: var(--text); border-color: var(--text-dim); }
+#porkchop-overlay .pc-metric-btn.active {
+  color: var(--amber); border-color: var(--amber); background: rgba(255,152,0,0.1);
 }
 #porkchop-canvas {
   display: block; background: #000;
@@ -394,7 +499,7 @@ html, body {
 }
 #porkchop-overlay .pc-info {
   margin-top: 10px; font-size: 10px; color: var(--text-dim);
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;
 }
 #porkchop-overlay .pc-info div { border-left: 2px solid var(--border); padding-left: 8px; }
 #porkchop-overlay .pc-info .val { color: var(--text); font-size: 12px; display: block; margin-top: 2px; }
@@ -498,10 +603,12 @@ input[type="range"]::-webkit-slider-thumb {
   <div class="center-info">
     <div><span class="label">Date</span><span id="sim-date">2026-04-14</span></div>
     <div><span class="label">MJD</span><span id="sim-mjd">60780</span></div>
+    <div><span class="label">Frame</span><span class="frame-badge">J2000 · ECLIPTIC</span></div>
   </div>
   <div class="right-info">
     <span id="fps-display">60 FPS</span>
     <span id="cursor-coords">0, 0</span>
+    <button id="btn-about" title="About the physics & methodology">ⓘ ABOUT</button>
   </div>
 </div>
 
@@ -528,6 +635,12 @@ input[type="range"]::-webkit-slider-thumb {
   </div>
   <div class="route-section">
     <h3>Route Planner</h3>
+    <div class="scenario-row">
+      <select id="scenario-select" title="Load a pre-baked mission profile">
+        <option value="">Load scenario…</option>
+      </select>
+      <div id="scenario-summary"></div>
+    </div>
     <div class="route-slot origin" id="route-origin">
       <span class="slot-label">Origin</span>
       <span class="slot-value empty" id="origin-name">Drag or right-click</span>
@@ -602,6 +715,12 @@ input[type="range"]::-webkit-slider-thumb {
 <div id="porkchop-overlay">
   <div class="pc-title">LAUNCH WINDOW SEARCH</div>
   <div class="pc-route" id="pc-route-label">&mdash;</div>
+  <div class="pc-metric-row">
+    <span class="pc-metric-label">Color by:</span>
+    <button class="pc-metric-btn active" data-metric="dv" title="Total Δv (departure + arrival)">Δv TOTAL</button>
+    <button class="pc-metric-btn" data-metric="c3" title="C3 = |V∞|² at departure — what launchers spec">C3 (DEPART)</button>
+    <button class="pc-metric-btn" data-metric="vinf" title="V∞ magnitude at arrival — drives orbit-insertion Δv">V∞ ARRIVE</button>
+  </div>
   <div class="pc-canvas-wrap">
     <div class="pc-ylabel">TRANSIT DURATION (days)</div>
     <div class="pc-yaxis" id="pc-yaxis"></div>
@@ -614,6 +733,8 @@ input[type="range"]::-webkit-slider-thumb {
     <div><span class="key">TRANSIT</span><span class="val" id="pc-transit">&mdash;</span></div>
     <div><span class="key">ARRIVE</span><span class="val" id="pc-arrive">&mdash;</span></div>
     <div><span class="key">TOTAL &Delta;V</span><span class="val" id="pc-dv">&mdash;</span></div>
+    <div><span class="key">C3 (DEPART)</span><span class="val" id="pc-c3">&mdash;</span></div>
+    <div><span class="key">V&infin; ARRIVE</span><span class="val" id="pc-vinf">&mdash;</span></div>
   </div>
   <div class="pc-legend">
     <span id="pc-scale-min">&mdash;</span>
@@ -640,6 +761,63 @@ input[type="range"]::-webkit-slider-thumb {
 <div id="tooltip"></div>
 <div id="help-hint">SCROLL to zoom &middot; DRAG to orbit &middot; RIGHT-DRAG to pan &middot; CLICK to select &middot; RIGHT-CLICK to set route</div>
 <div id="notification"></div>
+
+<div id="about-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title">
+  <div id="about-modal">
+    <h2 id="about-title">HELIOS<span class="sub">Solar System Navigator — physics & methodology</span></h2>
+
+    <p>HELIOS is a physics-accurate interplanetary mission planner. Trajectories are computed against real Keplerian dynamics; the displayed Δv numbers are what an actual spacecraft would need.</p>
+
+    <h3>Frame & ephemeris</h3>
+    <table>
+      <tr><td>Reference frame</td><td>Heliocentric Ecliptic, J2000 (ICRF-aligned)</td></tr>
+      <tr><td>Planet positions</td><td>JPL "Approximate Positions of Major Planets" 1800–2050 — J2000 elements + per-Julian-century rates + great-inequality corrections (b·T² + c·cos(fT) + s·sin(fT) on L) for Jupiter–Neptune</td></tr>
+      <tr><td>Validated accuracy</td><td>Earth at J2000: <code>&lt;5,000 km</code> vs JPL DE; Mars opposition longitudes: <code>0.01°</code>; Earth annual periodicity: <code>305 km</code></td></tr>
+      <tr><td>Spacecraft</td><td>Voyager 1/2, Pioneer 10/11, New Horizons — heliocentric 2-body Kepler propagation from J2000 state vectors</td></tr>
+    </table>
+
+    <h3>Trajectory solver</h3>
+    <table>
+      <tr><td>Method</td><td>Lambert's problem via universal-variable formulation</td></tr>
+      <tr><td>Root finding</td><td>Bracketed bisection on F(z) — convergence-safe across the full single-revolution regime</td></tr>
+      <tr><td>Branch selection</td><td>Both short-arc and long-arc evaluated; cheaper Δv kept</td></tr>
+      <tr><td>Validation</td><td>Every solution propagated back to target; rejected if miss &gt; 1,000 km</td></tr>
+      <tr><td>Multi-leg routes</td><td>Lambert per leg; patched-conic gravity assist between legs</td></tr>
+    </table>
+
+    <h3>Gravity assist (patched-conic)</h3>
+    <p>At each flyby the spacecraft's V<sub>∞</sub> turning angle is checked against the maximum achievable at minimum-safe periapsis (planet radius × 1.1):</p>
+    <p><code>e = 1 + r_p · V∞² / μ_planet</code> &nbsp; · &nbsp; <code>δ_max = 2·asin(1/e_min)</code></p>
+    <p>Infeasible swingbys are flagged <span class="pill amber">TOO SHARP</span> with the required-vs-minimum periapsis shown.</p>
+
+    <h3>Vehicle model</h3>
+    <p>Default stack: SpaceX Super Heavy + fully-fueled Starship as payload. Starship's full propellant load is <em>reserved for final-mile ops</em> (rendezvous, landing, plane changes); the interplanetary transfer Δv budget is <strong>Super Heavy alone</strong>. This makes mission feasibility honest: if a route exceeds Super Heavy's lift, it shows <span class="pill" style="color:var(--red);background:rgba(255,45,85,0.08);border-color:rgba(255,45,85,0.3)">NOT FEASIBLE</span>.</p>
+
+    <h3>Known limitations</h3>
+    <p>· 2-body Kepler propagation (no Jupiter/Saturn perturbations on the transfer orbit). Lambert solutions close to &lt;2 km in 2-body; under full N-body the actual miss could be tens of km. A Lambert+N-body shooter is the next planned upgrade.</p>
+    <p>· Single-revolution Lambert. Type-II (long-period) and multi-revolution solutions are in scope as a future enhancement.</p>
+    <p>· Visual inclinations are exaggerated 8× for legibility. <strong>All physics computations use real inclinations.</strong></p>
+
+    <h3>Validation suites</h3>
+    <p>The <code>tests/</code> directory exercises every claim in this panel:</p>
+    <table>
+      <tr><td><code>trip_planning_test.mjs</code></td><td>Hohmann + Lambert vs textbook references</td></tr>
+      <tr><td><code>verify_fix.mjs</code></td><td>Lambert convergence sweep, 36 dates × 19 routes</td></tr>
+      <tr><td><code>spacecraft_check.mjs</code></td><td>Voyager/Pioneer distances vs JPL Horizons</td></tr>
+      <tr><td><code>ephemeris_check.mjs</code></td><td>Element-rate model vs JPL DE reference</td></tr>
+      <tr><td><code>gravity_assist_sim.mjs</code></td><td>Multi-leg VEEGA-style routes</td></tr>
+      <tr><td><code>module_integration.mjs</code></td><td>Module wiring + perf budgets (≥10k Lambert solves/s)</td></tr>
+      <tr><td>3 Playwright suites</td><td>149 UI/scene checks against a live browser</td></tr>
+    </table>
+
+    <h3>Credits</h3>
+    <p>Stars: <a href="https://github.com/astronexus/HYG-Database" target="_blank" style="color:var(--cyan)">HYG v4.2</a> (~119,600 stars). Planet textures: <a href="https://github.com/jeromeetienne/threex.planets" target="_blank" style="color:var(--cyan)">threex.planets</a> (NASA public domain). Ephemeris constants: JPL Solar System Dynamics. Built with Three.js r0.164. Open source — <a href="https://github.com/kevinkicho/k-solar-system-navigator" target="_blank" style="color:var(--cyan)">github.com/kevinkicho/k-solar-system-navigator</a>.</p>
+
+    <div class="close-row">
+      <button class="close-btn" id="about-close">CLOSE</button>
+    </div>
+  </div>
+</div>
 
 <script type="importmap">
 {

@@ -4,6 +4,7 @@ import { state } from '../state.js';
 import { getBodyPosition3D, getBodyVelocity3D, hohmannTransfer } from '../physics/kepler.js';
 import { solveLambertBestBranch } from '../physics/lambert.js';
 import { solveTransferOrbit } from '../physics/routing.js';
+import { v3dot, v3mag, v3sub } from '../physics/vec3.js';
 import { dateToInputValue, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
 import { timeState } from './time-system.js';
@@ -23,6 +24,8 @@ export function wirePorkchop() {
 
   let pcState = null;
   let running = false;
+  // Active heatmap metric: 'dv' (total Δv), 'c3' (departure energy), or 'vinf' (arrival V∞).
+  let metric = 'dv';
 
   function dvColor(t) {
     t = Math.max(0, Math.min(1, t));
@@ -68,24 +71,55 @@ export function wirePorkchop() {
     ctx.stroke();
   }
 
+  // Pull the storage array + min/max for the currently-active metric.
+  function activeArray() {
+    if (!pcState) return null;
+    if (metric === 'c3')   return { arr: pcState.c3,   lo: pcState.c3Min,   hi: pcState.c3Max };
+    if (metric === 'vinf') return { arr: pcState.vinf, lo: pcState.vinfMin, hi: pcState.vinfMax };
+    return                       { arr: pcState.data, lo: pcState.dvMin,   hi: pcState.dvMax };
+  }
+
   function repaintAll() {
     ctx.fillStyle = '#050810';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     if (!pcState) return;
-    const { data, dvMin, dvMax } = pcState;
-    for (let iy = 0; iy < GRID_Y; iy++) {
-      for (let ix = 0; ix < GRID_X; ix++) {
-        const dv = data[iy * GRID_X + ix];
-        if (!isFinite(dv)) {
-          paintCell(ix, iy, 'rgba(30,30,36,0.6)');
-        } else {
-          const [r,g,b] = dvColor((dv - dvMin) / (dvMax - dvMin));
-          paintCell(ix, iy, `rgb(${r},${g},${b})`);
+    const a = activeArray();
+    if (!a || !isFinite(a.lo) || !isFinite(a.hi) || a.hi === a.lo) {
+      // No data yet (pre-sweep) — fill empty cells with the placeholder color.
+      for (let iy = 0; iy < GRID_Y; iy++) for (let ix = 0; ix < GRID_X; ix++) {
+        paintCell(ix, iy, 'rgba(30,30,36,0.6)');
+      }
+    } else {
+      for (let iy = 0; iy < GRID_Y; iy++) {
+        for (let ix = 0; ix < GRID_X; ix++) {
+          const v = a.arr[iy * GRID_X + ix];
+          if (!isFinite(v)) {
+            paintCell(ix, iy, 'rgba(30,30,36,0.6)');
+          } else {
+            const [r,g,b] = dvColor((v - a.lo) / (a.hi - a.lo));
+            paintCell(ix, iy, `rgb(${r},${g},${b})`);
+          }
         }
       }
     }
+    // Global minimum is always taken from total-Δv (the "USE SELECTED" target).
     if (pcState.minCell) drawCross(pcState.minCell.ix, pcState.minCell.iy, '#ffffff', 10);
     if (pcState.selectedCell) drawCross(pcState.selectedCell.ix, pcState.selectedCell.iy, '#00d4ff', 12);
+  }
+
+  function updateLegend() {
+    const a = activeArray();
+    if (!a || !isFinite(a.lo)) {
+      document.getElementById('pc-scale-min').textContent = '—';
+      document.getElementById('pc-scale-max').textContent = '—';
+      return;
+    }
+    const fmtMetric = (v) => {
+      if (metric === 'c3')   return (v / 1e6).toFixed(1) + ' km²/s²';   // C3 in km²/s²
+      return (v / 1000).toFixed(1) + ' km/s';                            // dv & vinf
+    };
+    document.getElementById('pc-scale-min').textContent = fmtMetric(a.lo);
+    document.getElementById('pc-scale-max').textContent = '≥ ' + fmtMetric(a.hi);
   }
 
   function renderAxes(st) {
@@ -123,10 +157,15 @@ export function wirePorkchop() {
     const tofMin = Math.max(10 * DAY, 0.35 * hohmannTof);
     const tofMax = 2.2 * hohmannTof;
     const data = new Float64Array(GRID_X * GRID_Y);
+    const c3   = new Float64Array(GRID_X * GRID_Y);
+    const vinf = new Float64Array(GRID_X * GRID_Y);
 
     pcState = {
       body1, body2, departStart, departEnd, tofMin, tofMax,
-      data, dvMin: Infinity, dvMax: -Infinity,
+      data, c3, vinf,
+      dvMin:   Infinity, dvMax:   -Infinity,
+      c3Min:   Infinity, c3Max:   -Infinity,
+      vinfMin: Infinity, vinfMax: -Infinity,
       hohmannTof, minCell: null, selectedCell: null,
     };
     renderAxes(pcState);
@@ -138,10 +177,14 @@ export function wirePorkchop() {
     document.getElementById('pc-transit').textContent = '—';
     document.getElementById('pc-arrive').textContent = '—';
     document.getElementById('pc-dv').textContent = '—';
+    document.getElementById('pc-c3').textContent = '—';
+    document.getElementById('pc-vinf').textContent = '—';
 
     running = true;
     let iy = 0, ix = 0;
     let minDv = Infinity, minIdx = null, maxDv = -Infinity;
+    let minC3 = Infinity, maxC3 = -Infinity;
+    let minVI = Infinity, maxVI = -Infinity;
     function step() {
       if (!running) return;
       const endTime = performance.now() + 14;
@@ -155,25 +198,36 @@ export function wirePorkchop() {
         const vb1 = getBodyVelocity3D(body1, dep, false);
         const vb2 = getBodyVelocity3D(body2, dep + tof, false);
         const best = solveLambertBestBranch(r1v, r2v, tof, mu, vb1, vb2);
-        let dv = NaN;
+        let dv = NaN, c3v = NaN, viArr = NaN;
         if (best) {
           dv = best.cost;
+          // Hyperbolic excess at departure / arrival.
+          const vInfDep = v3sub(best.sol.v1, vb1);
+          const vInfArr = v3sub(best.sol.v2, vb2);
+          c3v   = v3dot(vInfDep, vInfDep);   // m²/s²
+          viArr = v3mag(vInfArr);             // m/s
           if (dv < minDv) { minDv = dv; minIdx = { ix, iy }; }
           if (dv > maxDv) maxDv = dv;
+          if (c3v < minC3) minC3 = c3v;
+          if (c3v > maxC3) maxC3 = c3v;
+          if (viArr < minVI) minVI = viArr;
+          if (viArr > maxVI) maxVI = viArr;
         }
         data[iy * GRID_X + ix] = dv;
+        c3[iy   * GRID_X + ix] = c3v;
+        vinf[iy * GRID_X + ix] = viArr;
         ix++;
         if (ix >= GRID_X) { ix = 0; iy++; }
       }
       if (minDv < Infinity) {
-        pcState.dvMin = minDv;
-        pcState.dvMax = Math.min(maxDv, 3 * minDv);
+        pcState.dvMin = minDv;     pcState.dvMax = Math.min(maxDv, 3 * minDv);
+        pcState.c3Min = minC3;     pcState.c3Max = Math.min(maxC3, 3 * minC3);
+        pcState.vinfMin = minVI;   pcState.vinfMax = Math.min(maxVI, 3 * minVI);
       }
       pcState.minCell = minIdx;
       repaintAll();
+      updateLegend();
       progressFill.style.width = (100 * iy / GRID_Y).toFixed(1) + '%';
-      document.getElementById('pc-scale-min').textContent = isFinite(pcState.dvMin) ? (pcState.dvMin/1000).toFixed(1) + ' km/s' : '—';
-      document.getElementById('pc-scale-max').textContent = isFinite(pcState.dvMax) ? '≥ ' + (pcState.dvMax/1000).toFixed(1) + ' km/s' : '—';
       if (iy < GRID_Y) requestAnimationFrame(step);
       else {
         running = false;
@@ -202,16 +256,20 @@ export function wirePorkchop() {
   function cellInfo(ix, iy) {
     const dep = pcState.departStart + ((ix + 0.5) / GRID_X) * (pcState.departEnd - pcState.departStart);
     const tof = pcState.tofMin + ((iy + 0.5) / GRID_Y) * (pcState.tofMax - pcState.tofMin);
-    const dv = pcState.data[iy * GRID_X + ix];
-    return { dep, tof, dv };
+    const dv  = pcState.data[iy * GRID_X + ix];
+    const c3v = pcState.c3[iy   * GRID_X + ix];
+    const vi  = pcState.vinf[iy * GRID_X + ix];
+    return { dep, tof, dv, c3: c3v, vinf: vi };
   }
 
   function showSelection(cell) {
-    const { dep, tof, dv } = cellInfo(cell.ix, cell.iy);
+    const { dep, tof, dv, c3: c3v, vinf: vi } = cellInfo(cell.ix, cell.iy);
     document.getElementById('pc-depart').textContent = fmt(simTimeToDate(dep));
     document.getElementById('pc-transit').textContent = (tof / DAY).toFixed(0) + ' days';
     document.getElementById('pc-arrive').textContent  = fmt(simTimeToDate(dep + tof));
-    document.getElementById('pc-dv').textContent = isFinite(dv) ? (dv / 1000).toFixed(2) + ' km/s' : 'no solution';
+    document.getElementById('pc-dv').textContent   = isFinite(dv)  ? (dv  / 1000).toFixed(2) + ' km/s'  : '—';
+    document.getElementById('pc-c3').textContent   = isFinite(c3v) ? (c3v / 1e6 ).toFixed(1) + ' km²/s²' : '—';
+    document.getElementById('pc-vinf').textContent = isFinite(vi)  ? (vi  / 1000).toFixed(2) + ' km/s'  : '—';
   }
 
   canvas.addEventListener('mousemove', (e) => {
@@ -269,6 +327,18 @@ export function wirePorkchop() {
     overlay.classList.add('visible');
     beginSweep(state.routeOrigin, state.routeDestination, timeState.simTime);
   };
+
+  // Metric toggle buttons (Δv / C3 / V∞ arrive).
+  for (const btn of document.querySelectorAll('.pc-metric-btn')) {
+    btn.addEventListener('click', () => {
+      metric = btn.dataset.metric;
+      for (const b of document.querySelectorAll('.pc-metric-btn')) {
+        b.classList.toggle('active', b === btn);
+      }
+      repaintAll();
+      updateLegend();
+    });
+  }
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && overlay.classList.contains('visible')) {

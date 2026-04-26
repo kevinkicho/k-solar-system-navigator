@@ -416,12 +416,157 @@ check(`MJD advances when time runs (${mjd1.trim()} → ${mjd2.trim()})`,
       parseFloat(mjd2) > parseFloat(mjd1));
 
 // ─────────────────────────────────────────────────────────────────────────────
-section('11. CONSOLE HEALTH');
+section('11. FRAME BADGE & ABOUT MODAL');
+
+const frameBadge = await page.locator('.frame-badge').textContent();
+check(`frame badge shows J2000 ECLIPTIC (got "${frameBadge.trim()}")`,
+      /J2000.*ECLIPTIC/i.test(frameBadge));
+
+await page.click('#btn-about');
+await page.waitForTimeout(200);
+check('About modal opens',
+      await page.locator('#about-overlay.visible').count() === 1);
+const aboutContent = await page.locator('#about-modal').textContent();
+check('About panel mentions Lambert solver', aboutContent.includes('Lambert'));
+check('About panel mentions JPL Approximate Positions', aboutContent.includes('Approximate Positions'));
+check('About panel mentions reference frame', aboutContent.includes('Heliocentric Ecliptic'));
+check('About panel lists validation tests', aboutContent.includes('trip_planning_test'));
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+check('Esc closes About modal',
+      await page.locator('#about-overlay.visible').count() === 0);
+
+// ─────────────────────────────────────────────────────────────────────────────
+section('12. SCENARIOS DROPDOWN');
+
+const scenarioOptions = await page.$$eval('#scenario-select option', opts => opts.length);
+check(`scenarios dropdown populated (got ${scenarioOptions} options including placeholder)`,
+      scenarioOptions >= 5);
+
+await page.click('#clear-route');
+await page.waitForTimeout(200);
+await page.selectOption('#scenario-select', 'mars-2026');
+await page.waitForTimeout(400);
+const originAfter = (await page.locator('#origin-name').textContent()).trim();
+const destAfter   = (await page.locator('#dest-name').textContent()).trim();
+const departAfter = await page.locator('#depart-date').inputValue();
+check(`scenario sets origin = Earth (got "${originAfter}")`, originAfter === 'Earth');
+check(`scenario sets dest = Mars (got "${destAfter}")`, destAfter === 'Mars');
+check(`scenario fills departure date (got "${departAfter}")`,
+      !!departAfter && departAfter.startsWith('2026-11-21'));
+
+const summaryText = (await page.locator('#scenario-summary').textContent()).trim();
+check(`scenario summary updates (got "${summaryText.slice(0, 30)}…")`,
+      summaryText.length > 5);
+
+// Multi-leg scenario should populate a flyby row.
+await page.click('#clear-route');
+await page.waitForTimeout(200);
+await page.selectOption('#scenario-select', 'venus-mars-via-venus');
+await page.waitForTimeout(500);
+const flybyCount = await page.locator('.flyby-row').count();
+check(`scenario with flyby creates flyby row (got ${flybyCount})`, flybyCount === 1);
+
+// ─────────────────────────────────────────────────────────────────────────────
+section('13. PORKCHOP C3 / V∞ METRIC TOGGLE');
+
+await page.click('#clear-route');
+await page.waitForTimeout(200);
+await page.selectOption('#scenario-select', 'mars-2026');
+await page.waitForTimeout(300);
+await page.click('#find-windows');
+await page.waitForTimeout(800);   // initial sweep starts
+// Wait for porkchop sweep to complete (or get sufficient data).
+for (let i = 0; i < 30; i++) {
+  const w = await page.locator('#pc-progress-fill').evaluate(el => el.style.width);
+  if (w === '100%') break;
+  await page.waitForTimeout(500);
+}
+
+// Check that all three metric buttons exist.
+const metricBtns = await page.locator('.pc-metric-btn').count();
+check(`3 metric toggle buttons present (got ${metricBtns})`, metricBtns === 3);
+
+// Cell info shows all three metrics.
+const cellInfo = await page.locator('#porkchop-overlay .pc-info').textContent();
+check(`cell info exposes Δv, C3, V∞ readouts`,
+      cellInfo.includes('TOTAL') && cellInfo.includes('C3') && cellInfo.includes('V∞'));
+
+// Toggle to C3 mode.
+await page.click('.pc-metric-btn[data-metric="c3"]');
+await page.waitForTimeout(200);
+const c3BtnActive = await page.locator('.pc-metric-btn[data-metric="c3"].active').count();
+check('C3 button gets .active class', c3BtnActive === 1);
+
+const scaleMin = await page.locator('#pc-scale-min').textContent();
+check(`legend updates to km²/s² in C3 mode (got "${scaleMin.trim()}")`,
+      scaleMin.includes('km²/s²'));
+
+// Toggle to V∞.
+await page.click('.pc-metric-btn[data-metric="vinf"]');
+await page.waitForTimeout(200);
+check('V∞ button gets .active class',
+      await page.locator('.pc-metric-btn[data-metric="vinf"].active').count() === 1);
+
+// Toggle back to Δv.
+await page.click('.pc-metric-btn[data-metric="dv"]');
+await page.waitForTimeout(200);
+check('Δv button gets .active class after toggle back',
+      await page.locator('.pc-metric-btn[data-metric="dv"].active').count() === 1);
+
+// Close the porkchop overlay.
+await page.click('#pc-close');
+await page.waitForTimeout(200);
+
+// ─────────────────────────────────────────────────────────────────────────────
+section('14. MISSION PLAN JSON EXPORT');
+
+await page.click('#clear-route');
+await page.waitForTimeout(200);
+await page.selectOption('#scenario-select', 'mars-2026');
+await page.waitForTimeout(400);
+await page.click('#calc-route');
+await page.waitForTimeout(500);
+
+check('Export plan button rendered after compute',
+      await page.locator('#btn-export-plan').count() === 1);
+
+// Hook into the click — capture the download via Playwright's download event.
+const [download] = await Promise.all([
+  page.waitForEvent('download', { timeout: 5000 }).catch(() => null),
+  page.click('#btn-export-plan'),
+]);
+check('export click triggers a download', download !== null);
+if (download) {
+  const filename = download.suggestedFilename();
+  check(`download filename contains origin/dest/date (got "${filename}")`,
+        /helios-mission-Earth-to-Mars-/.test(filename));
+  // Read the JSON content.
+  const path = await download.path();
+  const fs = await import('fs/promises');
+  const text = await fs.readFile(path, 'utf8');
+  let parsed = null;
+  try { parsed = JSON.parse(text); } catch (e) { /* fall through */ }
+  check('exported JSON parses', parsed !== null);
+  if (parsed) {
+    check('exported plan has summary block', !!parsed.summary && parsed.summary.origin === 'Earth');
+    check('exported plan declares J2000 frame', parsed.frame.includes('J2000'));
+    check('exported plan has feasibility block', !!parsed.feasibility);
+    check('exported plan has maneuvers array', Array.isArray(parsed.maneuvers) && parsed.maneuvers.length >= 2);
+    const dep = parsed.maneuvers.find(m => m.type === 'depart');
+    check('depart maneuver has v_inf and C3', dep && Array.isArray(dep.v_inf_m_s) && typeof dep.c3_m2_s2 === 'number');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+section('15. CONSOLE HEALTH');
 // Filter out the known harmless 404s for moon textures (CDN doesn't have them
 // for every moon — the app silently falls back to flat color).
 const realErrors = consoleErrors.filter(e => !/Failed to load resource/.test(e) && !/404/.test(e));
 check(`no unexpected console errors (got ${realErrors.length})`, realErrors.length === 0,
       realErrors.length ? realErrors.slice(0, 3).join(' | ') : '');
+console.log(`(${consoleErrors.length - realErrors.length} ignored 404s for missing moon textures)`);
 
 // ─────────────────────────────────────────────────────────────────────────────
 console.log('\n━━━ SUMMARY ━━━\n');

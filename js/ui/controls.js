@@ -89,6 +89,21 @@ export function wireControls() {
     if (FX.hill) updateHillSpheres();
   };
 
+  // About / methodology modal.
+  {
+    const overlay = document.getElementById('about-overlay');
+    const open  = () => overlay.classList.add('visible');
+    const close = () => overlay.classList.remove('visible');
+    document.getElementById('btn-about').onclick = open;
+    document.getElementById('about-close').onclick = close;
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) close();   // click on backdrop closes
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && overlay.classList.contains('visible')) close();
+    });
+  }
+
   // Date/time picker overlay.
   {
     const overlay = document.getElementById('date-picker-overlay');

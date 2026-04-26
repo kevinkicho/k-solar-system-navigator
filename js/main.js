@@ -28,6 +28,7 @@ import { buildBodyList, bindRouteSetters, setupRouteDropTargets } from './ui/bod
 import { wireControls } from './ui/controls.js';
 import { wireInput } from './ui/input.js';
 import { wirePorkchop } from './ui/porkchop.js';
+import { wireScenarios } from './ui/scenarios.js';
 import { dateToInputValue } from './ui/format.js';
 import { bindMissionHandlers } from './ui/route-display.js';
 import { bindAbortHandler, setRouteDestination, setRouteOrigin } from './ui/route-planner.js';
@@ -48,6 +49,7 @@ setupRouteDropTargets();
 wireControls();
 wireInput();
 wirePorkchop();
+wireScenarios();
 loadStarField();
 
 timeState.setSpeed(3);
