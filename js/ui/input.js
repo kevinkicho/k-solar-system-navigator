@@ -21,7 +21,7 @@ export function wireInput() {
   renderer.domElement.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     const body = getIntersectedBody(e);
-    if (body && body !== SUN_DATA && !body.parent) {
+    if (body && body !== SUN_DATA) {
       if (!state.routeOrigin) setRouteOrigin(body);
       else if (!state.routeDestination && body !== state.routeOrigin) setRouteDestination(body);
       else { setRouteOrigin(body); setRouteDestination(null); }

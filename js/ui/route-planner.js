@@ -180,9 +180,26 @@ export function snapFlybyDates() {
   notify(`FLYBY DATES SNAPPED · TOTAL Δv ${(bestCost / 1000).toFixed(2)} KM/S`);
 }
 
+// Two bodies are "in the same gravity well" when one is the other's parent
+// or they share a parent (e.g., Moon→Earth, Earth→Moon, Phobos→Deimos, Io→
+// Europa).  These are planet-relative maneuvers — the spacecraft never
+// leaves the parent's SOI — and our heliocentric Lambert solver cannot
+// model them honestly (it would draw a half-orbit around the Sun, which is
+// not what you'd actually fly).  Refuse to compute and explain why.
+function isPlanetRelativeRoute(b1, b2) {
+  if (b1.parent && b1.parent === b2.name) return true;     // moon → its parent
+  if (b2.parent && b2.parent === b1.name) return true;     // parent → its moon
+  if (b1.parent && b2.parent && b1.parent === b2.parent) return true;
+  return false;
+}
+
 export function computeRoute() {
   if (!state.routeOrigin || !state.routeDestination) {
     notify('SET ORIGIN AND DESTINATION FIRST'); return;
+  }
+  if (isPlanetRelativeRoute(state.routeOrigin, state.routeDestination)) {
+    notify('PLANET-RELATIVE MANEUVER — pick bodies in different parent systems');
+    return;
   }
 
   const dateInput = document.getElementById('depart-date');
