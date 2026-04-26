@@ -58,6 +58,7 @@ node tests/porkchop_sim.mjs           # porkchop minimum vs real Mars windows
 node tests/gravity_assist_sim.mjs     # multi-leg VEEGA-style routes
 node tests/spacecraft_check.mjs       # Voyager/Pioneer distances vs NASA tracking
 node tests/visual_alignment.mjs       # trajectory-line-vs-marker accuracy
+node tests/module_integration.mjs     # imports js/* modules: load, accuracy, perf budgets
 ```
 
 End-to-end UI test (requires Puppeteer):
@@ -110,10 +111,19 @@ Open that URL in your browser.
 ## Project structure
 
 ```
-index.html                — full application (HTML + CSS + JS, single file, ~3600 lines)
+index.html                — HTML/CSS shell + DOM (~650 lines)
+js/                       — application code, split into ES modules
+  constants.js              — G, AU, exaggerations, etc.
+  state.js                  — shared mutable app state
+  data/                     — bodies, moons, spacecraft data tables
+  physics/                  — vec3, kepler, lambert, helio, gravity-assist, routing
+  scene/                    — Three.js scene construction (one module per object)
+  ui/                       — controls, route-planner, porkchop, info-panel, etc.
+  mission.js                — launch / abort / per-frame mission updates
+  animation.js              — render loop
+  main.js                   — entry point: wires modules and starts animate()
 trajectory-calculator.js  — vehicle stack Δv model (Super Heavy + Starship)
 server.js                 — static file server (Node.js, zero dependencies)
 hyg_v42.csv               — HYG stellar database (119,600 stars, ~32 MB)
-package.json              — npm config
-tests/                    — offline physics validation + headless UI smoke test
+tests/                    — offline physics + module-integration + Playwright UI tests
 ```
