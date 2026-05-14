@@ -2,6 +2,12 @@
 
 A real-time 3D solar system simulator with accurate orbital mechanics, real stellar data, and interplanetary mission planning — including gravity-assist trajectories and a porkchop-plot launch-window finder.
 
+## Screenshots
+
+![Solar system view](./screenshots/screenshot-01.png)
+
+![Mission planner](./screenshots/screenshot-02.png)
+
 ## Features
 
 ### Scene
