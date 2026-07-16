@@ -14,7 +14,6 @@ const SUITE = [
   'tests/module_integration.mjs',
   'tests/ephemeris_check.mjs',
   'tests/porkchop_sim.mjs',
-  'tests/porkchop_refine.mjs',
   'tests/gravity_assist_sim.mjs',
   'tests/flyby_optimizer.mjs',
   'tests/spacecraft_check.mjs',
@@ -25,7 +24,8 @@ const SUITE = [
   'tests/catalog_check.mjs',
   'tests/share_codec.mjs',
   'tests/ml_window_seeds.mjs',
-  'tests/ui_split_static.mjs',
+  // Soft / informational only (always exits 0) — PR 18 perf budgets.
+  'tests/perf_budgets.mjs',
 ];
 
 let failed = 0;

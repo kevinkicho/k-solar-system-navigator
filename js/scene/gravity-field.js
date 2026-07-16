@@ -7,7 +7,30 @@ import { state } from '../state.js';
 import { scene } from './setup.js';
 import { sunMesh } from './sun.js';
 
-export const FX = { potential: false, hill: false };
+/** OS / browser reduced-motion preference (PR 18). Re-checked on change. */
+export function prefersReducedMotion() {
+  return typeof matchMedia === 'function'
+    && matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// Gravity FX default off. When reduced-motion is set, heavy potential-well
+// updates stay soft-disabled even if a user re-enables the toggle (see
+// allowHeavyFx). Hill spheres are static markers and remain available.
+export const FX = {
+  potential: false,
+  hill: false,
+  /** When false, skip potential-well mesh rebuilds (expensive per-frame work). */
+  allowHeavyFx: !prefersReducedMotion(),
+};
+
+if (typeof matchMedia === 'function') {
+  try {
+    const mq = matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => { FX.allowHeavyFx = !mq.matches; };
+    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', sync);
+    else if (typeof mq.addListener === 'function') mq.addListener(sync);
+  } catch (_) { /* non-browser / older env */ }
+}
 
 // Rubber-sheet potential well: a mesh on the ecliptic (y=0), with vertex y
 // displaced by Φ = -Σ Gmᵢ/rᵢ from all major bodies, log-scaled. Updated on
@@ -28,7 +51,7 @@ potentialMesh.renderOrder = -1;
 scene.add(potentialMesh);
 
 export function updatePotentialField() {
-  if (!potentialMesh.visible) return;
+  if (!potentialMesh.visible || !FX.allowHeavyFx) return;
   const pos = potentialGeo.attributes.position;
   const col = potentialGeo.attributes.color;
   const sunX = sunMesh.position.x, sunZ = sunMesh.position.z;

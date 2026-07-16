@@ -12,7 +12,7 @@ import { orbitLines, planetMeshes, planetTextureTargets } from './scene/planets.
 import { spacecraftMeshes } from './scene/spacecraft.js';
 import { selectionRing } from './scene/selection-ring.js';
 import { flybyMarkers, transferMarkers } from './scene/transfer-visual.js';
-import { FX, updateHillSpheres, updatePotentialField } from './scene/gravity-field.js';
+import { FX, prefersReducedMotion, updateHillSpheres, updatePotentialField } from './scene/gravity-field.js';
 import { updateBodyList } from './ui/body-list.js';
 import { updateInfoPanel } from './ui/info-panel.js';
 import { timeState } from './ui/time-system.js';
@@ -57,7 +57,9 @@ export function animate() {
   const sunOff = getSunBarycentricOffset(timeState.simTime);
   sunMesh.position.set(sunOff.x, sunOff.y, sunOff.z);
   sunMesh.rotation.y += dt * 0.05;
-  const glowPulse = 0.58 + 0.06 * Math.sin(now * 0.0015);
+  // Soft-disable corona pulse when the user prefers reduced motion (PR 18).
+  const reduceMotion = prefersReducedMotion();
+  const glowPulse = reduceMotion ? 0.58 : 0.58 + 0.06 * Math.sin(now * 0.0015);
   sunGlowSprite.scale.set(glowPulse, glowPulse, 1);
 
   // Planet axial spin via UV offset on equirectangular textures.
@@ -108,15 +110,16 @@ export function animate() {
 
   // Hill spheres are cheap (per planet); potential well is 14400 × N_bodies ops,
   // so refresh every 6th frame — planets move slowly enough to hide the stepping.
+  // Heavy potential rebuilds are also gated by FX.allowHeavyFx (reduced-motion).
   if (FX.hill) updateHillSpheres();
-  if (FX.potential && (frameCount % 6 === 0)) updatePotentialField();
+  if (FX.potential && FX.allowHeavyFx && (frameCount % 6 === 0)) updatePotentialField();
 
   if (state.selectedBody && selectionRing.visible) {
     const mesh = planetMeshes.get(state.selectedBody.name) || moonMeshes.get(state.selectedBody.name);
     if (mesh) {
       selectionRing.position.copy(mesh.position);
       selectionRing.lookAt(camera3D.position);
-      const pulse = 1 + 0.08 * Math.sin(now * 0.004);
+      const pulse = reduceMotion ? 1 : 1 + 0.08 * Math.sin(now * 0.004);
       const s = state.selectedBody.displayRadius * 1.8 * pulse;
       selectionRing.scale.set(s, s, s);
     }
