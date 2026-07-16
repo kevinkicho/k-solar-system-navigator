@@ -67,11 +67,25 @@ export function applyPlanRequest(req) {
   state.vehicleId = req.vehicleId || 'sh-starship';
   state.abstractBudget_m_s = req.abstractBudget_m_s ?? 8000;
   state.costBasis = req.costBasis || 'helio';
+  state.cargoMass_kg = req.cargoMass_kg ?? 0;
+  if (req.vehicleId === 'sh-starship' || !req.vehicleId) {
+    state.starshipArch = req.starshipArch || 'legacy-demo';
+    if (req.archOmitted) notify('SHARE OMITTED ARCH — USING LEGACY-DEMO');
+  }
+  if (req.tankerCount != null) state.tankerCount = req.tankerCount;
+  if (req.falcon9Variant) state.falcon9Variant = req.falcon9Variant;
   if (req.flybys.length > 0 && req.costBasis === 'mission') {
     notify('MISSION BASIS IS SINGLE-LEG ONLY — USING HELIO');
     state.costBasis = 'helio';
   }
   if (req.tofIgnoredMulti) notify('TOF IGNORED FOR MULTI-LEG');
+  // Sync vehicle UI controls if present
+  const vehSel = document.getElementById('vehicle-select');
+  if (vehSel) vehSel.value = state.vehicleId;
+  const cargoIn = document.getElementById('cargo-mass');
+  if (cargoIn) cargoIn.value = String(state.cargoMass_kg);
+  const archSel = document.getElementById('starship-arch');
+  if (archSel && state.starshipArch) archSel.value = state.starshipArch;
 
   setRouteOrigin(origin);
   setRouteDestination(dest);

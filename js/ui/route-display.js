@@ -4,10 +4,6 @@
  * plan JSON export lives in mission-export.js;
  * shared Δv helpers live in mission-budget-ui.js.
  */
-import {
-  starshipDeltaV, superHeavyDeltaV, totalMissionDeltaV,
-  presetDisplayName, presetDisclaimer,
-} from '../physics/vehicles.js';
 import { AU, DAY, DEG, LEG_COLORS } from '../constants.js';
 import { state } from '../state.js';
 import { computeMissionBudget } from '../physics/mission-budget.js';
@@ -17,6 +13,7 @@ import {
 import { timeState } from './time-system.js';
 import { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 import { exportMissionPlan } from './mission-export.js';
+import { buildMeasurementCard } from './measurement-card.js';
 export { updateTransferOrbitVisual } from './route-orbit-visual.js';
 export { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 
@@ -27,31 +24,14 @@ export function bindMissionHandlers({ launch }) {
   _launchMission = launch;
 }
 
+/** @deprecated Prefer buildMeasurementCard — kept for multi-leg interim. */
 function vehicleBlockHtml(requiredDv, isMulti = false) {
-  const budget = transferBudgetNow();
-  const feasible = budget >= requiredDv;
-  const basis = isMulti ? 'helio' : state.costBasis;
-  const basisLabel = basis === 'mission' ? 'full mission (parking)' : 'heliocentric leg';
-  const isSketch = !!(state.routeOrigin?.waypointOf || state.routeDestination?.waypointOf
-    || state.transferData?.body1?.waypointOf || state.transferData?.body2?.waypointOf);
-  let lines = `
-      <div class="info-row"><span class="key">Vehicle</span><span class="val">${presetDisplayName(state.vehicleId)}</span></div>
-      <div class="info-row"><span class="key">Cost basis</span><span class="val">${basisLabel}${isMulti ? ' (multi-leg)' : ''}</span></div>
-      <div class="info-row"><span class="key">Required Δv</span><span class="val amber">${formatVelocity(requiredDv)}</span></div>
-      <div class="info-row"><span class="key">Usable transfer Δv</span><span class="val">${formatVelocity(budget)}</span></div>`;
-  if (state.vehicleId === 'sh-starship') {
-    lines += `
-      <div class="info-row"><span class="key">Super Heavy Δv (transfer)</span><span class="val">${formatVelocity(superHeavyDeltaV())}</span></div>
-      <div class="info-row"><span class="key">Starship Δv (reserved)</span><span class="val">${formatVelocity(starshipDeltaV())}</span></div>
-      <div class="info-row"><span class="key">Total stack Δv</span><span class="val">${formatVelocity(totalMissionDeltaV())}</span></div>`;
-  }
-  if (isSketch) {
-    lines += `<div class="info-row"><span class="key">Note</span><span class="val amber">Waypoint sketch — Δv geometric only</span></div>`;
-  }
-  lines += `
-      <div class="info-row"><span class="key">Mission feasible</span><span class="val ${feasible ? 'green' : 'red-val'}">${feasible ? 'YES' : 'NO'}</span></div>
-      <div class="info-row"><span class="key" style="font-size:9px;opacity:0.75">Disclaimer</span><span class="val" style="font-size:9px;opacity:0.75">${presetDisclaimer(state.vehicleId)}</span></div>`;
-  return lines;
+  // Use Measurement Card for single-leg; multi-leg still uses simplified block
+  // but never Infinity budgets for falcon9.
+  const card = buildMeasurementCard(state.transferData);
+  if (!isMulti) return card.html;
+  // multi-leg: still show card (need forces helio_leg)
+  return card.html;
 }
 
 function bindMissionControlButtons(td, { canLaunch }) {

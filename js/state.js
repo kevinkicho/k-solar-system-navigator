@@ -1,5 +1,4 @@
-// Mutable shared application state. Imported by any module that needs to read or
-// update cross-cutting state (selection, route, mission, per-frame body positions).
+// Mutable shared application state.
 export const state = {
   selectedBody: null,
   routeOrigin: null,
@@ -11,23 +10,29 @@ export const state = {
   followMode: false,
   hoveredBody: null,
 
-  // Per-frame world positions (barycentric scene coords, AU).
   bodyPositions: new Map(),
   moonPositions: new Map(),
 
-  // Vehicle / budget (PR 6–7).
+  // Vehicle / budget
   vehicleId: 'sh-starship',
   abstractBudget_m_s: 8000,
-  costBasis: 'helio', // 'helio' | 'mission' — multi-leg always coerced to helio
-  userTofDays: null,  // optional TOF override from porkchop / share
+  costBasis: 'helio', // 'helio' | 'mission'
+  userTofDays: null,
   moonMissionSuggestDone: false,
 
-  // Display (PR 5).
+  // Cargo-aware platform (K2, K25: default arch legacy until Card enables unrefueled)
+  cargoMass_kg: 0,
+  starshipArch: 'legacy-demo', // 'legacy-demo' | 'unrefueled' | 'tanker-n'
+  tankerCount: 0,
+  falcon9Variant: 'expendable', // 'expendable' | 'asds'
+  aeroassistFactor: 0, // 0–0.9
+  measurementPhase: null, // null → autoPhase
+  fidelityLevel: 'L1', // 'L1' | 'L2'
+
   display: {
-    mode: 'cinematic', // 'cinematic' | 'schematic'
+    mode: 'cinematic',
   },
 
-  // Classroom mode (PR 15).
   classroomMode: false,
 
   mission: {
@@ -41,3 +46,9 @@ export const state = {
     flybysTriggered: new Set(),
   },
 };
+
+/** Call after Measurement Card ships to flip product default (K25 / PR 9). */
+export function applyProductVehicleDefaults() {
+  if (state.classroomMode) return;
+  state.starshipArch = 'unrefueled';
+}

@@ -53,5 +53,24 @@ check('multi encode forces helio', backM?.costBasis === 'helio');
 check('multi has flyby', backM?.flybys?.[0]?.bodyId === 'mars');
 check('catalog has earth', cat.findById('earth')?.name === 'Earth');
 
+
+const encCargo = codec.encodePlanRequestObject({
+  o: 'earth', d: 'mars', dep: '2026-11-21', tof: 258,
+  veh: 'falcon9', cargo: 2000, f9v: 'asds', basis: 'helio', view: 'cinematic',
+});
+const backC = codec.parsePlanRequest(encCargo);
+check('cargo round-trip', backC?.cargoMass_kg === 2000);
+check('f9v asds', backC?.falcon9Variant === 'asds');
+
+const encArch = codec.encodePlanRequestObject({
+  o: 'earth', d: 'mars', dep: '2027-01-01',
+  veh: 'sh-starship', arch: 'unrefueled', cargo: 50000, basis: 'helio', view: 'cinematic',
+});
+const backA = codec.parsePlanRequest(encArch);
+check('arch unrefueled', backA?.starshipArch === 'unrefueled');
+
+const bare = codec.parsePlanRequest('#v=1&o=earth&d=mars&dep=2026-11-21&veh=sh-starship');
+check('omit arch => legacy-demo', bare?.starshipArch === 'legacy-demo' && bare?.archOmitted === true);
+
 if (failed) { console.error(`\n${failed} failed`); process.exit(1); }
 console.log('\nAll share codec checks passed');

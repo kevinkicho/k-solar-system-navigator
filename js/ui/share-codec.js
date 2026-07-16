@@ -40,6 +40,10 @@ export function encodePlanRequestObject(plan) {
   const multi = !!(plan.fb && plan.fb.length);
   params.set('basis', multi ? 'helio' : (plan.basis || 'helio'));
   params.set('view', plan.view || 'cinematic');
+  if (plan.cargo != null && Number(plan.cargo) > 0) params.set('cargo', String(Math.round(Number(plan.cargo))));
+  if (plan.arch && plan.veh === 'sh-starship') params.set('arch', plan.arch);
+  if (plan.tankers != null && plan.arch === 'tanker-n') params.set('tankers', String(plan.tankers));
+  if (plan.f9v && plan.veh === 'falcon9') params.set('f9v', plan.f9v);
   const encoded = params.toString();
   if (encoded.length > MAX_LEN) return null;
   return '#' + encoded;
@@ -88,6 +92,29 @@ export function parsePlanRequest(hash) {
   let ab = parseInt(params.get('ab') || '8000', 10);
   if (!isFinite(ab)) ab = 8000;
 
+  let cargo = parseInt(params.get('cargo') || '0', 10);
+  if (!isFinite(cargo) || cargo < 0) cargo = 0;
+  cargo = Math.min(500000, cargo);
+
+  // K8: omitted arch on sh-starship ⇒ legacy-demo forever
+  let arch = params.get('arch');
+  const archOmitted = !params.has('arch');
+  if (veh === 'sh-starship') {
+    if (archOmitted || !arch) arch = 'legacy-demo';
+    if (arch !== 'legacy-demo' && arch !== 'unrefueled' && arch !== 'tanker-n') {
+      arch = 'legacy-demo';
+    }
+  } else {
+    arch = null;
+  }
+
+  let tankers = parseInt(params.get('tankers') || '0', 10);
+  if (!isFinite(tankers) || tankers < 0) tankers = 0;
+  tankers = Math.min(20, tankers);
+
+  let f9v = params.get('f9v') || 'expendable';
+  if (f9v !== 'asds' && f9v !== 'expendable') f9v = 'expendable';
+
   return {
     originId: o.toLowerCase(),
     destId: d.toLowerCase(),
@@ -99,6 +126,11 @@ export function parsePlanRequest(hash) {
     costBasis: basis,
     view,
     tofIgnoredMulti: flybys.length > 0 && params.has('tof'),
+    cargoMass_kg: cargo,
+    starshipArch: arch,
+    archOmitted: veh === 'sh-starship' && archOmitted,
+    tankerCount: tankers,
+    falcon9Variant: f9v,
   };
 }
 

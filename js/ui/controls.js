@@ -102,6 +102,19 @@ export function wireControls() {
   const abInput = document.getElementById('abstract-budget');
   const basisSel = document.getElementById('cost-basis-select');
   const dispSel = document.getElementById('display-mode-select');
+  const archRow = document.getElementById('starship-arch-row');
+  const archSel = document.getElementById('starship-arch');
+  const tankerRow = document.getElementById('tanker-row');
+  const tankerIn = document.getElementById('tanker-count');
+  const f9Row = document.getElementById('f9-variant-row');
+  const f9Sel = document.getElementById('f9-variant');
+  const cargoRow = document.getElementById('cargo-row');
+  const cargoIn = document.getElementById('cargo-mass');
+  const aeroIn = document.getElementById('aeroassist-factor');
+
+  function isAbstractVehicle(id) {
+    return id === 'abstract' || id === 'chem-medium' || id === 'fh-class' || id === 'high-energy';
+  }
 
   function syncVehicleUI() {
     if (vehSel) vehSel.value = state.vehicleId;
@@ -112,18 +125,55 @@ export function wireControls() {
       basisSel.disabled = state.flybys.length > 0;
     }
     if (dispSel) dispSel.value = state.display.mode;
+    if (archRow) archRow.style.display = state.vehicleId === 'sh-starship' ? 'flex' : 'none';
+    if (archSel) archSel.value = state.starshipArch || 'legacy-demo';
+    if (tankerRow) tankerRow.style.display = state.vehicleId === 'sh-starship' && state.starshipArch === 'tanker-n' ? 'flex' : 'none';
+    if (tankerIn) tankerIn.value = String(state.tankerCount || 0);
+    if (f9Row) f9Row.style.display = state.vehicleId === 'falcon9' ? 'flex' : 'none';
+    if (f9Sel) f9Sel.value = state.falcon9Variant || 'expendable';
+    if (cargoRow) cargoRow.style.display = isAbstractVehicle(state.vehicleId) ? 'none' : 'flex';
+    if (cargoIn) cargoIn.value = String(state.cargoMass_kg || 0);
+    if (aeroIn) aeroIn.value = String(state.aeroassistFactor || 0);
     updateViewBadge();
   }
   syncVehicleUI();
 
+  function rerenderIfRoute() {
+    if (state.transferData) renderRouteUI();
+  }
+
   if (vehSel) vehSel.onchange = () => {
     state.vehicleId = vehSel.value;
-    if (abRow) abRow.style.display = state.vehicleId === 'abstract' ? 'flex' : 'none';
-    if (state.transferData) renderRouteUI();
+    syncVehicleUI();
+    rerenderIfRoute();
+  };
+  if (archSel) archSel.onchange = () => {
+    state.starshipArch = archSel.value;
+    syncVehicleUI();
+    rerenderIfRoute();
+  };
+  if (tankerIn) tankerIn.onchange = () => {
+    state.tankerCount = Math.max(0, Math.min(20, Math.floor(Number(tankerIn.value) || 0)));
+    rerenderIfRoute();
+  };
+  if (f9Sel) f9Sel.onchange = () => {
+    state.falcon9Variant = f9Sel.value === 'asds' ? 'asds' : 'expendable';
+    rerenderIfRoute();
+  };
+  if (cargoIn) cargoIn.onchange = () => {
+    state.cargoMass_kg = Math.max(0, Math.min(500000, Number(cargoIn.value) || 0));
+    rerenderIfRoute();
+  };
+  if (aeroIn) aeroIn.onchange = () => {
+    let a = Number(aeroIn.value) || 0;
+    a = Math.max(0, Math.min(0.9, a));
+    state.aeroassistFactor = a;
+    aeroIn.value = String(a);
+    rerenderIfRoute();
   };
   if (abInput) abInput.onchange = () => {
     state.abstractBudget_m_s = Math.max(500, Math.min(50000, Number(abInput.value) || 8000));
-    if (state.transferData) renderRouteUI();
+    rerenderIfRoute();
   };
   if (basisSel) basisSel.onchange = () => {
     if (state.flybys.length > 0) {
@@ -133,7 +183,7 @@ export function wireControls() {
       return;
     }
     state.costBasis = basisSel.value;
-    if (state.transferData) renderRouteUI();
+    rerenderIfRoute();
   };
   if (dispSel) dispSel.onchange = () => {
     setDisplayMode(dispSel.value);

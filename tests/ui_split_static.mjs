@@ -49,7 +49,9 @@ ok(
   'route-display statically imports exportMissionPlan',
 );
 ok(
-  /import\s*\{\s*requiredDeltaV\s*,\s*transferBudgetNow\s*\}\s*from\s*['"]\.\/mission-budget-ui\.js['"]/.test(missionExport),
+  /from\s*['"]\.\/mission-budget-ui\.js['"]/.test(missionExport)
+    && /requiredDeltaV/.test(missionExport)
+    && /transferBudgetNow/.test(missionExport),
   'mission-export imports budget helpers from mission-budget-ui',
 );
 ok(

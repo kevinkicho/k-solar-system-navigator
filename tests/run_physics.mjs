@@ -22,6 +22,8 @@ const SUITE = [
   'tests/sun_wobble.mjs',
   'tests/lambert_both_branches.mjs',
   'tests/vehicles_presets.mjs',
+  'tests/need_calculator.mjs',
+  'tests/capability_margin.mjs',
   'tests/catalog_check.mjs',
   'tests/share_codec.mjs',
   'tests/mission_import_check.mjs',

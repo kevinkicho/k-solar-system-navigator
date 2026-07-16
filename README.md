@@ -122,15 +122,18 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 
 **CI:** GitHub Actions runs physics offline tests on every push/PR to `main`, plus a Playwright Chromium UI smoke job.
 
-### Trip planner (new)
+### Trip planner & cargo-aware measurements
 
-- **Vehicle presets** — Super Heavy + Starship (default), abstract Δv budget, chemical / heavy-lift / high-energy class budgets
-- **Cost basis** — heliocentric leg vs full parking-orbit mission Δv (mission basis is single-leg only)
-- **Display scale** — cinematic (exaggerated) vs schematic (true inclinations & sun wobble; moon layout still schematic)
-- **Catalog** — planets, major moons, dwarf planets, curated NEOs, EM-L1/L2 geometric waypoints
-- **Share links** — URL hash codec v1 (`#v=1&o=earth&d=mars&dep=…`); JSON export schema v2
-- **Multi-leg window search** — coarse local search when flyby seed is infeasible (not a global optimum)
-- **Classroom mode** — `?mode=classroom` sets schematic view + abstract budget
+- **Need / Capability / Margin** — Measurement Card on every computed route (concept-grade)
+- **Vehicles** — Super Heavy + Starship (**legacy demo**, unrefueled LEO→TMI, N-tanker), **Falcon 9** (illustrative C₃–payload table), abstract Δv budgets
+- **Cargo mass (kg)** — first-class input for F9 and Starship architectures
+- **Cost basis** — heliocentric leg vs full parking-orbit mission Δv (legacy/abstract; SS cargo modes use injection Need)
+- **Display scale** — cinematic vs schematic
+- **Catalog** — planets, moons, dwarfs, NEOs, EM-L1/L2 waypoints
+- **Share / import** — URL hash + JSON v3 (recomputes geometry; never trusts stored Δv)
+- **Classroom mode** — `?mode=classroom` → schematic + abstract budget
+
+> **Not flight design.** Vehicle numbers are educational illustrations — not SpaceX-certified performance.
 
 ## Data sources
 

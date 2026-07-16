@@ -27,12 +27,18 @@ export function planJsonToRequest(obj) {
       costBasis: obj.basis === 'mission' ? 'mission' : 'helio',
       view: obj.view === 'schematic' ? 'schematic' : 'cinematic',
       tofIgnoredMulti: false,
+      cargoMass_kg: obj.cargo != null ? Number(obj.cargo) : 0,
+      starshipArch: obj.arch || (obj.veh === 'sh-starship' || !obj.veh ? 'legacy-demo' : null),
+      archOmitted: (obj.veh === 'sh-starship' || !obj.veh) && obj.arch == null,
+      tankerCount: obj.tankers != null ? Number(obj.tankers) : 0,
+      falcon9Variant: obj.f9v === 'asds' ? 'asds' : 'expendable',
     };
   }
 
-  // schema v1/v2 export
-  const pr = obj.plan_request;
-  if (pr && pr.o && pr.d) return planJsonToRequest(pr);
+  // schema v1/v2/v3 export with nested plan_request
+  if (obj.plan_request && obj.plan_request.o && obj.plan_request.d) {
+    return planJsonToRequest(obj.plan_request);
+  }
 
   const sum = obj.summary || {};
   const originId = sum.origin_id || sum.origin;
@@ -76,17 +82,23 @@ export function planJsonToRequest(obj) {
     tofDays = Math.round(Number(sum.transit_days));
   }
 
+  const pr = obj.plan_request || {};
   return {
     originId: String(originId).toLowerCase(),
     destId: String(destId).toLowerCase(),
     depDate,
     tofDays,
     flybys,
-    vehicleId: obj.feasibility?.vehicle_id || 'sh-starship',
-    abstractBudget_m_s: 8000,
+    vehicleId: pr.veh || obj.feasibility?.vehicle_id || 'sh-starship',
+    abstractBudget_m_s: pr.ab != null ? Number(pr.ab) : 8000,
     costBasis: sum.cost_basis === 'mission' ? 'mission' : 'helio',
     view: obj.methodology?.display_mode === 'schematic' ? 'schematic' : 'cinematic',
     tofIgnoredMulti: false,
+    cargoMass_kg: pr.cargo != null ? Number(pr.cargo) : (sum.cargo_mass_kg || 0),
+    starshipArch: pr.arch || 'legacy-demo',
+    archOmitted: pr.veh === 'sh-starship' && pr.arch == null,
+    tankerCount: pr.tankers != null ? Number(pr.tankers) : 0,
+    falcon9Variant: pr.f9v === 'asds' ? 'asds' : 'expendable',
   };
 }
 

@@ -2,7 +2,7 @@
 // dependency order, then starts the render loop.
 
 import { SUN_WOBBLE_EXAGGERATION } from './constants.js';
-import { state } from './state.js';
+import { state, applyProductVehicleDefaults } from './state.js';
 import { setDisplayMode } from './display-scale.js';
 import * as catalog from './data/catalog.js';
 
@@ -57,6 +57,10 @@ if (params.get('mode') === 'classroom') {
   state.vehicleId = 'abstract';
   state.abstractBudget_m_s = 8000;
   state.costBasis = 'helio';
+  state.starshipArch = 'legacy-demo';
+} else {
+  // Product default after Measurement Card (K25 / PR 9): unrefueled SS arch.
+  applyProductVehicleDefaults();
 }
 
 // Build body list, set initial time + departure-date input, fade help hint.

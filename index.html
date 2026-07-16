@@ -696,21 +696,49 @@ input[type="range"]::-webkit-slider-thumb {
       <div id="flyby-list"></div>
     </div>
     <div class="route-field-row">
-      <label>Vehicle / Δv budget</label>
-      <select id="vehicle-select" title="Transfer Δv budget preset">
+      <label>Vehicle / architecture</label>
+      <select id="vehicle-select" title="Vehicle architecture (concept-grade)">
         <option value="sh-starship">Super Heavy + Starship</option>
+        <option value="falcon9">Falcon 9 (illustrative C3 table)</option>
         <option value="abstract">Abstract Δv budget</option>
         <option value="chem-medium">Chemical medium (6 km/s)</option>
-        <option value="fh-class">Heavy-lift chemical (9 km/s)</option>
+        <option value="fh-class">Heavy-lift chemical abstract (9 km/s)</option>
         <option value="high-energy">High-energy / advanced (15 km/s)</option>
       </select>
+    </div>
+    <div class="route-field-row" id="starship-arch-row">
+      <label>Starship architecture</label>
+      <select id="starship-arch" title="SS architecture mode">
+        <option value="legacy-demo">Legacy demo (booster-only Δv)</option>
+        <option value="unrefueled">Unrefueled LEO→TMI (injection)</option>
+        <option value="tanker-n">Tanker refuel (N tankers)</option>
+      </select>
+    </div>
+    <div class="route-field-row" id="tanker-row" style="display:none">
+      <label>Tanker count N</label>
+      <input type="number" id="tanker-count" min="0" max="20" step="1" value="0">
+    </div>
+    <div class="route-field-row" id="f9-variant-row" style="display:none">
+      <label>Falcon 9 variant</label>
+      <select id="f9-variant">
+        <option value="expendable">Expendable (illustrative)</option>
+        <option value="asds">ASDS / recovery derate</option>
+      </select>
+    </div>
+    <div class="route-field-row" id="cargo-row">
+      <label>Cargo mass (kg)</label>
+      <input type="number" id="cargo-mass" min="0" max="500000" step="100" value="0">
+    </div>
+    <div class="route-field-row" id="aero-row">
+      <label>Aeroassist factor (arrival)</label>
+      <input type="number" id="aeroassist-factor" min="0" max="0.9" step="0.05" value="0" title="Reduces arrival capture Need only (0–0.9)">
     </div>
     <div class="route-field-row" id="abstract-budget-row" style="display:none">
       <label>Abstract budget (m/s)</label>
       <input type="number" id="abstract-budget" min="500" max="50000" step="100" value="8000">
     </div>
     <div class="route-field-row">
-      <label>Cost basis</label>
+      <label>Cost basis (legacy / abstract)</label>
       <select id="cost-basis-select" title="Heliocentric leg vs full parking-orbit mission Δv">
         <option value="helio">Heliocentric leg</option>
         <option value="mission">Full mission (parking)</option>

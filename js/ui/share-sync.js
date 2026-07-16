@@ -27,6 +27,10 @@ function encodeFromState() {
     ab: state.abstractBudget_m_s,
     basis: isMulti ? 'helio' : (state.costBasis || 'helio'),
     view: state.display?.mode || 'cinematic',
+    cargo: state.cargoMass_kg || 0,
+    arch: state.vehicleId === 'sh-starship' ? (state.starshipArch || 'legacy-demo') : undefined,
+    tankers: state.starshipArch === 'tanker-n' ? (state.tankerCount || 0) : undefined,
+    f9v: state.vehicleId === 'falcon9' ? (state.falcon9Variant || 'expendable') : undefined,
   };
   if (!isMulti) {
     const tofDays = state.userTofDays != null

@@ -4,6 +4,7 @@
  */
 import {
   reservedDeltaV, totalMissionDeltaV, presetDisplayName, presetDisclaimer,
+  evaluateCapability, evaluateMargin,
 } from '../physics/vehicles.js';
 import { DAY, DEG } from '../constants.js';
 import { state } from '../state.js';
@@ -12,7 +13,7 @@ import { getBodyVelocity3D } from '../physics/kepler.js';
 import { propagateOrbit } from '../physics/helio.js';
 import { v3dot, v3sub } from '../physics/vec3.js';
 import { computeMissionBudget } from '../physics/mission-budget.js';
-import { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
+import { requiredDeltaV, transferBudgetNow, computeNeedNow } from './mission-budget-ui.js';
 
 export function exportMissionPlan(td) {
   const plan = buildPlanObject(td);
@@ -29,7 +30,8 @@ export function exportMissionPlan(td) {
   import('./format.js').then(({ notify }) => notify('MISSION PLAN EXPORTED'));
 }
 
-function buildPlanObject(td) {
+/** Exported for offline tests (PR 10). */
+export function buildPlanObject(td) {
   const isMulti = !!td.isMultiLeg;
   const helioDv = isMulti ? td.dvTotalMultiLeg
                           : (td.lambertOk ? td.dvTotal_lambert : td.dvTotal);
@@ -37,19 +39,33 @@ function buildPlanObject(td) {
   const costBasis = isMulti ? 'helio' : state.costBasis;
   const required = requiredDeltaV(td);
   const budget = transferBudgetNow();
-  const feasible = budget >= required;
+  const need = computeNeedNow(td);
+  const request = {
+    vehicleId: state.vehicleId,
+    cargoMass_kg: state.cargoMass_kg ?? 0,
+    starshipArch: state.starshipArch ?? 'legacy-demo',
+    tankerCount: state.tankerCount ?? 0,
+    falcon9Variant: state.falcon9Variant || 'expendable',
+    abstractBudget_m_s: state.abstractBudget_m_s,
+    originBody: td.body1,
+    solveTankers: state.starshipArch === 'tanker-n',
+  };
+  const capability = evaluateCapability(need, request);
+  const margin = evaluateMargin(need, capability, request);
+  const feasible = !!margin.feasible;
   const isoUTC = (simT) => new Date(simT * 1000 + Date.UTC(2000, 0, 1, 12, 0, 0)).toISOString();
 
   const plan = {
-    schema_version: 2,
+    schema_version: 3,
     generated_at: new Date().toISOString(),
     frame: 'Heliocentric Ecliptic J2000',
-    units: { distance: 'm', velocity: 'm/s', angle: 'deg', time: 'ISO-8601 UTC' },
+    units: { distance: 'm', velocity: 'm/s', angle: 'deg', time: 'ISO-8601 UTC', mass: 'kg' },
     methodology: {
       ephemeris: 'JPL Approximate Positions of Major Planets 1800-2050',
       transfer: 'Lambert universal-variable, dual geometry (physical Δv / visual line)',
-      disclaimer: 'Educational / early mission sketch — not for flight operations.',
+      disclaimer: 'Educational / concept-grade sketch — not flight operations; not SpaceX-certified performance.',
       display_mode: state.display?.mode || 'cinematic',
+      fidelity: state.fidelityLevel || 'L1',
     },
     summary: {
       origin: td.body1.name,
@@ -65,6 +81,7 @@ function buildPlanObject(td) {
       cost_basis: costBasis,
       multi_leg:     isMulti,
       n_flybys:      isMulti ? td.flybys.length : 0,
+      cargo_mass_kg: state.cargoMass_kg ?? 0,
     },
     plan_request: {
       v: 1,
@@ -76,15 +93,30 @@ function buildPlanObject(td) {
       ab: state.abstractBudget_m_s,
       basis: costBasis,
       view: state.display?.mode || 'cinematic',
+      cargo: Math.round(state.cargoMass_kg || 0),
+      arch: state.vehicleId === 'sh-starship' ? (state.starshipArch || 'legacy-demo') : undefined,
+      tankers: state.starshipArch === 'tanker-n' ? (state.tankerCount || 0) : undefined,
+      f9v: state.vehicleId === 'falcon9' ? (state.falcon9Variant || 'expendable') : undefined,
     },
+    measurement: {
+      need,
+      capability,
+      margin,
+      disclaimer: capability.disclaimer || presetDisclaimer(state.vehicleId),
+      fidelity: state.fidelityLevel || 'L1',
+    },
+    // Deprecated mirror for v2 consumers (K13)
     feasibility: {
+      deprecated: true,
       vehicle: presetDisplayName(state.vehicleId),
       vehicle_id: state.vehicleId,
       transfer_dv_budget_m_s: budget,
       required_dv_m_s: required,
       cost_basis: costBasis,
-      total_stack_dv_m_s: state.vehicleId === 'sh-starship' ? totalMissionDeltaV() : null,
-      reserved_dv_m_s: state.vehicleId === 'sh-starship' ? reservedDeltaV() : null,
+      total_stack_dv_m_s: state.vehicleId === 'sh-starship' && state.starshipArch === 'legacy-demo'
+        ? totalMissionDeltaV() : null,
+      reserved_dv_m_s: state.vehicleId === 'sh-starship' && state.starshipArch === 'legacy-demo'
+        ? reservedDeltaV() : null,
       feasible,
       disclaimer: presetDisclaimer(state.vehicleId),
     },

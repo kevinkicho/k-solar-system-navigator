@@ -25,6 +25,7 @@ check('abstract clamp low', v.getTransferBudget('abstract', 10) === 500);
 check('abstract clamp high', v.getTransferBudget('abstract', 999999) === 50000);
 check('sh-starship uses rocket eq', Math.abs(v.getTransferBudget('sh-starship') - sh) < 1e-9);
 check('presets include disclaimers', v.VEHICLE_PRESETS.every(p => p.disclaimer && p.disclaimer.length > 10));
+check('sh-starship display has legacy', /legacy/i.test(v.presetDisplayName('sh-starship')));
 
 if (failed) { console.error(`\n${failed} failed`); process.exit(1); }
 console.log('\nAll vehicle preset checks passed');
