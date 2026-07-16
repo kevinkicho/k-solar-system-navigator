@@ -9,7 +9,7 @@
 //   3. Multi-leg routing — VEEGA-style route solves with per-flyby feasibility
 //   4. Performance budgets (SOFT) — Lambert / multi-leg / body-pos throughput
 //      are informational only: a miss prints ⚠ but does not fail the process.
-//      Hard floors live in tests/perf_budgets.mjs (also soft / exit 0).
+//      Soft floors also live in tests/perf_budgets.mjs (always exit 0).
 //      CI primary gate remains correctness (sections 1–3).
 //
 // Note: scene/, ui/, animation modules require a DOM, so they're excluded.
