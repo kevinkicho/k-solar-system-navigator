@@ -493,6 +493,10 @@ html, body {
 #porkchop-overlay .pc-metric-btn.active {
   color: var(--amber); border-color: var(--amber); background: rgba(255,152,0,0.1);
 }
+#porkchop-overlay .pc-metric-btn:disabled,
+#porkchop-overlay .pc-metric-btn.na {
+  opacity: 0.35; cursor: not-allowed;
+}
 #porkchop-canvas {
   display: block; background: #000;
   border: 1px solid var(--border); cursor: crosshair;
@@ -834,6 +838,7 @@ input[type="range"]::-webkit-slider-thumb {
     <button class="pc-metric-btn active" data-metric="dv" title="Total Δv (departure + arrival)">Δv TOTAL</button>
     <button class="pc-metric-btn" data-metric="c3" title="C3 = |V∞|² at departure — what launchers spec">C3 (DEPART)</button>
     <button class="pc-metric-btn" data-metric="vinf" title="V∞ magnitude at arrival — drives orbit-insertion Δv">V∞ ARRIVE</button>
+    <button class="pc-metric-btn" data-metric="cargo" title="Max cargo kg for active vehicle (F9 Earth or SS unrefueled/tanker) — concept-grade">MAX CARGO</button>
   </div>
   <div class="pc-canvas-wrap">
     <div class="pc-ylabel">TRANSIT DURATION (days)</div>

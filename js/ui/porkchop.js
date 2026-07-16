@@ -1,13 +1,14 @@
 import { DAY } from '../constants.js';
 import { bodyId, findById } from '../data/catalog.js';
 import { state } from '../state.js';
-import { falcon9MaxPayloadKg, falcon9EarthDepartureOnly } from '../data/falcon9-c3-table.js';
+import {
+  cargoHeatmapMode, cellMaxCargoKg, fillCargoHeatmap,
+} from '../physics/porkchop-cargo.js';
 import { hohmannTransfer } from '../physics/kepler.js';
 import {
   cellTimes, defaultGridSpec, fillGridRow, refineGridSpec,
 } from '../physics/porkchop-grid.js';
 import { solveTransferOrbit } from '../physics/routing.js';
-import { maxCargoForNeed } from '../physics/starship-architecture.js';
 import { dateToInputValue, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
 import { timeState } from './time-system.js';
@@ -31,8 +32,10 @@ export function wirePorkchop() {
 
   let pcState = null;
   let running = false;
-  // Active heatmap metric: 'dv' (total Δv), 'c3' (departure energy), or 'vinf' (arrival V∞).
+  // Active heatmap metric: 'dv' | 'c3' | 'vinf' | 'cargo' (max cargo kg).
   let metric = 'dv';
+  // Cache key for cargo heatmap (invalidate on vehicle / arch / variant / tankers).
+  let cargoCacheKey = '';
 
   // Worker state: module Worker preferred; main-thread rAF fallback on failure.
   let worker = null;
@@ -139,32 +142,101 @@ export function wirePorkchop() {
     ctx.stroke();
   }
 
+  function currentCargoMode() {
+    return cargoHeatmapMode(
+      state.vehicleId,
+      pcState?.body1 || state.routeOrigin,
+      state.starshipArch,
+    );
+  }
+
+  function cargoOpts() {
+    return {
+      mode: currentCargoMode(),
+      falcon9Variant: state.falcon9Variant || 'expendable',
+      starshipArch: state.starshipArch || 'unrefueled',
+      tankerCount: state.tankerCount || 0,
+    };
+  }
+
+  function cargoKey() {
+    return [
+      state.vehicleId,
+      state.starshipArch,
+      state.falcon9Variant,
+      state.tankerCount,
+      pcState?.body1Id || '',
+    ].join('|');
+  }
+
+  /** Rebuild cargo heatmap from existing C3/Δv grids (no re-sweep). */
+  function ensureCargoHeatmap() {
+    if (!pcState) return null;
+    const mode = currentCargoMode();
+    if (!mode) {
+      pcState.cargo = null;
+      pcState.cargoMin = NaN;
+      pcState.cargoMax = NaN;
+      cargoCacheKey = cargoKey();
+      return null;
+    }
+    const key = cargoKey();
+    if (pcState.cargo && cargoCacheKey === key) {
+      return { arr: pcState.cargo, lo: pcState.cargoMin, hi: pcState.cargoMax, higherIsBetter: true };
+    }
+    if (!pcState.cargo) pcState.cargo = new Float64Array(GRID_X * GRID_Y);
+    const stats = fillCargoHeatmap(pcState.c3, pcState.data, pcState.cargo, cargoOpts());
+    pcState.cargoMin = stats.min;
+    pcState.cargoMax = stats.max;
+    cargoCacheKey = key;
+    return { arr: pcState.cargo, lo: pcState.cargoMin, hi: pcState.cargoMax, higherIsBetter: true };
+  }
+
   // Pull the storage array + min/max for the currently-active metric.
   function activeArray() {
     if (!pcState) return null;
-    if (metric === 'c3')   return { arr: pcState.c3,   lo: pcState.c3Min,   hi: pcState.c3Max };
-    if (metric === 'vinf') return { arr: pcState.vinf, lo: pcState.vinfMin, hi: pcState.vinfMax };
-    return                       { arr: pcState.data, lo: pcState.dvMin,   hi: pcState.dvMax };
+    if (metric === 'c3')   return { arr: pcState.c3,   lo: pcState.c3Min,   hi: pcState.c3Max, higherIsBetter: false };
+    if (metric === 'vinf') return { arr: pcState.vinf, lo: pcState.vinfMin, hi: pcState.vinfMax, higherIsBetter: false };
+    if (metric === 'cargo') return ensureCargoHeatmap();
+    return                       { arr: pcState.data, lo: pcState.dvMin,   hi: pcState.dvMax, higherIsBetter: false };
+  }
+
+  function updateCargoMetricBtn() {
+    const btn = document.querySelector('.pc-metric-btn[data-metric="cargo"]');
+    if (!btn) return;
+    const mode = currentCargoMode();
+    btn.disabled = !mode;
+    btn.title = mode === 'f9'
+      ? 'Max payload kg from illustrative F9 C₃ table (Earth departure only) — not SpaceX performance'
+      : mode === 'ss'
+        ? 'Max cargo kg from concept-grade Starship rocket equation at cell total Δv'
+        : 'Select Falcon 9 (Earth origin) or Starship unrefueled/tanker for cargo heatmap';
+    btn.classList.toggle('na', !mode);
   }
 
   function repaintAll() {
     ctx.fillStyle = '#050810';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     if (!pcState) return;
+    updateCargoMetricBtn();
     const a = activeArray();
     if (!a || !isFinite(a.lo) || !isFinite(a.hi) || a.hi === a.lo) {
-      // No data yet (pre-sweep) — fill empty cells with the placeholder color.
+      // No data yet (pre-sweep) or cargo n/a — fill empty cells with the placeholder color.
       for (let iy = 0; iy < GRID_Y; iy++) for (let ix = 0; ix < GRID_X; ix++) {
         paintCell(ix, iy, 'rgba(30,30,36,0.6)');
       }
     } else {
+      const span = a.hi - a.lo;
       for (let iy = 0; iy < GRID_Y; iy++) {
         for (let ix = 0; ix < GRID_X; ix++) {
           const v = a.arr[iy * GRID_X + ix];
           if (!isFinite(v)) {
             paintCell(ix, iy, 'rgba(30,30,36,0.6)');
           } else {
-            const [r,g,b] = dvColor((v - a.lo) / (a.hi - a.lo));
+            // Low = green for Δv/C3/V∞ (lower better); high = green for cargo (higher better).
+            let t = span > 0 ? (v - a.lo) / span : 0;
+            if (a.higherIsBetter) t = 1 - t;
+            const [r, g, b] = dvColor(t);
             paintCell(ix, iy, `rgb(${r},${g},${b})`);
           }
         }
@@ -178,16 +250,26 @@ export function wirePorkchop() {
   function updateLegend() {
     const a = activeArray();
     if (!a || !isFinite(a.lo)) {
-      document.getElementById('pc-scale-min').textContent = '—';
+      document.getElementById('pc-scale-min').textContent = metric === 'cargo' ? 'n/a' : '—';
       document.getElementById('pc-scale-max').textContent = '—';
       return;
     }
     const fmtMetric = (v) => {
-      if (metric === 'c3')   return (v / 1e6).toFixed(1) + ' km²/s²';   // C3 in km²/s²
-      return (v / 1000).toFixed(1) + ' km/s';                            // dv & vinf
+      if (metric === 'c3') return (v / 1e6).toFixed(1) + ' km²/s²';
+      if (metric === 'cargo') {
+        if (v >= 1000) return (v / 1000).toFixed(2) + ' t';
+        return Math.round(v) + ' kg';
+      }
+      return (v / 1000).toFixed(1) + ' km/s';
     };
-    document.getElementById('pc-scale-min').textContent = fmtMetric(a.lo);
-    document.getElementById('pc-scale-max').textContent = '≥ ' + fmtMetric(a.hi);
+    // Cargo: green = high capacity (left of bar is low after invert in paint; legend shows actual lo→hi).
+    if (metric === 'cargo') {
+      document.getElementById('pc-scale-min').textContent = fmtMetric(a.lo) + ' (low)';
+      document.getElementById('pc-scale-max').textContent = fmtMetric(a.hi) + ' (high · green)';
+    } else {
+      document.getElementById('pc-scale-min').textContent = fmtMetric(a.lo);
+      document.getElementById('pc-scale-max').textContent = '≥ ' + fmtMetric(a.hi);
+    }
   }
 
   function renderAxes(st) {
@@ -557,13 +639,16 @@ export function wirePorkchop() {
       tofMax: gridSpec.tofMax,
       gridSpec,
       data, c3, vinf,
+      cargo: null, cargoMin: NaN, cargoMax: NaN,
       dvMin:   Infinity, dvMax:   -Infinity,
       c3Min:   Infinity, c3Max:   -Infinity,
       vinfMin: Infinity, vinfMax: -Infinity,
       hohmannTof: gridSpec.hohmannTof, minCell: null, selectedCell: null,
     };
+    cargoCacheKey = '';
     renderAxes(pcState);
     routeLabel.innerHTML = `${body1.name.toUpperCase()} &rarr; ${body2.name.toUpperCase()} &middot; ${fmt(simTimeToDate(departStart))} + ${(gridSpec.departSpan / (365.25 * DAY)).toFixed(1)}yr`;
+    updateCargoMetricBtn();
     repaintAll();
     progressFill.style.width = '0%';
     applyBtn.disabled = true;
@@ -573,6 +658,8 @@ export function wirePorkchop() {
     document.getElementById('pc-dv').textContent = '—';
     document.getElementById('pc-c3').textContent = '—';
     document.getElementById('pc-vinf').textContent = '—';
+    const pcCargo = document.getElementById('pc-cargo');
+    if (pcCargo) pcCargo.textContent = '—';
 
     const acc = await runGridFill(body1, body2, body1Id, body2Id, gridSpec, data, c3, vinf, {
       requestId,
@@ -640,33 +727,37 @@ export function wirePorkchop() {
     return `${Math.round(kg)} kg`;
   }
 
-  /** PR15: selected-cell cargo readout for F9 (Earth-origin) and SS cargo arches. */
+  /** Selected-cell cargo readout for F9 (Earth-origin) and SS cargo arches. */
   function cargoReadoutForCell(c3v, dv) {
-    const origin = pcState?.body1 || state.routeOrigin;
-    if (state.vehicleId === 'falcon9') {
-      if (!falcon9EarthDepartureOnly(origin)) {
+    const mode = currentCargoMode();
+    if (!mode) {
+      if (state.vehicleId === 'falcon9') {
         return { text: 'n/a (Earth dep only)', title: 'Falcon 9 illustrative table applies only to Earth departure' };
       }
-      if (!isFinite(c3v)) return { text: '—', title: '' };
-      const maxPay = falcon9MaxPayloadKg(c3v, state.falcon9Variant || 'expendable');
-      if (maxPay == null) return { text: 'C3 out of table', title: '' };
+      return { text: '—', title: 'Select Falcon 9 (Earth) or SS unrefueled/tanker for cargo readout' };
+    }
+    const kg = cellMaxCargoKg({
+      mode,
+      c3_m2_s2: c3v,
+      dv_m_s: dv,
+      falcon9Variant: state.falcon9Variant || 'expendable',
+      starshipArch: state.starshipArch || 'unrefueled',
+      tankerCount: state.tankerCount || 0,
+    });
+    if (kg == null) {
+      return { text: mode === 'f9' ? 'C3 out of table' : '—', title: '' };
+    }
+    if (mode === 'f9') {
       const variant = state.falcon9Variant === 'asds' ? 'ASDS' : 'expendable';
       return {
-        text: `${fmtCargoKg(maxPay)} max @ C₃ (${variant})`,
+        text: `${fmtCargoKg(kg)} max @ C₃ (${variant})`,
         title: 'Illustrative F9 payload-vs-C3 — not SpaceX performance',
       };
     }
-    if (state.vehicleId === 'sh-starship'
-        && state.starshipArch && state.starshipArch !== 'legacy-demo'
-        && isFinite(dv)) {
-      const maxC = maxCargoForNeed(dv, state.starshipArch, state.tankerCount || 0);
-      if (maxC == null || !isFinite(maxC)) return { text: '—', title: '' };
-      return {
-        text: `${fmtCargoKg(maxC)} max @ cell Δv`,
-        title: 'Concept-grade Starship cargo at selected cell need Δv',
-      };
-    }
-    return { text: '—', title: 'Select Falcon 9 (Earth) or SS unrefueled/tanker for cargo readout' };
+    return {
+      text: `${fmtCargoKg(kg)} max @ cell Δv`,
+      title: 'Concept-grade Starship cargo at selected cell need Δv',
+    };
   }
 
   function showSelection(cell) {
@@ -754,9 +845,13 @@ export function wirePorkchop() {
     beginSweep(state.routeOrigin, state.routeDestination, timeState.simTime);
   };
 
-  // Metric toggle buttons (Δv / C3 / V∞ arrive).
+  // Metric toggle buttons (Δv / C3 / V∞ / cargo).
   for (const btn of document.querySelectorAll('.pc-metric-btn')) {
     btn.addEventListener('click', () => {
+      if (btn.disabled) {
+        notify('CARGO HEATMAP NEEDS F9 (EARTH) OR SS UNREFUELED/TANKER');
+        return;
+      }
       metric = btn.dataset.metric;
       for (const b of document.querySelectorAll('.pc-metric-btn')) {
         b.classList.toggle('active', b === btn);
@@ -766,10 +861,29 @@ export function wirePorkchop() {
     });
   }
 
+  // Vehicle / arch / cargo UI changes — refresh cargo heatmap without re-sweep.
+  window.addEventListener('helios:vehicle-changed', () => {
+    if (!overlay.classList.contains('visible') || !pcState) return;
+    cargoCacheKey = '';
+    pcState.cargo = null;
+    if (metric === 'cargo' && !currentCargoMode()) {
+      metric = 'dv';
+      for (const b of document.querySelectorAll('.pc-metric-btn')) {
+        b.classList.toggle('active', b.dataset.metric === 'dv');
+      }
+    }
+    updateCargoMetricBtn();
+    repaintAll();
+    updateLegend();
+    if (pcState.selectedCell) showSelection(pcState.selectedCell);
+  });
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && overlay.classList.contains('visible')) {
       cancelActiveSweep();
       overlay.classList.remove('visible');
     }
   });
+
+  updateCargoMetricBtn();
 }

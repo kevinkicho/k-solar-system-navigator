@@ -627,10 +627,11 @@ Each PR independently revertible; share without new params keeps working; F9 kno
 
 ## Open Questions (non-blocking residual)
 
-Resolved into Key Decisions where launch-blocking (see K18–K23). Remaining optional product polish:
+Resolved into Key Decisions where launch-blocking (see K18–K23). Product polish follow-ups (**done on main**):
 
-1. **Porkchop overlay:** selected-cell cargo readout first (PR 15); full contours later if useful.  
-2. **Rename `fh-class` display string** to avoid Falcon Heavy confusion (e.g. “Heavy-lift chemical abstract”) — optional copy PR; id stays `fh-class` for share back-compat.
+1. **Porkchop cargo** — selected-cell readout + **MAX CARGO** heatmap metric (`js/physics/porkchop-cargo.js`, Color by control). Green = higher max cargo (F9 Earth C3 table or SS unrefueled/tanker @ cell Δv). Isoline contours still optional / not required.
+2. **`fh-class` display** — UI + preset name is “Heavy-lift chemical (abstract)”; id stays `fh-class` for share back-compat; disclaimer excludes Falcon Heavy.
+3. **`?debug=1`** — Measurement Card logs Need / Capability / Margin to the console.
 
 ---
 

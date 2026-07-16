@@ -38,6 +38,17 @@ export function buildMeasurementCard(td) {
   const capability = evaluateCapability(need, request);
   const margin = evaluateMargin(need, capability, request);
 
+  // Design residual: ?debug=1 logs triad objects for classroom / developers.
+  if (typeof location !== 'undefined' && /[?&]debug=1(?:&|$)/.test(location.search || '')) {
+    console.log('[HELIOS debug] measurement triad', {
+      fidelity: state.fidelityLevel || 'L1',
+      request,
+      need,
+      capability,
+      margin,
+    });
+  }
+
   const isLegacy = state.vehicleId === 'sh-starship'
     && (state.starshipArch === 'legacy-demo' || !state.starshipArch);
   const isSketch = !!(td?.body1?.waypointOf || td?.body2?.waypointOf);

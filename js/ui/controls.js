@@ -140,6 +140,8 @@ export function wireControls() {
 
   function rerenderIfRoute() {
     if (state.transferData) renderRouteUI();
+    // Porkchop cargo heatmap / cell readout follow vehicle architecture.
+    window.dispatchEvent(new CustomEvent('helios:vehicle-changed'));
   }
 
   if (vehSel) vehSel.onchange = () => {

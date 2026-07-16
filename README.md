@@ -125,13 +125,16 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 ### Trip planner & cargo-aware measurements
 
 - **Need / Capability / Margin** — Measurement Card on every computed route (concept-grade)
-- **Vehicles** — Super Heavy + Starship (**legacy demo**, unrefueled LEO→TMI, N-tanker), **Falcon 9** (illustrative C₃–payload table), abstract Δv budgets
+- **Vehicles** — Super Heavy + Starship (**legacy demo**, unrefueled LEO→TMI, N-tanker), **Falcon 9** (illustrative C₃–payload table), abstract Δv budgets (`fh-class` = heavy-lift chemical abstract — not Falcon Heavy)
 - **Cargo mass (kg)** — first-class input for F9 and Starship architectures
+- **Porkchop cargo** — selected-cell max cargo + optional **MAX CARGO** heatmap (F9 Earth C₃ table or SS unrefueled/tanker at cell Δv)
+- **Ephemeris fidelity** — **L1** offline JPL approx (default planning); **L2** after optional Horizons compare badge only; L3 SPICE out of scope
 - **Cost basis** — heliocentric leg vs full parking-orbit mission Δv (legacy/abstract; SS cargo modes use injection Need)
 - **Display scale** — cinematic vs schematic
 - **Catalog** — planets, moons, dwarfs, NEOs, EM-L1/L2 waypoints
 - **Share / import** — URL hash + JSON v3 (recomputes geometry; never trusts stored Δv)
-- **Classroom mode** — `?mode=classroom` → schematic + abstract budget
+- **Classroom mode** — `?mode=classroom` → schematic + abstract budget + methodology banner
+- **Debug** — `?debug=1` logs Need / Capability / Margin objects to the browser console after compute
 
 > **Not flight design.** Vehicle numbers are educational illustrations — not SpaceX-certified performance.
 

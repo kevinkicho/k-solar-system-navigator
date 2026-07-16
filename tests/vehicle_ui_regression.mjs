@@ -38,10 +38,14 @@ check('Horizons re-renders route on L2', rrAfterL2);
 check('About documents L1/L2/L3', /Ephemeris fidelity badges/.test(indexHtml) && /L3/.test(indexHtml) && /never a planning mode/i.test(indexHtml));
 check('About: L3 out of scope', /out of scope|never a planning mode/i.test(indexHtml));
 
-// PR15 porkchop cargo
+// PR15+ porkchop cargo readout + heatmap
 check('pc-cargo element in HTML', /id=["']pc-cargo["']/.test(indexHtml));
-check('porkchop cargo readout for F9', /falcon9MaxPayloadKg/.test(porkchopJs) && /cargoReadoutForCell|pc-cargo/.test(porkchopJs));
-check('F9 Earth-only gate in porkchop', /falcon9EarthDepartureOnly/.test(porkchopJs));
+check('MAX CARGO metric button', /data-metric=["']cargo["']/.test(indexHtml));
+check('porkchop-cargo module wired', /porkchop-cargo\.js/.test(porkchopJs));
+check('cargo heatmap fill path', /fillCargoHeatmap|ensureCargoHeatmap/.test(porkchopJs));
+check('F9 Earth-only gate via cargo mode', /cargoHeatmapMode|currentCargoMode/.test(porkchopJs));
+check('fh-class not labeled Falcon Heavy', /Heavy-lift chemical/.test(indexHtml) && !/Falcon Heavy/.test(indexHtml.match(/fh-class[^<]*/)?.[0] || ''));
+check('debug=1 triad log', /debug=1/.test(cardJs));
 
 // PR16 classroom
 check('classroom banner in HTML', /id=["']classroom-banner["']/.test(indexHtml));
