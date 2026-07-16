@@ -46,7 +46,8 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 
 | Component | Method |
 |---|---|
-| Planet positions | JPL "Approximate Positions of Major Planets" 1800–2050: linear element rates per Julian century + great-inequality corrections (b·T² + c·cos(f·T) + s·sin(f·T) added to mean longitude L for Jupiter–Neptune). Newton–Raphson solver for eccentric anomaly. |
+| Planet positions | JPL "Approximate Positions of Major Planets" 1800–2050: linear element rates per Julian century + great-inequality corrections (b·T² + c·cos(f·T) + s·sin(f·T) added to mean longitude L for Jupiter–Neptune). Newton–Raphson solver for eccentric anomaly. **Default offline path for all trip planning.** |
+| Optional Horizons compare | Stretch educational overlay (`js/physics/ephemeris-horizons.js`): on explicit UI opt-in only, fetch a public Horizons VECTOR table and report distance error vs the approximate model. **Not SPICE** (no `.bsp` kernels), **not flight ops**, **not required for planning**. CI uses mocked fetch only. |
 | Transfer orbit | Lambert's problem via universal-variable formulation, bracketed-bisection solver |
 | Trajectory propagation | Kepler in perifocal frame (p̂, q̂, ŵ) |
 | Δv | Vector difference `|v_transfer − v_planet|` (both from physical-inclination state) |
@@ -67,6 +68,7 @@ node tests/visual_alignment.mjs       # trajectory-line-vs-marker accuracy
 node tests/module_integration.mjs     # imports js/* modules: load, accuracy; perf is soft
 node tests/perf_budgets.mjs           # soft/informational perf floors (always exit 0)
 node tests/ephemeris_check.mjs        # JPL element-rate model: J2000 self-consistency, perihelion/aphelion, Mars opposition, drift vs frozen-J2000
+node tests/horizons_mock.mjs          # optional Horizons adapter: parse sample VECTOR payload + mocked fetch (no live network)
 ```
 
 ## Performance baselines
@@ -129,7 +131,8 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 
 ## Data sources
 
-- **Planetary orbits** — JPL "Approximate Positions of Major Planets" (1800–2050 valid range): J2000 elements + per-century rates + great-inequality corrections for Jupiter through Neptune
+- **Planetary orbits** — JPL "Approximate Positions of Major Planets" (1800–2050 valid range): J2000 elements + per-century rates + great-inequality corrections for Jupiter through Neptune (authoritative for HELIOS planning)
+- **Optional educational Horizons fetch** — public [Horizons API](https://ssd.jpl.nasa.gov/horizons/) VECTOR tables only when the user clicks **Compare Horizons** in the About panel; never on the planning path. Not SPICE.
 - **Star data** — [HYG Database v4.2](https://github.com/astronexus/HYG-Database) (~119,600 stars)
 - **Moon data** — NASA/JPL planetary satellite ephemerides
 - **Planet surface textures** — [threex.planets](https://github.com/jeromeetienne/threex.planets) (NASA public-domain maps)
@@ -161,7 +164,7 @@ css/app.css               — progressive mobile layout + reduced-motion overrid
 js/                       — application code, ES modules
   constants.js / state.js / display-scale.js
   data/                   — bodies, moons, dwarfs, neos, waypoints, catalog, scenarios
-  physics/                — kepler, lambert, routing, porkchop-grid, vehicles, mission-budget
+  physics/                — kepler, lambert, routing, porkchop-grid, vehicles, mission-budget, ephemeris-horizons (optional)
   scene/                  — Three.js construction (+ extra-bodies, prebaked stars, gravity FX)
   ui/                     — route planner, porkchop, share, scenarios, controls
   mission.js / animation.js / main.js

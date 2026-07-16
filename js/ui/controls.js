@@ -193,6 +193,64 @@ export function wireControls() {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && overlay.classList.contains('visible')) close();
     });
+
+    // Optional Horizons educational compare — only runs on explicit click.
+    // Planning path never calls Horizons; default is zero network.
+    const hzBtn = document.getElementById('btn-horizons-compare');
+    const hzOut = document.getElementById('horizons-compare-result');
+    if (hzBtn) {
+      hzBtn.onclick = async () => {
+        const body = state.selectedBody;
+        if (!body || body.parent || body.waypointOf) {
+          if (hzOut) {
+            hzOut.textContent = 'Select a major planet first (Mercury–Neptune). Moons / NEOs / waypoints are not supported.';
+          }
+          notify('SELECT A MAJOR PLANET FIRST');
+          return;
+        }
+        if (hzOut) hzOut.textContent = `Fetching Horizons vectors for ${body.name} (optional network)…`;
+        hzBtn.disabled = true;
+        try {
+          const { compareBodyIfOptedIn, resolveHorizonsCommand } = await import('../physics/ephemeris-horizons.js');
+          if (!resolveHorizonsCommand(body)) {
+            if (hzOut) hzOut.textContent = `${body.name} is not in the educational Horizons adapter.`;
+            notify('BODY NOT SUPPORTED FOR HORIZONS COMPARE');
+            return;
+          }
+          const { getBodyPosition3D } = await import('../physics/kepler.js');
+          const epoch = timeState.getDate();
+          const simT = timeState.simTime;
+          const keplerPos = getBodyPosition3D(body, simT, false);
+          // User clicked the compare control → explicit opt-in for this action only.
+          const result = await compareBodyIfOptedIn({
+            optedIn: true,
+            body,
+            epoch,
+            keplerPos,
+            sceneCoords: true,
+          });
+          if (result.skipped) {
+            if (hzOut) hzOut.textContent = `Skipped: ${result.reason}`;
+            return;
+          }
+          const km = result.comparison.distanceKm;
+          const au = result.comparison.distanceAU;
+          const msg = `${body.name} @ ${epoch.toISOString().slice(0, 16)}Z — |Δr| ≈ ${
+            km >= 1e6 ? (km / 1e6).toFixed(2) + ' M km' : km.toFixed(0) + ' km'
+          } (${au.toExponential(2)} AU) vs approximate ephemeris. Educational only — not SPICE, not flight ops.`;
+          if (hzOut) hzOut.textContent = msg;
+          notify(`HORIZONS Δr ≈ ${km >= 1e6 ? (km / 1e6).toFixed(1) + 'M km' : Math.round(km) + ' km'}`);
+        } catch (err) {
+          const detail = err && err.message ? err.message : String(err);
+          if (hzOut) {
+            hzOut.textContent = `Horizons compare failed (network or parse): ${detail}. Planning still uses offline approximate ephemeris.`;
+          }
+          notify('HORIZONS FETCH FAILED — OFFLINE PATH UNCHANGED');
+        } finally {
+          hzBtn.disabled = false;
+        }
+      };
+    }
   }
 
   // Date/time picker overlay.

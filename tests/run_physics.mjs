@@ -13,6 +13,7 @@ const SUITE = [
   'tests/verify_fix.mjs',
   'tests/module_integration.mjs',
   'tests/ephemeris_check.mjs',
+  'tests/horizons_mock.mjs',
   'tests/porkchop_sim.mjs',
   'tests/gravity_assist_sim.mjs',
   'tests/flyby_optimizer.mjs',
