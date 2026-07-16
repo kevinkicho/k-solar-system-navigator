@@ -1,276 +1,30 @@
-import * as THREE from 'three';
+/**
+ * Route results panel + mission controls (DOM).
+ * Scene transfer visuals live in route-orbit-visual.js;
+ * plan JSON export lives in mission-export.js;
+ * shared Δv helpers live in mission-budget-ui.js.
+ */
 import {
-  VEHICLE_SPECS, reservedDeltaV, starshipDeltaV, superHeavyDeltaV, totalMissionDeltaV,
-  getTransferBudget, presetDisplayName, presetDisclaimer, getPreset,
+  starshipDeltaV, superHeavyDeltaV, totalMissionDeltaV,
+  presetDisplayName, presetDisclaimer,
 } from '../physics/vehicles.js';
-import { AU, DAY, DEG, LEG_COLORS, PI } from '../constants.js';
+import { AU, DAY, DEG, LEG_COLORS } from '../constants.js';
 import { state } from '../state.js';
-import { bodyId } from '../data/catalog.js';
-import { getBodyPosition3D, getBodyVelocity3D, getSunBarycentricOffset } from '../physics/kepler.js';
-import { propagateOrbit } from '../physics/helio.js';
-import { v3dot, v3mag, v3sub } from '../physics/vec3.js';
 import { computeMissionBudget } from '../physics/mission-budget.js';
-import {
-  addDateMarker, addFlybyGhost, addFlybyMarker, addLegLine, clearDateMarkers,
-  clearMultiLegVisuals, hideArrivalGhost, hideDepartureGhost,
-  setArrivalGhost, setDepartureGhost, setTransferLine, transferMarkers,
-} from '../scene/transfer-visual.js';
 import {
   formatDateShort, formatDist, formatTime, formatTimePrecise, formatVelocity, simTimeToDate,
 } from './format.js';
 import { timeState } from './time-system.js';
+import { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
+import { exportMissionPlan } from './mission-export.js';
+export { updateTransferOrbitVisual } from './route-orbit-visual.js';
+export { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 
 // Launch handler — injected by main.js to break the route ↔ mission cycle.
 // (Abort uses bindAbortHandler in route-planner.js for the same reason.)
 let _launchMission = null;
 export function bindMissionHandlers({ launch }) {
   _launchMission = launch;
-}
-
-// ---- Scene-side: dashed transfer-orbit lines + depart/arrive/flyby ring markers ----
-export function updateTransferOrbitVisual() {
-  setTransferLine(null);
-  clearMultiLegVisuals();
-  clearDateMarkers();
-  transferMarkers.depart.visible = false;
-  transferMarkers.arrive.visible = false;
-  hideArrivalGhost();
-  hideDepartureGhost();
-  if (!state.showTransferOrbit || !state.transferData) return;
-
-  const td = state.transferData;
-  if (td.isMultiLeg) { renderMultiLegVisual(); return; }
-
-  // The trajectory is a polyline of *one vertex per day*: vertex N is the
-  // spacecraft's position on day N of the transfer, computed by the same
-  // Kepler propagator the live ship animation uses (propagateOrbit).  So
-  // when the ship animation runs, it really does fly through these exact
-  // dots — they're not a smoothed spline, they're the day-by-day cartesian
-  // coordinates the propagator emits.
-  //
-  // Sun-barycentric wobble is applied per-vertex at that vertex's time, so
-  // the arc meets the wobbled planets at departure and arrival.
-  const depT = td.departureSimTime;
-  const arrT = td.arrivalSimTime;
-  const dep = td.dep3D || getBodyPosition3D(td.body1, depT);
-  const arr = td.arr3D || getBodyPosition3D(td.body2, arrT);
-  const depOff = getSunBarycentricOffset(depT);
-  const arrOff = getSunBarycentricOffset(arrT);
-  const points = [];
-  const transferDays = Math.floor(td.transferTime / DAY);
-  // Cap-and-stride: for very long transfers (Saturn, Neptune) we'd have
-  // thousands of vertices.  At >3000d, switch to one-per-2-days etc., but
-  // always keep the FIRST and LAST samples at exactly t=0 and t=transferTime.
-  const stride = Math.max(1, Math.ceil(transferDays / 3000));
-  if (td.orbit) {
-    // Integer-day samples first.
-    for (let day = 0; day <= transferDays; day += stride) {
-      const dt = day * DAY;
-      const pos_m = propagateOrbit(td.orbit, dt);
-      const off = getSunBarycentricOffset(depT + dt);
-      points.push(new THREE.Vector3(
-        pos_m[0] / AU + off.x, pos_m[1] / AU + off.y, pos_m[2] / AU + off.z));
-    }
-    // Plus the exact arrival point — transferTime usually isn't an integer
-    // number of days, so the last integer-day sample falls a few hours short.
-    const pos_m = propagateOrbit(td.orbit, td.transferTime);
-    points.push(new THREE.Vector3(
-      pos_m[0] / AU + arrOff.x, pos_m[1] / AU + arrOff.y, pos_m[2] / AU + arrOff.z));
-  } else {
-    // Lambert failed — fall back to cosine interpolation just so the line
-    // doesn't disappear; the user has already been notified that the
-    // trajectory is unreliable in this case.
-    const NF = 200;
-    for (let i = 0; i <= NF; i++) {
-      const t = i / NF;
-      const blend = 0.5 - 0.5 * Math.cos(PI * t);
-      const off = getSunBarycentricOffset(depT + t * td.transferTime);
-      points.push(new THREE.Vector3(
-        dep.x + (arr.x - dep.x) * blend + off.x,
-        dep.y + (arr.y - dep.y) * blend + off.y,
-        dep.z + (arr.z - dep.z) * blend + off.z));
-    }
-  }
-  const geo = new THREE.BufferGeometry().setFromPoints(points);
-  const mat = new THREE.LineDashedMaterial({
-    color: 0xff9800, dashSize: 0.15, gapSize: 0.08,
-    transparent: true, opacity: 0.7,
-  });
-  const line = new THREE.Line(geo, mat);
-  line.computeLineDistances();
-  setTransferLine(line);
-  transferMarkers.depart.position.set(dep.x + depOff.x, dep.y + depOff.y, dep.z + depOff.z);
-  transferMarkers.depart.visible = true;
-  transferMarkers.arrive.position.set(arr.x + arrOff.x, arr.y + arrOff.y, arr.z + arrOff.z);
-  transferMarkers.arrive.visible = true;
-  // Ghosts at endpoints — faded planet-sized spheres at "where Origin/Destination
-  // are at the planned moment." Makes the rendezvous geometry obvious to a
-  // viewer who hasn't pressed Launch yet.
-  setDepartureGhost({
-    x: dep.x + depOff.x, y: dep.y + depOff.y, z: dep.z + depOff.z,
-    radius: td.body1.displayRadius * 1.6,
-    color: parseInt(td.body1.color.replace('#', ''), 16),
-  });
-  setArrivalGhost({
-    x: arr.x + arrOff.x, y: arr.y + arrOff.y, z: arr.z + arrOff.z,
-    radius: td.body2.displayRadius * 1.6,
-    color: parseInt(td.body2.color.replace('#', ''), 16),
-  });
-  // Date markers — fixed-time samples along the trajectory.  Their visual
-  // density (clustered near perihelion, spread near apoapsis) makes the
-  // Keplerian variable-speed nature of the orbit obvious; without these the
-  // dashed line's uniform arc-length spacing hides what's actually a Kepler
-  // ellipse and looks like a smooth spline.
-  if (td.orbit) addDateMarkersAlongOrbit(td.orbit, depT, td.transferTime, 0xffd54f);
-}
-
-// Choose tick cadence so a transfer gets ~10–14 minor ticks plus a few
-// labelled major ticks.  For Earth→Mars (~258d) ticks are weekly-ish, for
-// Earth→Jupiter (~1000d) they're monthly-ish.
-function chooseTickIntervals(transferTimeDays) {
-  if (transferTimeDays < 90)   return { minor: 7,   major: 30  };
-  if (transferTimeDays < 365)  return { minor: 30,  major: 90  };
-  if (transferTimeDays < 1500) return { minor: 60,  major: 180 };
-  return { minor: 180, major: 360 };
-}
-
-function addDateMarkersAlongOrbit(orbit, departSimTime, transferTime, color) {
-  const { minor, major } = chooseTickIntervals(transferTime / DAY);
-  for (let day = minor; day < transferTime / DAY; day += minor) {
-    const dt = day * DAY;
-    if (dt >= transferTime) break;
-    const pos_m = propagateOrbit(orbit, dt);
-    const off = getSunBarycentricOffset(departSimTime + dt);
-    const isMajor = Math.abs(day % major) < 1e-6;
-    addDateMarker(
-      pos_m[0]/AU + off.x, pos_m[1]/AU + off.y, pos_m[2]/AU + off.z,
-      color, isMajor,
-    );
-  }
-}
-
-function renderMultiLegVisual() {
-  const td = state.transferData;
-  for (let li = 0; li < td.legs.length; li++) {
-    const leg = td.legs[li];
-    if (!leg.ok) continue;
-    // Same per-day vertex strategy as single-leg: each vertex is the
-    // spacecraft's actual cartesian position on that day of the leg, plus
-    // an exact arrival vertex at leg.tof.
-    const legDays = Math.floor(leg.tof / DAY);
-    const stride = Math.max(1, Math.ceil(legDays / 3000));
-    const pts = [];
-    if (leg.orbit) {
-      for (let day = 0; day <= legDays; day += stride) {
-        const dt = day * DAY;
-        const pm = propagateOrbit(leg.orbit, dt);
-        const off = getSunBarycentricOffset(leg.departSimTime + dt);
-        pts.push(new THREE.Vector3(pm[0]/AU + off.x, pm[1]/AU + off.y, pm[2]/AU + off.z));
-      }
-      const pm = propagateOrbit(leg.orbit, leg.tof);
-      const off = getSunBarycentricOffset(leg.arriveSimTime);
-      pts.push(new THREE.Vector3(pm[0]/AU + off.x, pm[1]/AU + off.y, pm[2]/AU + off.z));
-    } else {
-      const a = leg.dep3D, b = leg.arr3D;
-      const NF = 160;
-      for (let i = 0; i <= NF; i++) {
-        const t = i / NF;
-        const blend = 0.5 - 0.5 * Math.cos(PI * t);
-        const off = getSunBarycentricOffset(leg.departSimTime + t * leg.tof);
-        pts.push(new THREE.Vector3(
-          a.x + (b.x - a.x) * blend + off.x,
-          a.y + (b.y - a.y) * blend + off.y,
-          a.z + (b.z - a.z) * blend + off.z));
-      }
-    }
-    const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    const mat = new THREE.LineDashedMaterial({
-      color: LEG_COLORS[li % LEG_COLORS.length],
-      dashSize: 0.15, gapSize: 0.08,
-      transparent: true, opacity: 0.75,
-    });
-    const line = new THREE.Line(geo, mat);
-    line.computeLineDistances();
-    addLegLine(line);
-    // Per-leg date markers reveal Keplerian variable speed.
-    if (leg.orbit) {
-      addDateMarkersAlongOrbit(
-        leg.orbit, leg.departSimTime, leg.tof,
-        LEG_COLORS[li % LEG_COLORS.length],
-      );
-    }
-  }
-
-  const firstLeg = td.legs[0];
-  const lastLeg  = td.legs[td.legs.length - 1];
-  if (firstLeg && firstLeg.ok) {
-    const o = getSunBarycentricOffset(firstLeg.departSimTime);
-    transferMarkers.depart.position.set(firstLeg.dep3D.x + o.x, firstLeg.dep3D.y + o.y, firstLeg.dep3D.z + o.z);
-    transferMarkers.depart.visible = true;
-    setDepartureGhost({
-      x: firstLeg.dep3D.x + o.x, y: firstLeg.dep3D.y + o.y, z: firstLeg.dep3D.z + o.z,
-      radius: td.body1.displayRadius * 1.6,
-      color: parseInt(td.body1.color.replace('#', ''), 16),
-    });
-  }
-  if (lastLeg && lastLeg.ok) {
-    const o = getSunBarycentricOffset(lastLeg.arriveSimTime);
-    transferMarkers.arrive.position.set(lastLeg.arr3D.x + o.x, lastLeg.arr3D.y + o.y, lastLeg.arr3D.z + o.z);
-    transferMarkers.arrive.visible = true;
-    setArrivalGhost({
-      x: lastLeg.arr3D.x + o.x, y: lastLeg.arr3D.y + o.y, z: lastLeg.arr3D.z + o.z,
-      radius: td.body2.displayRadius * 1.6,
-      color: parseInt(td.body2.color.replace('#', ''), 16),
-    });
-  }
-  // Per-flyby ghosts at each intermediate planet, parked at the planned-flyby-
-  // time position so the user sees the planet "where the ship will meet it"
-  // even when sim time is currently elsewhere.
-  for (let i = 1; i < td.waypoints.length - 1; i++) {
-    const wp = td.waypoints[i];
-    const p = getBodyPosition3D(wp.body, wp.simTime, true);
-    const o = getSunBarycentricOffset(wp.simTime);
-    addFlybyGhost({
-      x: p.x + o.x, y: p.y + o.y, z: p.z + o.z,
-      radius: wp.body.displayRadius * 1.5,
-      color: parseInt(wp.body.color.replace('#', ''), 16),
-    });
-  }
-
-  for (let i = 1; i < td.waypoints.length - 1; i++) {
-    const wp = td.waypoints[i];
-    const p = getBodyPosition3D(wp.body, wp.simTime, true);
-    const o = getSunBarycentricOffset(wp.simTime);
-    const mesh = new THREE.Mesh(
-      new THREE.RingGeometry(0.018, 0.030, 32),
-      new THREE.MeshBasicMaterial({
-        color: 0xffd54f, side: THREE.DoubleSide,
-        transparent: true, opacity: 0.85,
-      }),
-    );
-    mesh.position.set(p.x + o.x, p.y + o.y, p.z + o.z);
-    addFlybyMarker(mesh);
-  }
-}
-
-/** Required Δv for feasibility under selected cost basis (design K6). */
-export function requiredDeltaV(td) {
-  if (!td) return Infinity;
-  if (td.isMultiLeg) {
-    // Mission parking budget is single-leg only.
-    return td.dvTotalMultiLeg ?? Infinity;
-  }
-  const lambertOk = !!td.lambertOk;
-  const helio = lambertOk ? td.dvTotal_lambert : td.dvTotal;
-  if (state.costBasis === 'mission' && lambertOk) {
-    const budget = computeMissionBudget(td);
-    if (budget) return budget.totalMission;
-  }
-  return helio;
-}
-
-export function transferBudgetNow() {
-  return getTransferBudget(state.vehicleId, state.abstractBudget_m_s);
 }
 
 function vehicleBlockHtml(requiredDv, isMulti = false) {
@@ -300,12 +54,31 @@ function vehicleBlockHtml(requiredDv, isMulti = false) {
   return lines;
 }
 
+function bindMissionControlButtons(td, { canLaunch }) {
+  if (canLaunch) {
+    document.getElementById('btn-launch').onclick = () => _launchMission && _launchMission();
+    document.getElementById('btn-share-link').onclick = () => {
+      import('./share.js').then(({ copyShareLink }) => copyShareLink());
+    };
+  }
+  document.getElementById('btn-goto-depart').onclick = () => {
+    timeState.simTime = td.departureSimTime;
+    timeState.setSpeed(3);
+    timeState.updateDisplay();
+    import('./format.js').then(({ notify }) => notify('JUMPED TO DEPARTURE DATE'));
+  };
+  document.getElementById('btn-export-plan').onclick = () => exportMissionPlan(td);
+}
+
 // ---- DOM-side: results panel + mission controls ----
 export function renderRouteUI() {
   const td = state.transferData;
   if (!td) return;
   if (td.isMultiLeg) { renderMultiLegRouteUI(); return; }
+  renderSingleLegRouteUI(td);
+}
 
+function renderSingleLegRouteUI(td) {
   const departDate = simTimeToDate(td.departureSimTime);
   const arriveDate = simTimeToDate(td.arrivalSimTime);
   const lambertOk = !!td.lambertOk;
@@ -375,17 +148,7 @@ export function renderRouteUI() {
     <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
     <button class="route-btn" id="btn-share-link" style="font-size:9px;padding:7px;margin-top:4px;">Copy share link</button>
   `;
-  document.getElementById('btn-launch').onclick = () => _launchMission && _launchMission();
-  document.getElementById('btn-goto-depart').onclick = () => {
-    timeState.simTime = td.departureSimTime;
-    timeState.setSpeed(3);
-    timeState.updateDisplay();
-    import('./format.js').then(({ notify }) => notify('JUMPED TO DEPARTURE DATE'));
-  };
-  document.getElementById('btn-export-plan').onclick = () => exportMissionPlan(td);
-  document.getElementById('btn-share-link').onclick = () => {
-    import('./share.js').then(({ copyShareLink }) => copyShareLink());
-  };
+  bindMissionControlButtons(td, { canLaunch: true });
 }
 
 function renderMultiLegRouteUI() {
@@ -450,191 +213,5 @@ function renderMultiLegRouteUI() {
     <button class="route-btn" id="btn-goto-depart" style="font-size:10px;padding:8px;">Jump to Departure Date</button>
     <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
   `;
-  if (td.allLegsOk) {
-    document.getElementById('btn-launch').onclick = () => _launchMission && _launchMission();
-    document.getElementById('btn-share-link').onclick = () => {
-      import('./share.js').then(({ copyShareLink }) => copyShareLink());
-    };
-  }
-  document.getElementById('btn-goto-depart').onclick = () => {
-    timeState.simTime = td.departureSimTime;
-    timeState.setSpeed(3);
-    timeState.updateDisplay();
-    import('./format.js').then(({ notify }) => notify('JUMPED TO DEPARTURE DATE'));
-  };
-  document.getElementById('btn-export-plan').onclick = () => exportMissionPlan(td);
-}
-
-
-// ---- Mission plan JSON export ----
-//
-// Builds a structured object describing the entire trajectory plan, then
-// triggers a download. Format is intended for downstream tooling — every
-// vector is in m/s or m, every epoch is ISO-8601 UTC, every angle is degrees.
-function exportMissionPlan(td) {
-  const plan = buildPlanObject(td);
-  const json = JSON.stringify(plan, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `helios-mission-${td.body1.name}-to-${td.body2.name}-${plan.summary.departure_utc.slice(0,10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  import('./format.js').then(({ notify }) => notify('MISSION PLAN EXPORTED'));
-}
-
-function buildPlanObject(td) {
-  const isMulti = !!td.isMultiLeg;
-  const helioDv = isMulti ? td.dvTotalMultiLeg
-                          : (td.lambertOk ? td.dvTotal_lambert : td.dvTotal);
-  const missionBudget = (!isMulti && td.lambertOk) ? computeMissionBudget(td) : null;
-  const costBasis = isMulti ? 'helio' : state.costBasis;
-  const required = requiredDeltaV(td);
-  const budget = transferBudgetNow();
-  const feasible = budget >= required;
-  const isoUTC = (simT) => new Date(simT * 1000 + Date.UTC(2000, 0, 1, 12, 0, 0)).toISOString();
-
-  const plan = {
-    schema_version: 2,
-    generated_at: new Date().toISOString(),
-    frame: 'Heliocentric Ecliptic J2000',
-    units: { distance: 'm', velocity: 'm/s', angle: 'deg', time: 'ISO-8601 UTC' },
-    methodology: {
-      ephemeris: 'JPL Approximate Positions of Major Planets 1800-2050',
-      transfer: 'Lambert universal-variable, dual geometry (physical Δv / visual line)',
-      disclaimer: 'Educational / early mission sketch — not for flight operations.',
-      display_mode: state.display?.mode || 'cinematic',
-    },
-    summary: {
-      origin: td.body1.name,
-      origin_id: bodyId(td.body1),
-      destination: td.body2.name,
-      destination_id: bodyId(td.body2),
-      departure_utc: isoUTC(td.departureSimTime),
-      arrival_utc:   isoUTC(td.arrivalSimTime),
-      transit_days:  td.transferTime / DAY,
-      total_dv_m_s:  required,
-      heliocentric_total_dv_m_s: helioDv,
-      mission_total_dv_m_s: missionBudget ? missionBudget.totalMission : null,
-      cost_basis: costBasis,
-      multi_leg:     isMulti,
-      n_flybys:      isMulti ? td.flybys.length : 0,
-    },
-    plan_request: {
-      v: 1,
-      o: bodyId(td.body1),
-      d: bodyId(td.body2),
-      dep: isoUTC(td.departureSimTime).slice(0, 10),
-      tof: Math.round(td.transferTime / DAY),
-      veh: state.vehicleId,
-      ab: state.abstractBudget_m_s,
-      basis: costBasis,
-      view: state.display?.mode || 'cinematic',
-    },
-    feasibility: {
-      vehicle: presetDisplayName(state.vehicleId),
-      vehicle_id: state.vehicleId,
-      transfer_dv_budget_m_s: budget,
-      required_dv_m_s: required,
-      cost_basis: costBasis,
-      total_stack_dv_m_s: state.vehicleId === 'sh-starship' ? totalMissionDeltaV() : null,
-      reserved_dv_m_s: state.vehicleId === 'sh-starship' ? reservedDeltaV() : null,
-      feasible,
-      disclaimer: presetDisclaimer(state.vehicleId),
-    },
-  };
-
-  if (!isMulti) {
-    plan.maneuvers = [
-      buildSingleLegManeuvers(td),
-    ].flat();
-    if (td.orbitPhysical) plan.transfer_orbit = serializeOrbit(td.orbitPhysical);
-  } else {
-    plan.legs = td.legs.map((L, i) => ({
-      index: i,
-      from: L.from,
-      to:   L.to,
-      depart_utc: isoUTC(L.departSimTime),
-      arrive_utc: isoUTC(L.arriveSimTime),
-      tof_days: L.tof / DAY,
-      v1_m_s: L.v1, v2_m_s: L.v2,
-      transfer_orbit: L.orbitPhysical ? serializeOrbit(L.orbitPhysical) : null,
-      lambert_ok: L.ok,
-    }));
-    plan.maneuvers = td.maneuvers.map(m => {
-      const base = { type: m.type, body: m.body, epoch_utc: isoUTC(m.simTime), dv_m_s: m.dv };
-      if (m.type === 'flyby' && m.info) {
-        base.flyby = {
-          v_inf_in_m_s:   m.info.vInfInMag,
-          v_inf_out_m_s:  m.info.vInfOutMag,
-          turning_angle_deg: m.info.turningAngle / DEG,
-          max_turning_deg:   m.info.maxTurningAngle / DEG,
-          periapsis_required_m: m.info.rPeriapsis,
-          periapsis_min_m:      m.info.minR,
-          achievable: m.info.achievable,
-        };
-      }
-      return base;
-    });
-  }
-
-  return plan;
-}
-
-function buildSingleLegManeuvers(td) {
-  if (!td.lambertOk || !td.orbitPhysical) {
-    // Lambert failed — fall back to coarse Hohmann numbers.
-    return [
-      { type: 'depart', body: td.body1.name, epoch_utc: new Date(td.departureSimTime*1000 + Date.UTC(2000,0,1,12)).toISOString(), dv_m_s: td.dv1 },
-      { type: 'arrive', body: td.body2.name, epoch_utc: new Date(td.arrivalSimTime*1000 + Date.UTC(2000,0,1,12)).toISOString(), dv_m_s: td.dv2 },
-    ];
-  }
-  // Compute V∞ at departure & arrival from the Lambert solution.
-  const depP = getBodyPosition3D(td.body1, td.departureSimTime, false);
-  const arrP = getBodyPosition3D(td.body2, td.arrivalSimTime, false);
-  const vBody1 = getBodyVelocity3D(td.body1, td.departureSimTime, false);
-  const vBody2 = getBodyVelocity3D(td.body2, td.arrivalSimTime, false);
-  const r1m = [depP.x*AU, depP.y*AU, depP.z*AU];
-  // Re-derive v1 from the orbit's M0 (orbit was built from r1, v1 originally).
-  // Easier: use the fact that orbit propagated 0s gives r1, and (orb.p_hat, orb.q_hat, orb.M0, orb.n)
-  // implicitly defines v1; we can recover it by infinitesimal propagation.
-  const r1 = propagateOrbit(td.orbitPhysical, 0);
-  const r2 = propagateOrbit(td.orbitPhysical, td.transferTime);
-  const dt = 60;
-  const r1plus  = propagateOrbit(td.orbitPhysical, dt);
-  const r2minus = propagateOrbit(td.orbitPhysical, td.transferTime - dt);
-  const v1 = [(r1plus[0]-r1[0])/dt, (r1plus[1]-r1[1])/dt, (r1plus[2]-r1[2])/dt];
-  const v2 = [(r2[0]-r2minus[0])/dt, (r2[1]-r2minus[1])/dt, (r2[2]-r2minus[2])/dt];
-  const vInfDep = v3sub(v1, vBody1);
-  const vInfArr = v3sub(v2, vBody2);
-  const c3 = v3dot(vInfDep, vInfDep);
-
-  const isoUTC = (simT) => new Date(simT * 1000 + Date.UTC(2000, 0, 1, 12, 0, 0)).toISOString();
-  return [
-    {
-      type: 'depart', body: td.body1.name,
-      epoch_utc: isoUTC(td.departureSimTime),
-      dv_m_s: td.dv1_lambert,
-      v_inf_m_s: vInfDep, c3_m2_s2: c3,
-    },
-    {
-      type: 'arrive', body: td.body2.name,
-      epoch_utc: isoUTC(td.arrivalSimTime),
-      dv_m_s: td.dv2_lambert,
-      v_inf_m_s: vInfArr,
-    },
-  ];
-}
-
-function serializeOrbit(o) {
-  return {
-    semi_major_axis_m: o.a,
-    eccentricity: o.e,
-    semi_latus_rectum_m: o.p,
-    p_hat: o.p_hat, q_hat: o.q_hat, w_hat: o.w_hat,
-    M0_rad: o.M0, mean_motion_rad_s: o.n,
-  };
+  bindMissionControlButtons(td, { canLaunch: !!td.allLegsOk });
 }
