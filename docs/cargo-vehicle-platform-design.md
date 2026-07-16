@@ -638,6 +638,7 @@ Resolved into Key Decisions where launch-blocking (see K18–K23). Product polis
 ## References
 
 - Prior product design: `docs/trip-planner-design.md`  
+- **Next fidelity execution plan:** `docs/ephemeris-fidelity-platform-design.md` (L1 / L2-compare / L2-plan; main-only delivery)  
 - Vehicle model: `js/physics/vehicles.js`  
 - Mission parking budget: `js/physics/mission-budget.js`  
 - Budget UI helpers: `js/ui/mission-budget-ui.js`  
