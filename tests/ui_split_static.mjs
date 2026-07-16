@@ -24,11 +24,17 @@ const missionBudgetUi = readFileSync(resolve(ROOT, 'js/ui/mission-budget-ui.js')
 console.log('\n━━━ UI SPLIT STATIC ━━━');
 
 ok(existsSync(resolve(ROOT, 'css/app.css')), 'css/app.css exists');
-ok(
-  /<link\s+rel=["']stylesheet["']\s+href=["']\.\/css\/app\.css["']\s*>/i.test(indexHtml),
-  'index.html links ./css/app.css',
-);
-ok(!/<style[\s>]/i.test(indexHtml), 'index.html has no inline <style> block');
+const cssLink = /<link\s+rel=["']stylesheet["']\s+href=["'](?:\.\/)?css\/app\.css["']\s*\/?>/i;
+ok(cssLink.test(indexHtml), 'index.html links css/app.css');
+// PR17: fully external CSS. PR18: base chrome may remain inline if app.css
+// loads *after* </style> so mobile/reduced-motion overrides win the cascade.
+const styleIdx = indexHtml.search(/<style[\s>]/i);
+const linkIdx = indexHtml.search(cssLink);
+if (styleIdx >= 0) {
+  ok(linkIdx > styleIdx, 'css/app.css link is after inline <style> (cascade-safe)');
+} else {
+  ok(true, 'index.html has no inline <style> block (fully extracted)');
+}
 
 ok(
   /export\s*\{\s*updateTransferOrbitVisual\s*\}\s*from\s*['"]\.\/route-orbit-visual\.js['"]/.test(routeDisplay),
