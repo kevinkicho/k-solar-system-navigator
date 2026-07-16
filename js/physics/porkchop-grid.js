@@ -130,3 +130,26 @@ export function cellTimes(gridSpec, ix, iy) {
   const tof = tofMin + ((iy + 0.5) / ny) * (tofMax - tofMin);
   return { dep, tof };
 }
+
+/**
+ * Build a denser neighborhood gridSpec around coarse cell (ix, iy).
+ * 40×40 samples at ¼ of the coarse cell spacing, centered on the coarse cell.
+ */
+export function refineGridSpec(coarseSpec, ix, iy, n = 40) {
+  const { departStart, departEnd, tofMin, tofMax, nx, ny } = coarseSpec;
+  const coarseDepStep = (departEnd - departStart) / nx;
+  const coarseTofStep = (tofMax - tofMin) / ny;
+  const fineDepStep = coarseDepStep / 4;
+  const fineTofStep = coarseTofStep / 4;
+  const { dep, tof } = cellTimes(coarseSpec, ix, iy);
+  const depSpan = n * fineDepStep;
+  const tofSpan = n * fineTofStep;
+  return {
+    departStart: dep - 0.5 * depSpan,
+    departEnd: dep + 0.5 * depSpan,
+    tofMin: Math.max(1e-6, tof - 0.5 * tofSpan),
+    tofMax: tof + 0.5 * tofSpan,
+    nx: n,
+    ny: n,
+  };
+}

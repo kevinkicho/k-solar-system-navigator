@@ -1,13 +1,18 @@
 import { DAY } from '../constants.js';
+import { bodyId, findById } from '../data/catalog.js';
 import { state } from '../state.js';
 import { hohmannTransfer } from '../physics/kepler.js';
 import {
-  cellTimes, defaultGridSpec, fillGridRow,
+  cellTimes, defaultGridSpec, fillGridRow, refineGridSpec,
 } from '../physics/porkchop-grid.js';
 import { solveTransferOrbit } from '../physics/routing.js';
 import { dateToInputValue, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
 import { timeState } from './time-system.js';
+
+const REFINE_N = 40;
+// Allow refine min to be slightly worse than coarse only by numerical noise.
+const REFINE_DV_NOISE = 1e-3; // m/s
 
 export function wirePorkchop() {
   const GRID_X = 65;
@@ -26,6 +31,46 @@ export function wirePorkchop() {
   let running = false;
   // Active heatmap metric: 'dv' (total Δv), 'c3' (departure energy), or 'vinf' (arrival V∞).
   let metric = 'dv';
+
+  // Worker state: module Worker preferred; main-thread rAF fallback on failure.
+  let worker = null;
+  let workerReady = false;
+  let requestSeq = 0;
+  let activeRequestId = 0;
+
+  function tryCreateWorker() {
+    if (typeof Worker === 'undefined') return false;
+    try {
+      const w = new Worker(
+        new URL('../workers/porkchop-worker.js', import.meta.url),
+        { type: 'module' },
+      );
+      w.onerror = () => {
+        // Module workers may fail under file:// or bad MIME — fall back.
+        workerReady = false;
+        try { w.terminate(); } catch (_) { /* ignore */ }
+        if (worker === w) worker = null;
+      };
+      worker = w;
+      workerReady = true;
+      return true;
+    } catch (_) {
+      worker = null;
+      workerReady = false;
+      return false;
+    }
+  }
+  tryCreateWorker();
+
+  function cancelActiveSweep() {
+    if (activeRequestId && worker && workerReady) {
+      try {
+        worker.postMessage({ type: 'cancel', requestId: activeRequestId });
+      } catch (_) { /* ignore */ }
+    }
+    activeRequestId = 0;
+    running = false;
+  }
 
   function dvColor(t) {
     t = Math.max(0, Math.min(1, t));
@@ -141,7 +186,309 @@ export function wirePorkchop() {
     }
   }
 
-  function beginSweep(body1, body2, departStart) {
+  function applyRowStats(row, acc) {
+    if (row.minIx >= 0 && row.minDv < acc.minDv) {
+      acc.minDv = row.minDv;
+      acc.minIdx = { ix: row.minIx, iy: row.iy };
+    }
+    if (row.maxDv > acc.maxDv) acc.maxDv = row.maxDv;
+    if (row.minC3 < acc.minC3) acc.minC3 = row.minC3;
+    if (row.maxC3 > acc.maxC3) acc.maxC3 = row.maxC3;
+    if (row.minVI < acc.minVI) acc.minVI = row.minVI;
+    if (row.maxVI > acc.maxVI) acc.maxVI = row.maxVI;
+  }
+
+  function pushStatsToState(acc) {
+    if (acc.minDv < Infinity) {
+      pcState.dvMin = acc.minDv;
+      pcState.dvMax = Math.min(acc.maxDv, 3 * acc.minDv);
+      pcState.c3Min = acc.minC3;
+      pcState.c3Max = Math.min(acc.maxC3, 3 * acc.minC3);
+      pcState.vinfMin = acc.minVI;
+      pcState.vinfMax = Math.min(acc.maxVI, 3 * acc.minVI);
+    }
+    pcState.minCell = acc.minIdx;
+  }
+
+  /**
+   * Progressive grid fill on the main thread (rAF slices). Used as fallback
+   * when module Workers are unavailable, and for refine neighborhoods.
+   */
+  function fillGridMainThread(body1, body2, gridSpec, data, c3, vinf, opts = {}) {
+    const { ny } = gridSpec;
+    const onProgress = opts.onProgress || null;
+    const requestId = opts.requestId;
+    return new Promise((resolve) => {
+      let iy = 0;
+      const acc = {
+        minDv: Infinity, maxDv: -Infinity,
+        minC3: Infinity, maxC3: -Infinity,
+        minVI: Infinity, maxVI: -Infinity,
+        minIdx: null,
+      };
+      function step() {
+        if (requestId != null && requestId !== activeRequestId) {
+          resolve(null);
+          return;
+        }
+        if (!running && opts.requireRunning) {
+          resolve(null);
+          return;
+        }
+        const endTime = performance.now() + 14;
+        while (performance.now() < endTime && iy < ny) {
+          const row = fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf);
+          applyRowStats(row, acc);
+          iy++;
+        }
+        if (onProgress) onProgress(iy, ny, acc);
+        if (iy < ny) requestAnimationFrame(step);
+        else resolve(acc);
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  /**
+   * Run a sweep via module Worker. Progressive row messages fill `data`/`c3`/`vinf`.
+   * Returns acc or null if cancelled / stale / error.
+   */
+  function fillGridWorker(body1Id, body2Id, gridSpec, data, c3, vinf, opts = {}) {
+    const { nx, ny } = gridSpec;
+    const requestId = opts.requestId;
+    const onProgress = opts.onProgress || null;
+
+    return new Promise((resolve) => {
+      if (!worker || !workerReady) {
+        resolve(null);
+        return;
+      }
+
+      const acc = {
+        minDv: Infinity, maxDv: -Infinity,
+        minC3: Infinity, maxC3: -Infinity,
+        minVI: Infinity, maxVI: -Infinity,
+        minIdx: null,
+      };
+      let finished = false;
+
+      function cleanup() {
+        if (finished) return;
+        finished = true;
+        worker.removeEventListener('message', onMsg);
+        worker.removeEventListener('error', onErr);
+      }
+
+      function onErr() {
+        cleanup();
+        workerReady = false;
+        resolve(null);
+      }
+
+      function onMsg(ev) {
+        const msg = ev.data;
+        // Ignore other requests and abandoned sweeps (cancel bumps activeRequestId).
+        if (!msg || msg.requestId !== requestId) return;
+        if (requestId !== activeRequestId) {
+          if (msg.type === 'done' || msg.type === 'cancelled' || msg.type === 'error') {
+            cleanup();
+            resolve(null);
+          }
+          return;
+        }
+
+        if (msg.type === 'row') {
+          const iy = msg.iy;
+          let rowMinDv = Infinity, rowMinIx = -1;
+          let rowMaxDv = -Infinity;
+          let rowMinC3 = Infinity, rowMaxC3 = -Infinity;
+          let rowMinVI = Infinity, rowMaxVI = -Infinity;
+          for (let ix = 0; ix < nx; ix++) {
+            const idx = iy * nx + ix;
+            const dv = msg.dv[ix];
+            const c3v = msg.c3[ix];
+            const vi = msg.vinf[ix];
+            data[idx] = dv;
+            c3[idx] = c3v;
+            vinf[idx] = vi;
+            if (isFinite(dv)) {
+              if (dv < rowMinDv) { rowMinDv = dv; rowMinIx = ix; }
+              if (dv > rowMaxDv) rowMaxDv = dv;
+            }
+            if (isFinite(c3v)) {
+              if (c3v < rowMinC3) rowMinC3 = c3v;
+              if (c3v > rowMaxC3) rowMaxC3 = c3v;
+            }
+            if (isFinite(vi)) {
+              if (vi < rowMinVI) rowMinVI = vi;
+              if (vi > rowMaxVI) rowMaxVI = vi;
+            }
+          }
+          applyRowStats({
+            minDv: rowMinDv, maxDv: rowMaxDv, minIx: rowMinIx, iy,
+            minC3: rowMinC3, maxC3: rowMaxC3,
+            minVI: rowMinVI, maxVI: rowMaxVI,
+          }, acc);
+          if (onProgress) onProgress(iy + 1, ny, acc);
+          return;
+        }
+
+        if (msg.type === 'done') {
+          cleanup();
+          if (msg.minCell) acc.minIdx = msg.minCell;
+          if (msg.stats) {
+            if (msg.stats.dvMin < acc.minDv) acc.minDv = msg.stats.dvMin;
+            if (msg.stats.dvMax > acc.maxDv) acc.maxDv = msg.stats.dvMax;
+            if (msg.stats.c3Min < acc.minC3) acc.minC3 = msg.stats.c3Min;
+            if (msg.stats.c3Max > acc.maxC3) acc.maxC3 = msg.stats.c3Max;
+            if (msg.stats.vinfMin < acc.minVI) acc.minVI = msg.stats.vinfMin;
+            if (msg.stats.vinfMax > acc.maxVI) acc.maxVI = msg.stats.vinfMax;
+          }
+          resolve(acc);
+          return;
+        }
+
+        if (msg.type === 'cancelled') {
+          cleanup();
+          resolve(null);
+          return;
+        }
+
+        if (msg.type === 'error') {
+          cleanup();
+          console.warn('[porkchop-worker]', msg.message);
+          resolve(null);
+        }
+      }
+
+      worker.addEventListener('message', onMsg);
+      worker.addEventListener('error', onErr);
+      try {
+        worker.postMessage({
+          type: 'sweep',
+          requestId,
+          body1Id,
+          body2Id,
+          gridSpec: {
+            departStart: gridSpec.departStart,
+            departEnd: gridSpec.departEnd,
+            tofMin: gridSpec.tofMin,
+            tofMax: gridSpec.tofMax,
+            nx: gridSpec.nx,
+            ny: gridSpec.ny,
+          },
+        });
+      } catch (err) {
+        cleanup();
+        workerReady = false;
+        resolve(null);
+      }
+    });
+  }
+
+  async function runGridFill(body1, body2, body1Id, body2Id, gridSpec, data, c3, vinf, opts) {
+    if (workerReady && worker) {
+      const acc = await fillGridWorker(body1Id, body2Id, gridSpec, data, c3, vinf, opts);
+      if (acc) return acc;
+      // Worker failed mid-flight or unavailable — fall through to main thread
+      // only if this request is still active.
+      if (opts.requestId != null && opts.requestId !== activeRequestId) return null;
+    }
+    return fillGridMainThread(body1, body2, gridSpec, data, c3, vinf, {
+      ...opts,
+      requireRunning: true,
+    });
+  }
+
+  /**
+   * Dense 40×40 neighborhood at ¼ coarse cell spacing around (ix, iy).
+   * Updates selectedCell with refined dep/tof/metrics when refine improves
+   * or matches coarse within numerical noise.
+   */
+  async function refineAroundSelection(ix, iy, requestId) {
+    if (!pcState || requestId !== activeRequestId) return;
+    const body1 = pcState.body1;
+    const body2 = pcState.body2;
+    const body1Id = pcState.body1Id;
+    const body2Id = pcState.body2Id;
+    const coarseInfo = cellInfo(ix, iy);
+    if (!isFinite(coarseInfo.dv)) return;
+
+    const rSpec = refineGridSpec(pcState.gridSpec, ix, iy, REFINE_N);
+    const rn = REFINE_N;
+    const data = new Float64Array(rn * rn);
+    const c3 = new Float64Array(rn * rn);
+    const vinf = new Float64Array(rn * rn);
+
+    // Prefer main-thread for small refine (avoids cancel races with worker).
+    const acc = await fillGridMainThread(body1, body2, rSpec, data, c3, vinf, {
+      requestId,
+      requireRunning: false,
+    });
+
+    if (!acc || requestId !== activeRequestId || !pcState) return;
+
+    let best = {
+      dep: coarseInfo.dep,
+      tof: coarseInfo.tof,
+      dv: coarseInfo.dv,
+      c3: coarseInfo.c3,
+      vinf: coarseInfo.vinf,
+      refined: false,
+    };
+
+    if (acc.minIdx && acc.minDv <= coarseInfo.dv + REFINE_DV_NOISE) {
+      const { dep, tof } = cellTimes(rSpec, acc.minIdx.ix, acc.minIdx.iy);
+      const idx = acc.minIdx.iy * rn + acc.minIdx.ix;
+      best = {
+        dep,
+        tof,
+        dv: data[idx],
+        c3: c3[idx],
+        vinf: vinf[idx],
+        refined: true,
+      };
+    }
+
+    // Ensure refine never reports worse than coarse beyond noise: clamp to coarse if needed.
+    if (!(best.dv <= coarseInfo.dv + REFINE_DV_NOISE)) {
+      best = {
+        dep: coarseInfo.dep,
+        tof: coarseInfo.tof,
+        dv: coarseInfo.dv,
+        c3: coarseInfo.c3,
+        vinf: coarseInfo.vinf,
+        refined: false,
+      };
+    }
+
+    const sel = { ix, iy, ...best };
+    pcState.selectedCell = sel;
+    if (pcState.minCell && pcState.minCell.ix === ix && pcState.minCell.iy === iy) {
+      pcState.minCell = { ...pcState.minCell, ...best };
+    }
+    showSelection(sel);
+    applyBtn.disabled = false;
+    repaintAll();
+  }
+
+  async function beginSweep(originBody, destBody, departStart) {
+    cancelActiveSweep();
+
+    const body1Id = bodyId(originBody);
+    const body2Id = bodyId(destBody);
+    // Resolve via catalog for worker/fallback consistency; fall back to passed objects.
+    const body1 = findById(body1Id) || originBody;
+    const body2 = findById(body2Id) || destBody;
+    if (!body1Id || !body2Id) {
+      notify('UNKNOWN ORIGIN OR DESTINATION ID');
+      return;
+    }
+
+    const requestId = ++requestSeq;
+    activeRequestId = requestId;
+    running = true;
+
     const gridSpec = defaultGridSpec(body1, body2, departStart, GRID_X, GRID_Y);
     const data = new Float64Array(GRID_X * GRID_Y);
     const c3   = new Float64Array(GRID_X * GRID_Y);
@@ -149,6 +496,7 @@ export function wirePorkchop() {
 
     pcState = {
       body1, body2,
+      body1Id, body2Id,
       departStart: gridSpec.departStart,
       departEnd: gridSpec.departEnd,
       tofMin: gridSpec.tofMin,
@@ -172,49 +520,41 @@ export function wirePorkchop() {
     document.getElementById('pc-c3').textContent = '—';
     document.getElementById('pc-vinf').textContent = '—';
 
-    running = true;
-    let iy = 0;
-    let minDv = Infinity, minIdx = null, maxDv = -Infinity;
-    let minC3 = Infinity, maxC3 = -Infinity;
-    let minVI = Infinity, maxVI = -Infinity;
-    function step() {
-      if (!running) return;
-      const endTime = performance.now() + 14;
-      while (performance.now() < endTime && iy < GRID_Y) {
-        const row = fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf);
-        if (row.minIx >= 0 && row.minDv < minDv) {
-          minDv = row.minDv;
-          minIdx = { ix: row.minIx, iy };
-        }
-        if (row.maxDv > maxDv) maxDv = row.maxDv;
-        if (row.minC3 < minC3) minC3 = row.minC3;
-        if (row.maxC3 > maxC3) maxC3 = row.maxC3;
-        if (row.minVI < minVI) minVI = row.minVI;
-        if (row.maxVI > maxVI) maxVI = row.maxVI;
-        iy++;
-      }
-      if (minDv < Infinity) {
-        pcState.dvMin = minDv;     pcState.dvMax = Math.min(maxDv, 3 * minDv);
-        pcState.c3Min = minC3;     pcState.c3Max = Math.min(maxC3, 3 * minC3);
-        pcState.vinfMin = minVI;   pcState.vinfMax = Math.min(maxVI, 3 * minVI);
-      }
-      pcState.minCell = minIdx;
+    const acc = await runGridFill(body1, body2, body1Id, body2Id, gridSpec, data, c3, vinf, {
+      requestId,
+      onProgress: (iyDone, ny, a) => {
+        if (requestId !== activeRequestId || !pcState) return;
+        pushStatsToState(a);
+        repaintAll();
+        updateLegend();
+        progressFill.style.width = (100 * iyDone / ny).toFixed(1) + '%';
+      },
+    });
+
+    if (requestId !== activeRequestId || !pcState) return;
+
+    if (!acc) {
+      // Stale cancel or hard failure after fallback also failed.
+      running = false;
+      return;
+    }
+
+    pushStatsToState(acc);
+    progressFill.style.width = '100%';
+    running = false;
+
+    if (acc.minIdx) {
+      pcState.selectedCell = { ...acc.minIdx };
+      showSelection(pcState.selectedCell);
+      applyBtn.disabled = false;
       repaintAll();
       updateLegend();
-      progressFill.style.width = (100 * iy / GRID_Y).toFixed(1) + '%';
-      if (iy < GRID_Y) requestAnimationFrame(step);
-      else {
-        running = false;
-        progressFill.style.width = '100%';
-        if (minIdx) {
-          pcState.selectedCell = minIdx;
-          showSelection(minIdx);
-          applyBtn.disabled = false;
-        }
-        repaintAll();
-      }
+      // Refine neighborhood around coarse global minimum.
+      await refineAroundSelection(acc.minIdx.ix, acc.minIdx.iy, requestId);
+    } else {
+      repaintAll();
+      updateLegend();
     }
-    requestAnimationFrame(step);
   }
 
   function cellAt(clientX, clientY) {
@@ -228,6 +568,11 @@ export function wirePorkchop() {
   }
 
   function cellInfo(ix, iy) {
+    // Prefer refined times stored on selectedCell / minCell for that coarse index.
+    const sel = pcState.selectedCell;
+    if (sel && sel.ix === ix && sel.iy === iy && sel.dep != null && isFinite(sel.dv)) {
+      return { dep: sel.dep, tof: sel.tof, dv: sel.dv, c3: sel.c3, vinf: sel.vinf };
+    }
     const { dep, tof } = cellTimes(pcState.gridSpec, ix, iy);
     const dv  = pcState.data[iy * GRID_X + ix];
     const c3v = pcState.c3[iy   * GRID_X + ix];
@@ -236,7 +581,10 @@ export function wirePorkchop() {
   }
 
   function showSelection(cell) {
-    const { dep, tof, dv, c3: c3v, vinf: vi } = cellInfo(cell.ix, cell.iy);
+    const info = (cell.dep != null && isFinite(cell.dv))
+      ? { dep: cell.dep, tof: cell.tof, dv: cell.dv, c3: cell.c3, vinf: cell.vinf }
+      : cellInfo(cell.ix, cell.iy);
+    const { dep, tof, dv, c3: c3v, vinf: vi } = info;
     document.getElementById('pc-depart').textContent = fmt(simTimeToDate(dep));
     document.getElementById('pc-transit').textContent = (tof / DAY).toFixed(0) + ' days';
     document.getElementById('pc-arrive').textContent  = fmt(simTimeToDate(dep + tof));
@@ -256,24 +604,32 @@ export function wirePorkchop() {
     showSelection(pcState.selectedCell);
   });
   canvas.addEventListener('click', (e) => {
-    if (!pcState) return;
+    if (!pcState || running) return;
     const c = cellAt(e.clientX, e.clientY);
     if (!c) return;
     const { dv } = cellInfo(c.ix, c.iy);
     if (!isFinite(dv)) { notify('NO LAMBERT SOLUTION AT THIS CELL'); return; }
-    pcState.selectedCell = c;
+    pcState.selectedCell = { ...c };
     showSelection(c);
     applyBtn.disabled = false;
     repaintAll();
+    // Bump request id so an in-flight refine for another cell is abandoned.
+    const rid = ++requestSeq;
+    activeRequestId = rid;
+    refineAroundSelection(c.ix, c.iy, rid);
   });
 
   document.getElementById('pc-close').onclick = () => {
-    running = false;
+    cancelActiveSweep();
     overlay.classList.remove('visible');
   };
   applyBtn.onclick = () => {
     if (!pcState || !pcState.selectedCell) return;
-    const { dep, tof } = cellInfo(pcState.selectedCell.ix, pcState.selectedCell.iy);
+    const sel = pcState.selectedCell;
+    const info = (sel.dep != null && isFinite(sel.dv))
+      ? sel
+      : cellInfo(sel.ix, sel.iy);
+    const { dep, tof } = info;
 
     document.getElementById('depart-date').value = dateToInputValue(simTimeToDate(dep));
     timeState.simTime = dep;
@@ -290,7 +646,7 @@ export function wirePorkchop() {
     updateTransferOrbitVisual();
 
     overlay.classList.remove('visible');
-    running = false;
+    cancelActiveSweep();
     renderRouteUI();
     notify('LAUNCH WINDOW APPLIED');
   };
@@ -317,7 +673,7 @@ export function wirePorkchop() {
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && overlay.classList.contains('visible')) {
-      running = false;
+      cancelActiveSweep();
       overlay.classList.remove('visible');
     }
   });
