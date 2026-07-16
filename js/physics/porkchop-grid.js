@@ -130,3 +130,38 @@ export function cellTimes(gridSpec, ix, iy) {
   const tof = tofMin + ((iy + 0.5) / ny) * (tofMax - tofMin);
   return { dep, tof };
 }
+
+/**
+ * Build a denser neighborhood gridSpec around coarse cell (ix, iy).
+ * n×n samples at ¼ of the coarse cell spacing, centered on the coarse cell.
+ * If TOF would clip below minTof, the window is shifted up while preserving
+ * span and fine step (so spacing stays coarseTofStep/4).
+ */
+export function refineGridSpec(coarseSpec, ix, iy, n = 40, minTof = 1e-6) {
+  const { departStart, departEnd, tofMin, tofMax, nx, ny } = coarseSpec;
+  const coarseDepStep = (departEnd - departStart) / nx;
+  const coarseTofStep = (tofMax - tofMin) / ny;
+  const fineDepStep = coarseDepStep / 4;
+  const fineTofStep = coarseTofStep / 4;
+  const { dep, tof } = cellTimes(coarseSpec, ix, iy);
+  const depSpan = n * fineDepStep;
+  const tofSpan = n * fineTofStep;
+
+  let tofLo = tof - 0.5 * tofSpan;
+  let tofHi = tof + 0.5 * tofSpan;
+  if (tofLo < minTof) {
+    // Shift window up; keep span = n * fineTofStep so step stays ¼ coarse.
+    const shift = minTof - tofLo;
+    tofLo = minTof;
+    tofHi += shift;
+  }
+
+  return {
+    departStart: dep - 0.5 * depSpan,
+    departEnd: dep + 0.5 * depSpan,
+    tofMin: tofLo,
+    tofMax: tofHi,
+    nx: n,
+    ny: n,
+  };
+}

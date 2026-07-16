@@ -14,6 +14,7 @@ const SUITE = [
   'tests/module_integration.mjs',
   'tests/ephemeris_check.mjs',
   'tests/porkchop_sim.mjs',
+  'tests/porkchop_refine.mjs',
   'tests/gravity_assist_sim.mjs',
   'tests/flyby_optimizer.mjs',
   'tests/spacecraft_check.mjs',
