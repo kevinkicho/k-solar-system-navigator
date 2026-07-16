@@ -64,9 +64,27 @@ node tests/porkchop_sim.mjs           # porkchop minimum vs real Mars windows
 node tests/gravity_assist_sim.mjs     # multi-leg VEEGA-style routes
 node tests/spacecraft_check.mjs       # Voyager/Pioneer distances vs NASA tracking
 node tests/visual_alignment.mjs       # trajectory-line-vs-marker accuracy
-node tests/module_integration.mjs     # imports js/* modules: load, accuracy, perf budgets
+node tests/module_integration.mjs     # imports js/* modules: load, accuracy; perf is soft
+node tests/perf_budgets.mjs           # soft/informational perf floors (always exit 0)
 node tests/ephemeris_check.mjs        # JPL element-rate model: J2000 self-consistency, perihelion/aphelion, Mars opposition, drift vs frozen-J2000
 ```
+
+## Performance baselines
+
+Measured offline on a **local desktop (Windows)** development machine (Node.js, warm process). CI primary gate is **correctness** — throughput checks in `module_integration` and `perf_budgets` are **soft** (informational; they do not fail the suite on slow runners).
+
+| Metric | Baseline | Notes |
+|---|---|---|
+| `assets/stars-mag75.json` cold size | **~1.03 MiB** (1,084,641 bytes) | Prebaked mag≤7.5 star field; largest static asset on critical path |
+| Core app JS + catalog (no vendor Three.js) | **~150 KiB** raw | Plus CDN Three.js / fonts in the browser |
+| Cold-load stars + core app assets | **~1.18 MiB** | Offline estimate of first-paint related local files |
+| Lambert throughput (Earth→Mars, 10k solves) | **~1.1×10⁵ solves/s** | Soft budget ≥10k/s; GH runners often lower |
+| Single-leg planning path (Earth→Mars, warm) | **~0.05 ms / solve** | `routing.solveMultiLegRoute` 2-waypoint |
+| Multi-leg planning path (VEEGA-style, warm) | **~0.16 ms / solve** | Earth→Venus→Earth→Jupiter |
+| Time-to-first-route (offline proxy) | **~30–40 ms** | Physics module import + first Earth→Mars solve (no browser, no GPU) |
+| `getBodyPosition3D` | **≪ 5 μs / call** | Soft budget; animate loop calls this per body per frame |
+
+Browser **time-to-first-route** (DOM ready → first successful **Calculate Route**) depends on network (CDN Three.js, textures) and GPU; use the offline proxy above for regression smoke, not absolute UX SLAs.
 
 End-to-end UI test (requires Puppeteer):
 
@@ -138,21 +156,20 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 ## Project structure
 
 ```
-index.html                — HTML shell + DOM
-css/app.css               — application styles
+index.html                — HTML shell + base CSS + DOM
+css/app.css               — progressive mobile layout + reduced-motion overrides
 js/                       — application code, ES modules
   constants.js / state.js / display-scale.js
   data/                   — bodies, moons, dwarfs, neos, waypoints, catalog, scenarios
   physics/                — kepler, lambert, routing, porkchop-grid, vehicles, mission-budget
-  scene/                  — Three.js construction (+ extra-bodies, prebaked stars)
+  scene/                  — Three.js construction (+ extra-bodies, prebaked stars, gravity FX)
   ui/                     — route planner, porkchop, share, scenarios, controls
-                            (+ route-display, route-orbit-visual, mission-export, mission-budget-ui)
   mission.js / animation.js / main.js
-assets/stars-mag75.json   — prebaked mag≤7.5 star field (~1 MB)
+assets/stars-mag75.json   — prebaked mag≤7.5 star field (~1.03 MiB)
 trajectory-calculator.js  — re-export shim → js/physics/vehicles.js
 server.js                 — path-jailed local-dev static server (ESM)
 hyg_v42.csv               — full HYG source (optional; not on critical path)
-tests/                    — offline physics + server + share codec + Playwright
+tests/                    — offline physics + soft perf_budgets + server + Playwright
 LICENSE                   — MIT
 docs/trip-planner-design.md — product redesign + PR plan
 ```

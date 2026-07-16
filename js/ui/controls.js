@@ -164,9 +164,14 @@ export function wireControls() {
 
   document.getElementById('fx-potential').onclick = (e) => {
     FX.potential = !FX.potential;
+    // Reduced-motion: keep the toggle visible but soft-disable heavy rebuilds
+    // (FX.allowHeavyFx stays false). Mesh can still show a static last state.
     potentialMesh.visible = FX.potential;
     e.currentTarget.classList.toggle('active', FX.potential);
-    if (FX.potential) updatePotentialField();
+    if (FX.potential) {
+      if (FX.allowHeavyFx) updatePotentialField();
+      else notify('POTENTIAL WELL SOFT-DISABLED (reduced motion)');
+    }
   };
   document.getElementById('fx-hill').onclick = (e) => {
     FX.hill = !FX.hill;
