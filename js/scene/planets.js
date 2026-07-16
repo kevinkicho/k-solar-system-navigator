@@ -85,7 +85,7 @@ for (const body of BODIES) {
       cloudMat.alphaMap = tex;
       cloudMat.needsUpdate = true;
       planetTextureTargets.push({ map: tex, period: PLANET_ROTATION_SEC.Earth * 0.9 });
-    });
+    }, undefined, () => { /* keep solid-color fallback */ });
   }
 
   if (body.name === 'Saturn') {
@@ -108,7 +108,7 @@ for (const body of BODIES) {
       ringMat.map = tex;
       ringMat.alphaMap = tex;
       ringMat.needsUpdate = true;
-    });
+    }, undefined, () => { /* keep solid-color fallback */ });
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = -PI / 2.3;
     group.add(ring);

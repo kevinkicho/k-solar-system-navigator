@@ -73,6 +73,14 @@ check('GET /js/%2e%2e/%2e%2e/package.json → 404', trav2.status === 404);
 const pkg = await get('/package.json');
 check('GET /package.json → 200 (in-root allowed)', pkg.status === 200);
 
+// Vendored Three.js (importmap) must be reachable under node_modules.
+const threeMod = await get('/node_modules/three/build/three.module.js');
+check(
+  'GET /node_modules/three/build/three.module.js → 200',
+  threeMod.status === 200 && threeMod.body.length > 0,
+  threeMod.status === 200 ? `${threeMod.body.length} bytes` : `status ${threeMod.status}`,
+);
+
 const missing = await get('/no-such-file-xyz.js');
 check('GET missing → 404', missing.status === 404);
 
