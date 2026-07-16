@@ -26,6 +26,8 @@ const SUITE = [
   'tests/share_codec.mjs',
   'tests/ml_window_seeds.mjs',
   // Soft / informational only (always exits 0) — PR 18 perf budgets.
+  'tests/porkchop_refine.mjs',
+  'tests/ui_split_static.mjs',
   'tests/perf_budgets.mjs',
 ];
 
