@@ -5,7 +5,7 @@
 | **Document title** | Trip Plan Reliability & Completeness Platform |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | Implemented on `main` (PRs 1–9 core; sequential commits / integrated landing) |
+| **Status** | Implemented on `main` (PRs 1–9 core). Residual PR10 + concept-grade extras → `docs/concept-grade-and-extras-design.md` |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
 | **Branch policy** | **`main` only** — sequential green commits; no side-branch stacks |
 | **Baseline** | `main` after cargo platform, fidelity L1/L2-plan, vehicle engineering sheets |
@@ -556,8 +556,9 @@ flowchart LR
 | Cargo platform | Need/Capability/Margin |
 | Ephemeris fidelity | L1/L2-plan accuracy of *states* |
 | **This design** | Reliability of *outcomes* + completeness of *dossier* |
+| **Concept-grade & extras** | `docs/concept-grade-and-extras-design.md` — equatorial DLA, scenario audit, Vehicle Lab, ascent model, site gate |
 
-Fidelity without reliability still yields “oops.” Reliability without fidelity still yields honest L1 plans. **Both are required.**
+Fidelity without reliability still yields “oops.” Reliability without fidelity still yields honest L1 plans. **Both are required.** Concept-grade extras tighten completeness without claiming flight ops.
 
 ---
 
