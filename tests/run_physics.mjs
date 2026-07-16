@@ -13,6 +13,7 @@ const SUITE = [
   'tests/verify_fix.mjs',
   'tests/module_integration.mjs',
   'tests/ephemeris_check.mjs',
+  'tests/horizons_mock.mjs',
   'tests/porkchop_sim.mjs',
   'tests/gravity_assist_sim.mjs',
   'tests/flyby_optimizer.mjs',
@@ -25,6 +26,8 @@ const SUITE = [
   'tests/share_codec.mjs',
   'tests/ml_window_seeds.mjs',
   // Soft / informational only (always exits 0) — PR 18 perf budgets.
+  'tests/porkchop_refine.mjs',
+  'tests/ui_split_static.mjs',
   'tests/perf_budgets.mjs',
 ];
 

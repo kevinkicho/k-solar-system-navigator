@@ -854,6 +854,15 @@ input[type="range"]::-webkit-slider-thumb {
     <p>· Single-revolution Lambert. Type-II (long-period) and multi-revolution solutions are in scope as a future enhancement.</p>
     <p>· Visual inclinations are exaggerated 8× for legibility. <strong>All physics computations use real inclinations.</strong></p>
 
+    <h3>Optional Horizons comparison (educational)</h3>
+    <p><strong>Not SPICE. Not flight ops. Not required for planning.</strong> Trip planning always uses the offline JPL Approximate Positions model above. This stretch feature can optionally fetch a public NASA/JPL Horizons VECTOR table over the network and report distance error vs the approximate ephemeris for a selected major planet — for classroom curiosity only. No <code>.bsp</code> kernels, no covariance, no navigation solutions.</p>
+    <p style="margin-top:10px">
+      <button type="button" class="close-btn" id="btn-horizons-compare" title="Optional network request to JPL Horizons for the currently selected major planet">
+        Compare Horizons (optional network)
+      </button>
+    </p>
+    <p id="horizons-compare-result" style="margin-top:8px;font-size:11px;color:var(--text-dim);min-height:1.2em"></p>
+
     <h3>Validation suites</h3>
     <p>The <code>tests/</code> directory exercises every claim in this panel:</p>
     <table>
@@ -861,6 +870,7 @@ input[type="range"]::-webkit-slider-thumb {
       <tr><td><code>verify_fix.mjs</code></td><td>Lambert convergence sweep, 36 dates × 19 routes</td></tr>
       <tr><td><code>spacecraft_check.mjs</code></td><td>Voyager/Pioneer distances vs JPL Horizons</td></tr>
       <tr><td><code>ephemeris_check.mjs</code></td><td>Element-rate model vs JPL DE reference</td></tr>
+      <tr><td><code>horizons_mock.mjs</code></td><td>Optional Horizons adapter: parse + mocked fetch (no live network)</td></tr>
       <tr><td><code>gravity_assist_sim.mjs</code></td><td>Multi-leg VEEGA-style routes</td></tr>
       <tr><td><code>module_integration.mjs</code></td><td>Module wiring + accuracy; perf budgets soft (≥10k Lambert solves/s informational)</td></tr>
       <tr><td><code>perf_budgets.mjs</code></td><td>Soft cold-load / planning-path floors (always exit 0)</td></tr>
