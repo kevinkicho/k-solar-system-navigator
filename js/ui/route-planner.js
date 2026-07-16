@@ -13,6 +13,7 @@ import { selectBody } from './selection.js';
 import { timeState } from './time-system.js';
 import { updateBodyList } from './body-list.js';
 import { syncShareHash } from './share-sync.js';
+import { buildPlanDossier } from './plan-dossier.js';
 
 // Mission abort handler — injected by main.js so route-planner can cancel an
 // in-flight mission without importing mission.js (which would create a cycle).
@@ -28,6 +29,25 @@ export function stampPlanningEphemeris(td) {
   td.ephemerisBackend = backend;
   td.classroomMode = !!state.classroomMode;
   return td;
+}
+
+/** Ensure multi-leg td has body1/body2 for measurement card when possible. */
+function tagMultiLegBodies(td) {
+  if (!td || !td.isMultiLeg) return td;
+  if (!td.body1 && state.routeOrigin) td.body1 = state.routeOrigin;
+  if (!td.body2 && state.routeDestination) td.body2 = state.routeDestination;
+  stampPlanningEphemeris(td);
+  return td;
+}
+
+function finalizePlan(td, dossierOpts, notifyMsg) {
+  state.transferData = td;
+  buildPlanDossier(td, dossierOpts || {});
+  state.showTransferOrbit = true;
+  updateTransferOrbitVisual();
+  renderRouteUI();
+  syncShareHash();
+  if (notifyMsg) notify(notifyMsg);
 }
 
 export function setRouteOrigin(body) {
@@ -259,9 +279,11 @@ export function computeRoute() {
     const tailHohmann = hohmannTransfer(lastFlyby.body, state.routeDestination, lastFlyby.simTime);
     waypoints[waypoints.length - 1].simTime = tailHohmann.arrivalSimTime;
 
-    let td = solveMultiLegRoute(waypoints);
+    let td = tagMultiLegBodies(solveMultiLegRoute(waypoints));
+    let dateAdjusted = false;
+    const prevDep = departureSimTime;
     // If seed is infeasible, run coarse multi-leg window search (local opt).
-    if (!td.allLegsOk || td.flybys.some(f => !f.achievable)) {
+    if (!td.allLegsOk || (td.flybys || []).some(f => !f.achievable)) {
       const win = findMultiLegWindow(
         state.routeOrigin,
         state.routeDestination,
@@ -283,34 +305,38 @@ export function computeRoute() {
           ...state.flybys.map(f => ({ body: resolveFlybyBody(f), simTime: f.simTime })),
           { body: state.routeDestination, simTime: win.arrivalSimTime },
         ];
-        td = solveMultiLegRoute(waypoints);
-        state.transferData = td;
-        state.showTransferOrbit = true;
-        updateTransferOrbitVisual();
-        renderRouteUI();
-        syncShareHash();
-        notify('MULTI-LEG WINDOW SEARCHED (local optimum — not global)');
+        td = tagMultiLegBodies(solveMultiLegRoute(waypoints));
+        dateAdjusted = true;
+        // K1/K4: still may fail gates — dossier decides success language
+        const stillBad = !td.allLegsOk || (td.flybys || []).some(f => !f.achievable);
+        finalizePlan(td, {
+          dateAdjusted,
+          prevDepartureSimTime: prevDep,
+        }, stillBad
+          ? 'MULTI-LEG SEARCHED — STILL INFEASIBLE (see Plan Status)'
+          : 'MULTI-LEG WINDOW SEARCHED (local optimum — not global)');
         return;
       }
+      // Search failed — still attach dossier as FAIL, never claim success
+      finalizePlan(td, { pathologicalUnrecovered: false },
+        'MULTI-LEG INFEASIBLE — NO WINDOW FOUND (see Plan Status)');
+      return;
     }
 
-    state.transferData = td;
-    state.showTransferOrbit = true;
-    updateTransferOrbitVisual();
-    renderRouteUI();
-    syncShareHash();
-    notify('MULTI-LEG ROUTE COMPUTED');
+    finalizePlan(td, {}, 'MULTI-LEG ROUTE COMPUTED');
     return;
   }
 
   // Single-leg path.
   state.userTofDays = null;
+  const prevDepSingle = departureSimTime;
   state.transferData = stampPlanningEphemeris(
     hohmannTransfer(state.routeOrigin, state.routeDestination, departureSimTime),
   );
   solveTransferOrbit(state.transferData);
 
   let adjusted = false;
+  let unrecovered = false;
   const orb = state.transferData.orbitPhysical;
   const periAU = orb ? (orb.a * (1 - orb.e)) / AU : Infinity;
   const totalDv = state.transferData.dvTotal_lambert ?? state.transferData.dvTotal;
@@ -326,31 +352,30 @@ export function computeRoute() {
       },
     );
     if (fix) {
-      // Re-build transferData around the feasible date/TOF.
       state.transferData = stampPlanningEphemeris(
         hohmannTransfer(state.routeOrigin, state.routeDestination, fix.departureSimTime),
       );
       state.transferData.transferTime  = fix.transferTime;
       state.transferData.arrivalSimTime = fix.arrivalSimTime;
       solveTransferOrbit(state.transferData);
-      // Reflect the adjusted launch in the UI: update the date input and
-      // jump simulation time so the planets are shown in the right phase.
       dateInput.value = dateToInputValue(simTimeToDate(fix.departureSimTime));
       timeState.simTime = fix.departureSimTime;
       timeState.setSpeed(3);
       timeState.updateDisplay();
       adjusted = true;
+    } else {
+      unrecovered = true;
     }
   }
 
-  state.showTransferOrbit = true;
-  updateTransferOrbitVisual();
-  renderRouteUI();
-  syncShareHash();
-  if (adjusted) {
-    const newDate = simTimeToDate(state.transferData.departureSimTime).toISOString().slice(0, 10);
-    notify(`LAUNCH ADJUSTED TO ${newDate} (NEAREST FEASIBLE WINDOW)`);
-  } else {
-    notify('TRANSFER ORBIT COMPUTED');
-  }
+  const newDate = simTimeToDate(state.transferData.departureSimTime).toISOString().slice(0, 10);
+  finalizePlan(state.transferData, {
+    dateAdjusted: adjusted,
+    prevDepartureSimTime: adjusted ? prevDepSingle : null,
+    pathologicalUnrecovered: unrecovered,
+  }, unrecovered
+    ? 'PLAN FAILED — NO FEASIBLE WINDOW (see Plan Status)'
+    : adjusted
+      ? `LAUNCH ADJUSTED TO ${newDate} (NEAREST FEASIBLE WINDOW)`
+      : 'TRANSFER ORBIT COMPUTED');
 }

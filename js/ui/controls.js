@@ -112,6 +112,7 @@ export function wireControls() {
   const cargoIn = document.getElementById('cargo-mass');
   const aeroIn = document.getElementById('aeroassist-factor');
   const ephSel = document.getElementById('ephemeris-backend');
+  const ascentSel = document.getElementById('ascent-loss-budget');
 
   function isAbstractVehicle(id) {
     return id === 'abstract' || id === 'chem-medium' || id === 'fh-class' || id === 'high-energy';
@@ -138,6 +139,10 @@ export function wireControls() {
     if (ephSel) {
       ephSel.value = state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx';
       ephSel.disabled = !!state.classroomMode;
+    }
+    if (ascentSel) {
+      const a = state.ascentLossBudget_m_s || 0;
+      ascentSel.value = (a === 1500 || a === 2000) ? String(a) : '0';
     }
     updateViewBadge();
   }
@@ -176,6 +181,13 @@ export function wireControls() {
       state.fidelityLevel = 'L1';
       notify('PLANNING EPHEMERIS: APPROX (L1)');
     }
+    rerenderIfRoute();
+  };
+  if (ascentSel) ascentSel.onchange = () => {
+    state.ascentLossBudget_m_s = Number(ascentSel.value) || 0;
+    notify(state.ascentLossBudget_m_s
+      ? `ASCENT LOSS BUDGET ${state.ascentLossBudget_m_s} m/s (EDUCATIONAL — NOT IN LAMBERT NEED)`
+      : 'ASCENT LOSS BUDGET OFF');
     rerenderIfRoute();
   };
 

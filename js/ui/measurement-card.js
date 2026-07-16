@@ -130,6 +130,7 @@ export function buildMeasurementCard(td) {
       <div class="info-row"><span class="key">C₃ (departure)</span><span class="val">${fmtC3(need.c3_m2_s2)}</span></div>
       ${need.vinf_dep_m_s != null ? `<div class="info-row"><span class="key">V∞ dep</span><span class="val">${formatVelocity(need.vinf_dep_m_s)}</span></div>` : ''}
       ${need.aeroassist_factor > 0 ? `<div class="info-row"><span class="key">Aeroassist factor</span><span class="val">${need.aeroassist_factor.toFixed(2)}</span></div>` : ''}
+      ${(state.ascentLossBudget_m_s > 0) ? `<div class="info-row"><span class="key">Ascent loss budget (edu)</span><span class="val amber">${formatVelocity(state.ascentLossBudget_m_s)} <span style="font-size:9px;opacity:0.7">not in Lambert Need</span></span></div>` : ''}
 
       <div style="height:8px"></div>
       <div class="result-subtitle">CAPABILITY</div>`;

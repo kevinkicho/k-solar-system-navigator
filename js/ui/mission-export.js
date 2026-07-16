@@ -114,6 +114,8 @@ export function buildPlanObject(td) {
         ? 'approx'
         : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
     },
+    // Reliability design: Plan Dossier (gates, confidence, mission_ready)
+    dossier: td.dossier || null,
     // Deprecated mirror for v2 consumers (K13)
     feasibility: {
       deprecated: true,
@@ -126,7 +128,11 @@ export function buildPlanObject(td) {
         ? totalMissionDeltaV() : null,
       reserved_dv_m_s: state.vehicleId === 'sh-starship' && state.starshipArch === 'legacy-demo'
         ? reservedDeltaV() : null,
-      feasible,
+      // K5: export feasible only if margin AND mission_ready when dossier present
+      feasible: td.dossier
+        ? !!(feasible && td.dossier.mission_ready)
+        : feasible,
+      mission_ready: td.dossier ? !!td.dossier.mission_ready : feasible,
       disclaimer: presetDisclaimer(state.vehicleId),
     },
   };

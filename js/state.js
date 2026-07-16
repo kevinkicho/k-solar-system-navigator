@@ -37,6 +37,10 @@ export const state = {
   },
 
   classroomMode: false,
+  /** Reliability: Launch requires vehicle margin feasible (K6). */
+  planStrictVehicle: true,
+  /** Optional educational ascent loss (m/s), not mixed into Lambert Need. */
+  ascentLossBudget_m_s: 0,
 
   mission: {
     active: false,

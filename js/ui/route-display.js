@@ -14,6 +14,8 @@ import { timeState } from './time-system.js';
 import { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 import { exportMissionPlan } from './mission-export.js';
 import { buildMeasurementCard } from './measurement-card.js';
+import { planStatusBannerHtml, buildPlanDossier } from './plan-dossier.js';
+import { bindPlanRecoveryButtons } from './plan-recovery.js';
 export { updateTransferOrbitVisual } from './route-orbit-visual.js';
 export { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 
@@ -26,18 +28,36 @@ export function bindMissionHandlers({ launch }) {
 
 /** @deprecated Prefer buildMeasurementCard — kept for multi-leg interim. */
 function vehicleBlockHtml(requiredDv, isMulti = false) {
-  // Use Measurement Card for single-leg; multi-leg still uses simplified block
-  // but never Infinity budgets for falcon9.
   const card = buildMeasurementCard(state.transferData);
   if (!isMulti) return card.html;
-  // multi-leg: still show card (need forces helio_leg)
   return card.html;
 }
 
+function ensureDossier(td) {
+  if (!td) return null;
+  if (!td.dossier) buildPlanDossier(td, {});
+  return td.dossier;
+}
+
 function bindMissionControlButtons(td, { canLaunch }) {
-  if (canLaunch) {
-    document.getElementById('btn-launch').onclick = () => _launchMission && _launchMission();
-    document.getElementById('btn-share-link').onclick = () => {
+  const launchBtn = document.getElementById('btn-launch');
+  if (launchBtn) {
+    if (canLaunch) {
+      launchBtn.disabled = false;
+      launchBtn.title = 'Launch animated mission along the transfer';
+      launchBtn.onclick = () => _launchMission && _launchMission();
+    } else {
+      launchBtn.disabled = true;
+      launchBtn.title = 'Plan not mission-ready — see Plan Status gates';
+      launchBtn.onclick = () => {
+        import('./format.js').then(({ notify }) =>
+          notify('LAUNCH BLOCKED — PLAN NOT MISSION-READY'));
+      };
+    }
+  }
+  const shareBtn = document.getElementById('btn-share-link');
+  if (shareBtn) {
+    shareBtn.onclick = () => {
       import('./share.js').then(({ copyShareLink }) => copyShareLink());
     };
   }
@@ -48,6 +68,21 @@ function bindMissionControlButtons(td, { canLaunch }) {
     import('./format.js').then(({ notify }) => notify('JUMPED TO DEPARTURE DATE'));
   };
   document.getElementById('btn-export-plan').onclick = () => exportMissionPlan(td);
+
+  bindPlanRecoveryButtons({
+    findNearestWindow: () => {
+      import('./route-planner.js').then(({ computeRoute }) => computeRoute());
+    },
+    openPorkchop: () => {
+      document.getElementById('find-windows')?.click();
+    },
+    snapFlybys: () => {
+      import('./route-planner.js').then((m) => {
+        if (typeof m.snapFlybyDates === 'function') m.snapFlybyDates();
+        else document.getElementById('btn-snap-flybys')?.click();
+      });
+    },
+  });
 }
 
 // ---- DOM-side: results panel + mission controls ----
@@ -80,9 +115,12 @@ function renderSingleLegRouteUI(td) {
     }
   }
 
+  const dossier = ensureDossier(td);
+  const missionReady = dossier ? !!dossier.mission_ready : !!lambertOk;
   const res = document.getElementById('transfer-results');
   res.innerHTML = `
     <div class="transfer-results">
+      ${planStatusBannerHtml(dossier)}
       <div class="result-title">${lambertOk ? 'LAMBERT TRANSFER ORBIT' : 'HOHMANN ESTIMATE (Lambert failed)'}</div>
       <div class="info-row"><span class="key">Departure</span><span class="val green">${formatDateShort(departDate)}</span></div>
       <div class="info-row"><span class="key">Arrival</span><span class="val amber">${formatDateShort(arriveDate)}</span></div>
@@ -123,17 +161,19 @@ function renderSingleLegRouteUI(td) {
 
   const mc = document.getElementById('mission-controls');
   mc.innerHTML = `
-    <button class="route-btn launch" id="btn-launch">Launch Mission</button>
+    <button class="route-btn launch" id="btn-launch"${missionReady ? '' : ' disabled'}>Launch Mission</button>
     <button class="route-btn" id="btn-goto-depart" style="font-size:9px;padding:7px;margin-top:4px;">Jump to Departure Date</button>
     <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
     <button class="route-btn" id="btn-share-link" style="font-size:9px;padding:7px;margin-top:4px;">Copy share link</button>
   `;
-  bindMissionControlButtons(td, { canLaunch: true });
+  bindMissionControlButtons(td, { canLaunch: missionReady });
 }
 
 function renderMultiLegRouteUI() {
   const td = state.transferData;
   const res = document.getElementById('transfer-results');
+  const dossier = ensureDossier(td);
+  const missionReady = dossier ? !!dossier.mission_ready : false;
   const allOk = td.allLegsOk;
   const totalDv = td.dvTotalMultiLeg;
   const required = requiredDeltaV(td);
@@ -165,11 +205,15 @@ function renderMultiLegRouteUI() {
     `;
   }).join('');
 
+  const b1n = td.body1?.name || 'Origin';
+  const b2n = td.body2?.name || 'Destination';
+
   res.innerHTML = `
     <div class="transfer-results">
+      ${planStatusBannerHtml(dossier)}
       <div class="result-title">${allOk ? 'MULTI-LEG TRANSFER' : 'MULTI-LEG (some legs failed)'}</div>
-      <div class="info-row"><span class="key">Depart ${td.body1.name}</span><span class="val green">${formatDateShort(simTimeToDate(td.departureSimTime))}</span></div>
-      <div class="info-row"><span class="key">Arrive ${td.body2.name}</span><span class="val amber">${formatDateShort(simTimeToDate(td.arrivalSimTime))}</span></div>
+      <div class="info-row"><span class="key">Depart ${b1n}</span><span class="val green">${formatDateShort(simTimeToDate(td.departureSimTime))}</span></div>
+      <div class="info-row"><span class="key">Arrive ${b2n}</span><span class="val amber">${formatDateShort(simTimeToDate(td.arrivalSimTime))}</span></div>
       <div class="info-row"><span class="key">Total transit</span><span class="val highlight">${(td.transferTime / DAY).toFixed(0)} days</span></div>
       <div style="height:8px"></div>
       ${legRows}
@@ -183,15 +227,11 @@ function renderMultiLegRouteUI() {
     </div>`;
 
   const mc = document.getElementById('mission-controls');
-  mc.innerHTML = td.allLegsOk ? `
-    <button class="route-btn launch" id="btn-launch">Launch Mission</button>
+  mc.innerHTML = `
+    <button class="route-btn launch" id="btn-launch"${missionReady ? '' : ' disabled'}>Launch Mission</button>
     <button class="route-btn" id="btn-goto-depart" style="font-size:9px;padding:7px;margin-top:4px;">Jump to Departure Date</button>
     <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
     <button class="route-btn" id="btn-share-link" style="font-size:9px;padding:7px;margin-top:4px;">Copy share link</button>
-  ` : `
-    <div class="info-row"><span class="key" style="color:var(--red)">Some legs failed Lambert</span><span class="val">Fix dates to launch</span></div>
-    <button class="route-btn" id="btn-goto-depart" style="font-size:10px;padding:8px;">Jump to Departure Date</button>
-    <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
   `;
-  bindMissionControlButtons(td, { canLaunch: !!td.allLegsOk });
+  bindMissionControlButtons(td, { canLaunch: missionReady });
 }

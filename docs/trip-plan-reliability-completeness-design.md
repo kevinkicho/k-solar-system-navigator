@@ -5,7 +5,7 @@
 | **Document title** | Trip Plan Reliability & Completeness Platform |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | Draft for implementation — addresses unacceptable silent/opaque plan failures |
+| **Status** | Implemented on `main` (PRs 1–9 core; sequential commits / integrated landing) |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
 | **Branch policy** | **`main` only** — sequential green commits; no side-branch stacks |
 | **Baseline** | `main` after cargo platform, fidelity L1/L2-plan, vehicle engineering sheets |

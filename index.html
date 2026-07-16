@@ -544,6 +544,28 @@ html, body {
 .measurement-card .fidelity-badge.fidelity-L2-plan {
   color: var(--green); background: rgba(0,230,118,0.1); border-color: rgba(0,230,118,0.4);
 }
+.plan-status-banner {
+  border: 1px solid var(--border-bright);
+  background: rgba(0, 20, 40, 0.55);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border-radius: 2px;
+}
+.plan-status-banner[data-status="fail"] {
+  border-color: rgba(255,45,85,0.45);
+  background: rgba(40, 8, 16, 0.55);
+}
+.plan-status-banner[data-status="pass_with_warnings"] {
+  border-color: rgba(255,152,0,0.4);
+  background: rgba(40, 24, 0, 0.4);
+}
+.plan-status-banner[data-status="pass"] {
+  border-color: rgba(0,230,118,0.35);
+}
+.plan-recovery-btn {
+  font-size: 9px !important;
+  letter-spacing: 0.5px;
+}
 #classroom-banner {
   position: fixed; top: 48px; left: 50%; transform: translateX(-50%);
   z-index: 15; max-width: min(720px, 92vw);
@@ -779,6 +801,14 @@ input[type="range"]::-webkit-slider-thumb {
       <select id="ephemeris-backend" title="L1 approx default; sample-de = offline L2-plan endpoints (not SPICE)">
         <option value="approx">Approximate Positions (L1 default)</option>
         <option value="sample-de">Sample table endpoints (L2-plan)</option>
+      </select>
+    </div>
+    <div class="route-field-row" id="ascent-loss-row">
+      <label>Ascent loss budget (edu)</label>
+      <select id="ascent-loss-budget" title="Educational ascent gravity/drag loss class — not added into Lambert Need">
+        <option value="0">Off (default)</option>
+        <option value="1500">1.5 km/s class</option>
+        <option value="2000">2.0 km/s class</option>
       </select>
     </div>
     <div class="route-field-row">

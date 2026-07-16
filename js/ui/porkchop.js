@@ -830,13 +830,17 @@ export function wirePorkchop() {
     state.transferData.departureSimTime = dep;
     // K6: coarse porkchop is approx; selected apply uses current planning backend.
     solveTransferOrbit(state.transferData);
-    state.showTransferOrbit = true;
-    updateTransferOrbitVisual();
-
-    overlay.classList.remove('visible');
-    cancelActiveSweep();
-    renderRouteUI();
-    notify('LAUNCH WINDOW APPLIED');
+    import('./plan-dossier.js').then(({ buildPlanDossier }) => {
+      buildPlanDossier(state.transferData, {});
+      state.showTransferOrbit = true;
+      updateTransferOrbitVisual();
+      overlay.classList.remove('visible');
+      cancelActiveSweep();
+      renderRouteUI();
+      notify(state.transferData.dossier?.mission_ready
+        ? 'LAUNCH WINDOW APPLIED'
+        : 'WINDOW APPLIED — PLAN NOT MISSION-READY (see status)');
+    });
   };
 
   document.getElementById('find-windows').onclick = () => {
