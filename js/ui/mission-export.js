@@ -61,11 +61,16 @@ export function buildPlanObject(td) {
     frame: 'Heliocentric Ecliptic J2000',
     units: { distance: 'm', velocity: 'm/s', angle: 'deg', time: 'ISO-8601 UTC', mass: 'kg' },
     methodology: {
-      ephemeris: 'JPL Approximate Positions of Major Planets 1800-2050',
+      ephemeris: (state.ephemerisBackend === 'sample-de' && !state.classroomMode)
+        ? 'Offline sample-table endpoints (educational) + JPL Approximate Positions for animation'
+        : 'JPL Approximate Positions of Major Planets 1800-2050',
+      ephemeris_backend: state.classroomMode
+        ? 'approx'
+        : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
       transfer: 'Lambert universal-variable, dual geometry (physical Δv / visual line)',
-      disclaimer: 'Educational / concept-grade sketch — not flight operations; not SpaceX-certified performance.',
+      disclaimer: 'Educational / concept-grade sketch — not flight operations; not SpaceX-certified performance; not SPICE navigation.',
       display_mode: state.display?.mode || 'cinematic',
-      fidelity: state.fidelityLevel || 'L1',
+      fidelity: state.fidelityLevel === 'L2' ? 'L2-compare' : (state.fidelityLevel || 'L1'),
     },
     summary: {
       origin: td.body1.name,
@@ -97,13 +102,17 @@ export function buildPlanObject(td) {
       arch: state.vehicleId === 'sh-starship' ? (state.starshipArch || 'legacy-demo') : undefined,
       tankers: state.starshipArch === 'tanker-n' ? (state.tankerCount || 0) : undefined,
       f9v: state.vehicleId === 'falcon9' ? (state.falcon9Variant || 'expendable') : undefined,
+      eph: (state.ephemerisBackend === 'sample-de' && !state.classroomMode) ? 'sample' : undefined,
     },
     measurement: {
       need,
       capability,
       margin,
       disclaimer: capability.disclaimer || presetDisclaimer(state.vehicleId),
-      fidelity: state.fidelityLevel || 'L1',
+      fidelity: state.fidelityLevel === 'L2' ? 'L2-compare' : (state.fidelityLevel || 'L1'),
+      ephemeris_backend: state.classroomMode
+        ? 'approx'
+        : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
     },
     // Deprecated mirror for v2 consumers (K13)
     feasibility: {

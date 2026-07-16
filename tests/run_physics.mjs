@@ -30,6 +30,9 @@ const SUITE = [
   'tests/ml_window_seeds.mjs',
   'tests/vehicle_ui_regression.mjs',
   'tests/porkchop_cargo.mjs',
+  'tests/approx_error_table.mjs',
+  'tests/ephemeris_provider.mjs',
+  'tests/ephemeris_fixtures.mjs',
   // Soft / informational only (always exits 0) — PR 18 perf budgets.
   'tests/porkchop_refine.mjs',
   'tests/ui_split_static.mjs',

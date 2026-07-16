@@ -31,6 +31,7 @@ function encodeFromState() {
     arch: state.vehicleId === 'sh-starship' ? (state.starshipArch || 'legacy-demo') : undefined,
     tankers: state.starshipArch === 'tanker-n' ? (state.tankerCount || 0) : undefined,
     f9v: state.vehicleId === 'falcon9' ? (state.falcon9Variant || 'expendable') : undefined,
+    eph: (!state.classroomMode && state.ephemerisBackend === 'sample-de') ? 'sample' : undefined,
   };
   if (!isMulti) {
     const tofDays = state.userTofDays != null

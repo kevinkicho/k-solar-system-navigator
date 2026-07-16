@@ -111,6 +111,7 @@ export function wireControls() {
   const cargoRow = document.getElementById('cargo-row');
   const cargoIn = document.getElementById('cargo-mass');
   const aeroIn = document.getElementById('aeroassist-factor');
+  const ephSel = document.getElementById('ephemeris-backend');
 
   function isAbstractVehicle(id) {
     return id === 'abstract' || id === 'chem-medium' || id === 'fh-class' || id === 'high-energy';
@@ -134,15 +135,49 @@ export function wireControls() {
     if (cargoRow) cargoRow.style.display = isAbstractVehicle(state.vehicleId) ? 'none' : 'flex';
     if (cargoIn) cargoIn.value = String(state.cargoMass_kg || 0);
     if (aeroIn) aeroIn.value = String(state.aeroassistFactor || 0);
+    if (ephSel) {
+      ephSel.value = state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx';
+      ephSel.disabled = !!state.classroomMode;
+    }
     updateViewBadge();
   }
   syncVehicleUI();
 
   function rerenderIfRoute() {
-    if (state.transferData) renderRouteUI();
+    if (state.transferData) {
+      // Re-stamp backend and re-solve so L2-plan takes effect on recompute path.
+      import('./route-planner.js').then(({ stampPlanningEphemeris }) => {
+        import('../physics/routing.js').then(({ solveTransferOrbit }) => {
+          if (state.transferData && !state.transferData.isMultiLeg) {
+            stampPlanningEphemeris(state.transferData);
+            solveTransferOrbit(state.transferData);
+          }
+          renderRouteUI();
+        });
+      });
+    }
     // Porkchop cargo heatmap / cell readout follow vehicle architecture.
     window.dispatchEvent(new CustomEvent('helios:vehicle-changed'));
   }
+
+  if (ephSel) ephSel.onchange = () => {
+    if (state.classroomMode) {
+      ephSel.value = 'approx';
+      notify('CLASSROOM MODE FORCES L1 APPROX');
+      return;
+    }
+    state.ephemerisBackend = ephSel.value === 'sample-de' ? 'sample-de' : 'approx';
+    if (state.ephemerisBackend === 'sample-de') {
+      state.fidelityLevel = 'L2-plan';
+      // Lazy-load sample table for browser
+      import('../physics/ephemeris-sample.js').then((m) => m.ensureSampleTableLoaded()).catch(() => {});
+      notify('PLANNING EPHEMERIS: SAMPLE-DE (L2-PLAN) — NOT SPICE');
+    } else if (state.fidelityLevel === 'L2-plan') {
+      state.fidelityLevel = 'L1';
+      notify('PLANNING EPHEMERIS: APPROX (L1)');
+    }
+    rerenderIfRoute();
+  };
 
   if (vehSel) vehSel.onchange = () => {
     state.vehicleId = vehSel.value;
@@ -285,15 +320,15 @@ export function wireControls() {
             if (hzOut) hzOut.textContent = `Skipped: ${result.reason}`;
             return;
           }
-          // PR14: successful explicit Horizons compare → L2 badge (planning still L1 ephemeris).
-          state.fidelityLevel = 'L2';
+          // K7: Horizons compare → L2-compare only (never switches planning backend).
+          state.fidelityLevel = 'L2-compare';
           const km = result.comparison.distanceKm;
           const au = result.comparison.distanceAU;
           const msg = `${body.name} @ ${epoch.toISOString().slice(0, 16)}Z — |Δr| ≈ ${
             km >= 1e6 ? (km / 1e6).toFixed(2) + ' M km' : km.toFixed(0) + ' km'
-          } (${au.toExponential(2)} AU) vs approximate ephemeris. Fidelity badge → L2 (educational only — not SPICE, not flight ops). Planning still uses offline approximate ephemeris.`;
+          } (${au.toExponential(2)} AU) vs approximate ephemeris. Badge → L2-compare (educational only — not SPICE). Planning still uses offline approximate ephemeris (L1 geometry).`;
           if (hzOut) hzOut.textContent = msg;
-          notify(`HORIZONS L2 · Δr ≈ ${km >= 1e6 ? (km / 1e6).toFixed(1) + 'M km' : Math.round(km) + ' km'}`);
+          notify(`HORIZONS L2-compare · Δr ≈ ${km >= 1e6 ? (km / 1e6).toFixed(1) + 'M km' : Math.round(km) + ' km'}`);
           if (state.transferData) renderRouteUI();
         } catch (err) {
           const detail = err && err.message ? err.message : String(err);

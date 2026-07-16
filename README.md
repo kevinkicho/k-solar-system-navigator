@@ -119,6 +119,7 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 | `npm run test:server` | Path-jail HTTP tests |
 | `npm run test:ui:ci` | Playwright UI smoke (starts its own server) |
 | `npm run build:stars` | Rebuild `assets/stars-mag75.json` from `hyg_v42.csv` |
+| `npm run build:ephemeris` | Rebuild `assets/ephemeris-samples-v1.json` (L2-plan samples) |
 
 **CI:** GitHub Actions runs physics offline tests on every push/PR to `main`, plus a Playwright Chromium UI smoke job.
 
@@ -128,7 +129,8 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 - **Vehicles** — Super Heavy + Starship (**legacy demo**, unrefueled LEO→TMI, N-tanker), **Falcon 9** (illustrative C₃–payload table), abstract Δv budgets (`fh-class` = heavy-lift chemical abstract — not Falcon Heavy)
 - **Cargo mass (kg)** — first-class input for F9 and Starship architectures
 - **Porkchop cargo** — selected-cell max cargo + optional **MAX CARGO** heatmap (F9 Earth C₃ table or SS unrefueled/tanker at cell Δv)
-- **Ephemeris fidelity** — **L1** offline JPL approx (default planning); **L2** after optional Horizons compare badge only; L3 SPICE out of scope
+- **Ephemeris fidelity** — **L1** offline JPL Approximate Positions (default); **L2-compare** after optional Horizons Δr check (planning still L1); **L2-plan** optional offline sample-table endpoints (`assets/ephemeris-samples-v1.json`); L3 SPICE out of scope
+- **Approx error bars** — Measurement Card shows JPL nominal λ/φ/ρ error class for origin/destination
 - **Cost basis** — heliocentric leg vs full parking-orbit mission Δv (legacy/abstract; SS cargo modes use injection Need)
 - **Display scale** — cinematic vs schematic
 - **Catalog** — planets, moons, dwarfs, NEOs, EM-L1/L2 waypoints

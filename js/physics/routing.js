@@ -2,9 +2,20 @@ import { AU, DAY, G_CONST, PI } from '../constants.js';
 import { SUN_DATA } from '../data/bodies.js';
 import { v3mag, v3sub } from './vec3.js';
 import { getBodyPosition3D, getBodyVelocity3D } from './kepler.js';
+import {
+  getPlanningPosition3D, getPlanningVelocity3D,
+} from './ephemeris-provider.js';
 import { buildTransferOrbit, propagateOrbit } from './helio.js';
 import { solveLambertBestBranch, solveLambertProblem } from './lambert.js';
 import { gravityAssistInfo } from './gravity-assist.js';
+
+/** Planning opts: backend 'approx'|'sample-de', classroomMode. Visual path always Kepler. */
+function planOpts(tData) {
+  return {
+    backend: tData?.ephemerisBackend || 'approx',
+    classroomMode: !!tData?.classroomMode,
+  };
+}
 
 // Minimum perihelion (AU) below which a heliocentric transfer is treated as
 // non-physical (Sun-grazing).  Mercury sits at 0.39 AU; below 0.3 AU the
@@ -49,12 +60,16 @@ export function findNearestFeasibleTransfer(body1, body2, depHint, tofHint, opts
     for (let j = 0; j < N_TOF; j++) {
       const tof = tofMin + (j + 0.5) / N_TOF * (tofMax - tofMin);
       const arr = dep + tof;
-      const p1 = getBodyPosition3D(body1, dep, false);
-      const p2 = getBodyPosition3D(body2, arr, false);
+      const pOpts = {
+        backend: opts.backend || 'approx',
+        classroomMode: !!opts.classroomMode,
+      };
+      const p1 = getPlanningPosition3D(body1, dep, pOpts);
+      const p2 = getPlanningPosition3D(body2, arr, pOpts);
       const r1 = [p1.x*AU, p1.y*AU, p1.z*AU];
       const r2 = [p2.x*AU, p2.y*AU, p2.z*AU];
-      const vb1 = getBodyVelocity3D(body1, dep, false);
-      const vb2 = getBodyVelocity3D(body2, arr, false);
+      const vb1 = getPlanningVelocity3D(body1, dep, pOpts);
+      const vb2 = getPlanningVelocity3D(body2, arr, pOpts);
       const sol = solveLambertBestBranch(r1, r2, tof, mu, vb1, vb2);
       if (!sol) continue;
       const periAU = sol.orb.a * (1 - sol.orb.e) / AU;
@@ -90,13 +105,14 @@ function synodicPeriod(b1, b2) {
 // Each solve is rejected if propagating the orbit to tof misses r2 by > 1000 km.
 export function solveTransferOrbit(tData) {
   const mu  = G_CONST * SUN_DATA.mass;
+  const pOpts = planOpts(tData);
 
-  const depP = getBodyPosition3D(tData.body1, tData.departureSimTime, false);
-  const arrP = getBodyPosition3D(tData.body2, tData.arrivalSimTime, false);
+  const depP = getPlanningPosition3D(tData.body1, tData.departureSimTime, pOpts);
+  const arrP = getPlanningPosition3D(tData.body2, tData.arrivalSimTime, pOpts);
   const r1vP = [depP.x * AU, depP.y * AU, depP.z * AU];
   const r2vP = [arrP.x * AU, arrP.y * AU, arrP.z * AU];
-  const vBody1 = getBodyVelocity3D(tData.body1, tData.departureSimTime, false);
-  const vBody2 = getBodyVelocity3D(tData.body2, tData.arrivalSimTime, false);
+  const vBody1 = getPlanningVelocity3D(tData.body1, tData.departureSimTime, pOpts);
+  const vBody2 = getPlanningVelocity3D(tData.body2, tData.arrivalSimTime, pOpts);
   const bestP = solveLambertBestBranch(r1vP, r2vP, tData.transferTime, mu, vBody1, vBody2);
 
   let physicsOk = false, chosenLongWay = null;
@@ -147,12 +163,14 @@ export function solveMultiLegRoute(waypoints) {
     const tof = b.simTime - a.simTime;
     if (tof <= 0) { legs.push({ ok: false, reason: 'non-positive TOF' }); continue; }
 
-    const pA = getBodyPosition3D(a.body, a.simTime, false);
-    const pB = getBodyPosition3D(b.body, b.simTime, false);
+    // Multi-leg planning positions via provider; visual still Kepler exaggerated.
+    const pOpts = planOpts(waypoints[0] || {});
+    const pA = getPlanningPosition3D(a.body, a.simTime, pOpts);
+    const pB = getPlanningPosition3D(b.body, b.simTime, pOpts);
     const r1P = [pA.x*AU, pA.y*AU, pA.z*AU];
     const r2P = [pB.x*AU, pB.y*AU, pB.z*AU];
-    const vA = getBodyVelocity3D(a.body, a.simTime, false);
-    const vB = getBodyVelocity3D(b.body, b.simTime, false);
+    const vA = getPlanningVelocity3D(a.body, a.simTime, pOpts);
+    const vB = getPlanningVelocity3D(b.body, b.simTime, pOpts);
     const bestP = solveLambertBestBranch(r1P, r2P, tof, mu, vA, vB);
 
     const pAV = getBodyPosition3D(a.body, a.simTime, true);
@@ -189,7 +207,7 @@ export function solveMultiLegRoute(waypoints) {
   let dvTotal = 0;
   for (let i = 0; i < waypoints.length; i++) {
     const wp = waypoints[i];
-    const vPlanet = getBodyVelocity3D(wp.body, wp.simTime, false);
+    const vPlanet = getPlanningVelocity3D(wp.body, wp.simTime, planOpts(waypoints[0] || {}));
     if (i === 0) {
       const L = legs[0];
       if (L && L.ok) {

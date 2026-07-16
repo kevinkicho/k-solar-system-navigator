@@ -20,6 +20,7 @@ const MACHINE_CLASS = 'local desktop (Windows)';
 // Soft floors — informational only. GH runners may miss these.
 const BUDGETS = {
   starsBytesMax: 2.5 * 1024 * 1024,       // stars-mag75.json cold-load size
+  ephSamplesBytesMax: 2.5 * 1024 * 1024,  // ephemeris-samples-v1.json L2-plan soft budget
   lambertSolvesPerSec: 2000,              // soft; GH runners often ~1–5k
   multiLegMsMax: 50,                      // soft upper bound per VEEGA solve
   bodyPosUsMax: 50,                       // soft μs/call
@@ -53,6 +54,17 @@ section('1. COLD-LOAD ASSETS');
     bytes <= BUDGETS.starsBytesMax,
     `got ${kb} KiB (${mb} MiB, ${bytes} bytes)`,
   );
+  try {
+    const ephPath = pathResolve(ROOT, 'assets/ephemeris-samples-v1.json');
+    const eb = statSync(ephPath).size;
+    soft(
+      `ephemeris-samples-v1.json ≤ 2.5 MiB`,
+      eb <= BUDGETS.ephSamplesBytesMax,
+      `got ${(eb / 1024).toFixed(1)} KiB`,
+    );
+  } catch {
+    soft('ephemeris-samples-v1.json present', false, 'missing asset');
+  }
 }
 
 // ---- Planning path throughput ----

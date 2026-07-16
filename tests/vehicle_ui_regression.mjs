@@ -30,11 +30,14 @@ check('Card classroom note path', /classroomMode/.test(cardJs));
 check('Default fidelity L1 in state', /fidelityLevel:\s*['"]L1['"]/.test(stateJs));
 
 // PR14 Horizons → L2
-check('Horizons success sets L2', /fidelityLevel\s*=\s*['"]L2['"]/.test(controlsJs));
-const l2Idx = controlsJs.indexOf("fidelityLevel = 'L2'");
+check('Horizons success sets L2-compare', /fidelityLevel\s*=\s*['"]L2-compare['"]/.test(controlsJs));
+const l2Idx = controlsJs.indexOf("fidelityLevel = 'L2-compare'");
 const rrAfterL2 = l2Idx >= 0 && controlsJs.indexOf('renderRouteUI()', l2Idx) > l2Idx
   && controlsJs.indexOf('renderRouteUI()', l2Idx) - l2Idx < 1200;
-check('Horizons re-renders route on L2', rrAfterL2);
+check('Horizons re-renders route on L2-compare', rrAfterL2);
+check('approx error module exists', existsSync(resolve(ROOT, 'js/data/approx-ephemeris-errors.js')));
+check('ephemeris provider exists', existsSync(resolve(ROOT, 'js/physics/ephemeris-provider.js')));
+check('sample asset exists', existsSync(resolve(ROOT, 'assets/ephemeris-samples-v1.json')));
 check('About documents L1/L2/L3', /Ephemeris fidelity badges/.test(indexHtml) && /L3/.test(indexHtml) && /never a planning mode/i.test(indexHtml));
 check('About: L3 out of scope', /out of scope|never a planning mode/i.test(indexHtml));
 
@@ -53,7 +56,7 @@ check('main sets classroomMode', /classroomMode\s*=\s*true/.test(mainJs) && /get
 check('classroom → abstract vehicle', /classroom[\s\S]{0,200}vehicleId\s*=\s*['"]abstract['"]/.test(mainJs));
 check('classroom → schematic', /classroom[\s\S]{0,300}setDisplayMode\(['"]schematic['"]\)/.test(mainJs));
 check('classroom shows banner', /classroom-banner/.test(mainJs));
-check('classroom forces L1', /classroom[\s\S]{0,350}fidelityLevel\s*=\s*['"]L1['"]/.test(mainJs));
+check('classroom forces L1', /forceOfflineL1Ephemeris|fidelityLevel\s*=\s*['"]L1['"]/.test(mainJs));
 
 // PR17 hooks + export surface
 check('__HELIOS exposes buildMeasurementCard', /buildMeasurementCard/.test(mainJs));
@@ -103,8 +106,8 @@ check('product default unrefueled', state.starshipArch === 'unrefueled');
 // Fidelity default
 state.fidelityLevel = 'L1';
 check('fidelity default L1', state.fidelityLevel === 'L1');
-state.fidelityLevel = 'L2';
-check('fidelity can be L2', state.fidelityLevel === 'L2');
+state.fidelityLevel = 'L2-compare';
+check('fidelity can be L2-compare', state.fidelityLevel === 'L2-compare');
 state.fidelityLevel = 'L1';
 
 // Porkchop cell math matches F9 table
@@ -135,13 +138,14 @@ const td = {
 const card = buildMeasurementCard(td);
 check('Card HTML has measurement-card root', /id=["']measurement-card["']/.test(card.html) || /measurement-card/.test(card.html));
 check('Card HTML has L1 badge', /fidelity-L1|data-fidelity=["']L1["']/.test(card.html));
+check('Card shows approx error row', /Approx error|nominal/i.test(card.html));
 check('Card has CAPABILITY section', /CAPABILITY/.test(card.html));
 check('Card has MARGIN section', /MARGIN/.test(card.html));
 check('Card disclaimer non-empty', (card.capability?.disclaimer || '').length > 20);
 
-state.fidelityLevel = 'L2';
+state.fidelityLevel = 'L2-compare';
 const cardL2 = buildMeasurementCard(td);
-check('Card HTML has L2 badge', /fidelity-L2|data-fidelity=["']L2["']/.test(cardL2.html));
+check('Card HTML has L2-compare badge', /L2-compare|fidelity-L2/.test(cardL2.html));
 
 state.classroomMode = true;
 state.vehicleId = 'abstract';

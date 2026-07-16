@@ -72,5 +72,14 @@ check('arch unrefueled', backA?.starshipArch === 'unrefueled');
 const bare = codec.parsePlanRequest('#v=1&o=earth&d=mars&dep=2026-11-21&veh=sh-starship');
 check('omit arch => legacy-demo', bare?.starshipArch === 'legacy-demo' && bare?.archOmitted === true);
 
+const encEph = codec.encodePlanRequestObject({
+  o: 'earth', d: 'mars', dep: '2026-11-21', tof: 258,
+  veh: 'abstract', ab: 8000, basis: 'helio', view: 'schematic', eph: 'sample',
+});
+const backEph = codec.parsePlanRequest(encEph);
+check('eph sample round-trip', backEph?.ephemerisBackend === 'sample-de');
+const bareEph = codec.parsePlanRequest('#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=abstract');
+check('omit eph => approx', bareEph?.ephemerisBackend === 'approx');
+
 if (failed) { console.error(`\n${failed} failed`); process.exit(1); }
 console.log('\nAll share codec checks passed');

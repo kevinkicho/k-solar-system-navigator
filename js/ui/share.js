@@ -74,6 +74,19 @@ export function applyPlanRequest(req) {
   }
   if (req.tankerCount != null) state.tankerCount = req.tankerCount;
   if (req.falcon9Variant) state.falcon9Variant = req.falcon9Variant;
+  if (state.classroomMode) {
+    state.ephemerisBackend = 'approx';
+    state.fidelityLevel = 'L1';
+  } else if (req.ephemerisBackend === 'sample-de') {
+    state.ephemerisBackend = 'sample-de';
+    state.fidelityLevel = 'L2-plan';
+  } else {
+    state.ephemerisBackend = 'approx';
+    // keep L2-compare if already set; otherwise L1
+    if (state.fidelityLevel === 'L2-plan') state.fidelityLevel = 'L1';
+  }
+  const ephSel = document.getElementById('ephemeris-backend');
+  if (ephSel) ephSel.value = state.ephemerisBackend;
   if (req.flybys.length > 0 && req.costBasis === 'mission') {
     notify('MISSION BASIS IS SINGLE-LEG ONLY — USING HELIO');
     state.costBasis = 'helio';

@@ -19,6 +19,17 @@ import { syncShareHash } from './share-sync.js';
 let _abortMission = () => {};
 export function bindAbortHandler(fn) { _abortMission = fn; }
 
+/** Stamp L2-plan backend fields onto transferData (K3 classroom → approx). */
+export function stampPlanningEphemeris(td) {
+  if (!td) return td;
+  const backend = state.classroomMode
+    ? 'approx'
+    : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx');
+  td.ephemerisBackend = backend;
+  td.classroomMode = !!state.classroomMode;
+  return td;
+}
+
 export function setRouteOrigin(body) {
   // If a mission was in flight (or arrived), changing the origin invalidates
   // it — the "From X" label and progress bar would be stale.  Bail cleanly.
@@ -294,7 +305,9 @@ export function computeRoute() {
 
   // Single-leg path.
   state.userTofDays = null;
-  state.transferData = hohmannTransfer(state.routeOrigin, state.routeDestination, departureSimTime);
+  state.transferData = stampPlanningEphemeris(
+    hohmannTransfer(state.routeOrigin, state.routeDestination, departureSimTime),
+  );
   solveTransferOrbit(state.transferData);
 
   let adjusted = false;
@@ -307,10 +320,16 @@ export function computeRoute() {
     const fix = findNearestFeasibleTransfer(
       state.routeOrigin, state.routeDestination,
       departureSimTime, state.transferData.transferTime,
+      {
+        backend: state.transferData.ephemerisBackend,
+        classroomMode: state.classroomMode,
+      },
     );
     if (fix) {
       // Re-build transferData around the feasible date/TOF.
-      state.transferData = hohmannTransfer(state.routeOrigin, state.routeDestination, fix.departureSimTime);
+      state.transferData = stampPlanningEphemeris(
+        hohmannTransfer(state.routeOrigin, state.routeDestination, fix.departureSimTime),
+      );
       state.transferData.transferTime  = fix.transferTime;
       state.transferData.arrivalSimTime = fix.arrivalSimTime;
       solveTransferOrbit(state.transferData);

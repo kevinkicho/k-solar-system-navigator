@@ -2,7 +2,7 @@
 // dependency order, then starts the render loop.
 
 import { SUN_WOBBLE_EXAGGERATION } from './constants.js';
-import { state, applyProductVehicleDefaults } from './state.js';
+import { state, applyProductVehicleDefaults, forceOfflineL1Ephemeris } from './state.js';
 import { setDisplayMode } from './display-scale.js';
 import * as catalog from './data/catalog.js';
 
@@ -59,7 +59,7 @@ if (params.get('mode') === 'classroom') {
   state.abstractBudget_m_s = 8000;
   state.costBasis = 'helio';
   state.starshipArch = 'legacy-demo';
-  state.fidelityLevel = 'L1';
+  forceOfflineL1Ephemeris(); // K3
   // Optional ?veh= is not classroom default (PR16) — only abstract.
 } else {
   // Product default after Measurement Card (K25 / PR 9): unrefueled SS arch.

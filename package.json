@@ -11,7 +11,8 @@
     "test:server": "node tests/server_path_jail.mjs",
     "test:ui": "node tests/ui_smoke.mjs",
     "test:ui:ci": "node tests/ci_ui.mjs",
-    "build:stars": "node scripts/build-stars.mjs"
+    "build:stars": "node scripts/build-stars.mjs",
+    "build:ephemeris": "node scripts/build-ephemeris-samples.mjs"
   },
   "devDependencies": {
     "playwright": "^1.59.1",

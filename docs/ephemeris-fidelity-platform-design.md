@@ -5,7 +5,7 @@
 | **Document title** | HELIOS Ephemeris Fidelity & Measurement Trust Platform |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | Approved for implementation (rev 1 — execution plan for Tier A / limited Tier B) |
+| **Status** | In implementation on `main` (rev 1 design; PRs 1–7 landing as sequential commits) |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
 | **Branch policy** | **`main` only** — sequential commits on `main`; no feature-branch / Graphite stack required |
 | **Branch baseline** | `main` (cargo platform, Measurement Card, L1/L2 badge, Horizons compare, porkchop cargo heatmap) |

@@ -11,6 +11,7 @@ import {
 import { solveTransferOrbit } from '../physics/routing.js';
 import { dateToInputValue, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
+import { stampPlanningEphemeris } from './route-planner.js';
 import { timeState } from './time-system.js';
 
 const REFINE_N = 40;
@@ -823,10 +824,11 @@ export function wirePorkchop() {
     timeState.updateDisplay();
 
     state.userTofDays = tof / DAY;
-    state.transferData = hohmannTransfer(pcState.body1, pcState.body2, dep);
+    state.transferData = stampPlanningEphemeris(hohmannTransfer(pcState.body1, pcState.body2, dep));
     state.transferData.transferTime = tof;
     state.transferData.arrivalSimTime = dep + tof;
     state.transferData.departureSimTime = dep;
+    // K6: coarse porkchop is approx; selected apply uses current planning backend.
     solveTransferOrbit(state.transferData);
     state.showTransferOrbit = true;
     updateTransferOrbitVisual();

@@ -44,6 +44,7 @@ export function encodePlanRequestObject(plan) {
   if (plan.arch && plan.veh === 'sh-starship') params.set('arch', plan.arch);
   if (plan.tankers != null && plan.arch === 'tanker-n') params.set('tankers', String(plan.tankers));
   if (plan.f9v && plan.veh === 'falcon9') params.set('f9v', plan.f9v);
+  if (plan.eph === 'sample' || plan.eph === 'sample-de') params.set('eph', 'sample');
   const encoded = params.toString();
   if (encoded.length > MAX_LEN) return null;
   return '#' + encoded;
@@ -115,6 +116,10 @@ export function parsePlanRequest(hash) {
   let f9v = params.get('f9v') || 'expendable';
   if (f9v !== 'asds' && f9v !== 'expendable') f9v = 'expendable';
 
+  let eph = params.get('eph') || 'approx';
+  if (eph === 'sample-de' || eph === 'sample') eph = 'sample-de';
+  else eph = 'approx';
+
   return {
     originId: o.toLowerCase(),
     destId: d.toLowerCase(),
@@ -131,6 +136,7 @@ export function parsePlanRequest(hash) {
     archOmitted: veh === 'sh-starship' && archOmitted,
     tankerCount: tankers,
     falcon9Variant: f9v,
+    ephemerisBackend: eph,
   };
 }
 

@@ -5,8 +5,30 @@ import {
   evaluateCapability, evaluateMargin, presetDisplayName, presetDisclaimer,
   superHeavyDeltaV, starshipDeltaV, totalMissionDeltaV,
 } from '../physics/vehicles.js';
+import { formatApproxErrorSummary } from '../data/approx-ephemeris-errors.js';
 import { formatVelocity } from './format.js';
 import { computeNeedNow } from './mission-budget-ui.js';
+
+/** Normalize legacy 'L2' → 'L2-compare'. */
+export function normalizeFidelity(level) {
+  if (level === 'L2-plan') return 'L2-plan';
+  if (level === 'L2' || level === 'L2-compare') return 'L2-compare';
+  return 'L1';
+}
+
+export function fidelityBadgeLabel(level) {
+  const f = normalizeFidelity(level);
+  if (f === 'L2-plan') return 'L2-plan · sample-table endpoints (educational)';
+  if (f === 'L2-compare') return 'L2-compare · Horizons Δr check (planning still L1)';
+  return 'L1 · JPL approx (offline default)';
+}
+
+export function fidelityCssClass(level) {
+  const f = normalizeFidelity(level);
+  if (f === 'L2-plan') return 'L2-plan';
+  if (f === 'L2-compare') return 'L2-compare';
+  return 'L1';
+}
 
 function fmtKg(kg) {
   if (kg == null || !isFinite(kg)) return '—';
@@ -38,10 +60,16 @@ export function buildMeasurementCard(td) {
   const capability = evaluateCapability(need, request);
   const margin = evaluateMargin(need, capability, request);
 
+  const fidelity = normalizeFidelity(state.fidelityLevel);
+  const backend = state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx';
+  const fidelityLabel = fidelityBadgeLabel(fidelity);
+  const cssFid = fidelityCssClass(fidelity);
+
   // Design residual: ?debug=1 logs triad objects for classroom / developers.
   if (typeof location !== 'undefined' && /[?&]debug=1(?:&|$)/.test(location.search || '')) {
     console.log('[HELIOS debug] measurement triad', {
-      fidelity: state.fidelityLevel || 'L1',
+      fidelity,
+      ephemerisBackend: backend,
       request,
       need,
       capability,
@@ -52,20 +80,32 @@ export function buildMeasurementCard(td) {
   const isLegacy = state.vehicleId === 'sh-starship'
     && (state.starshipArch === 'legacy-demo' || !state.starshipArch);
   const isSketch = !!(td?.body1?.waypointOf || td?.body2?.waypointOf);
-  const fidelity = state.fidelityLevel === 'L2' ? 'L2' : 'L1';
-  const fidelityLabel = fidelity === 'L2'
-    ? 'L2 · Horizons compare (educational)'
-    : 'L1 · JPL approx (offline default)';
   const classroomNote = state.classroomMode
-    ? `<div class="info-row"><span class="key">Classroom</span><span class="val amber">Methodology-first · abstract Δv default · offline</span></div>`
+    ? `<div class="info-row"><span class="key">Classroom</span><span class="val amber">Methodology-first · abstract Δv default · offline L1</span></div>`
     : '';
 
+  // PR1: nominal Approximate Positions error class (when planning on approx).
+  let errorRows = '';
+  if (backend === 'approx') {
+    const e1 = formatApproxErrorSummary(td?.body1);
+    const e2 = formatApproxErrorSummary(td?.body2);
+    errorRows = `
+      <div class="info-row"><span class="key">Approx error (origin)</span><span class="val" style="font-size:10px">${e1}</span></div>
+      <div class="info-row"><span class="key">Approx error (dest)</span><span class="val" style="font-size:10px">${e2}</span></div>
+      <div class="info-row"><span class="key">Error note</span><span class="val" style="font-size:9px;opacity:0.8">JPL nominal table 1800–2050 — not 1σ covariance, not DE/SPICE</span></div>`;
+  } else {
+    errorRows = `
+      <div class="info-row"><span class="key">Planning backend</span><span class="val amber">sample-de endpoints (educational) — not SPICE navigation</span></div>`;
+  }
+
   let html = `
-      <div class="measurement-card" data-fidelity="${fidelity}" id="measurement-card">
+      <div class="measurement-card" data-fidelity="${cssFid}" data-backend="${backend}" id="measurement-card">
       <div class="result-subtitle">MISSION MEASUREMENT
-        <span class="fidelity-badge fidelity-${fidelity}" title="L1 = offline JPL Approximate Positions. L2 = optional Horizons Δr compare only (planning still uses L1 ephemeris). L3 SPICE is out of product scope.">${fidelity}</span>
+        <span class="fidelity-badge fidelity-${cssFid}" title="L1 = offline JPL Approximate Positions. L2-compare = Horizons Δr check only (planning still L1). L2-plan = optional sample-table endpoints. L3 SPICE is out of product scope.">${cssFid}</span>
       </div>
       <div class="info-row"><span class="key">Ephemeris fidelity</span><span class="val">${fidelityLabel}</span></div>
+      <div class="info-row"><span class="key">Planning backend</span><span class="val">${backend}</span></div>
+      ${errorRows}
       ${classroomNote}
       <div class="info-row"><span class="key">Vehicle</span><span class="val">${presetDisplayName(state.vehicleId)}</span></div>`;
 

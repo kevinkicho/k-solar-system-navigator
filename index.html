@@ -537,8 +537,12 @@ html, body {
 .measurement-card .fidelity-badge.fidelity-L1 {
   color: var(--cyan); background: rgba(0,212,255,0.08); border-color: rgba(0,212,255,0.35);
 }
-.measurement-card .fidelity-badge.fidelity-L2 {
+.measurement-card .fidelity-badge.fidelity-L2,
+.measurement-card .fidelity-badge.fidelity-L2-compare {
   color: var(--amber); background: rgba(255,152,0,0.1); border-color: rgba(255,152,0,0.4);
+}
+.measurement-card .fidelity-badge.fidelity-L2-plan {
+  color: var(--green); background: rgba(0,230,118,0.1); border-color: rgba(0,230,118,0.4);
 }
 #classroom-banner {
   position: fixed; top: 48px; left: 50%; transform: translateX(-50%);
@@ -770,6 +774,13 @@ input[type="range"]::-webkit-slider-thumb {
         <option value="mission">Full mission (parking)</option>
       </select>
     </div>
+    <div class="route-field-row" id="ephemeris-backend-row">
+      <label>Planning ephemeris</label>
+      <select id="ephemeris-backend" title="L1 approx default; sample-de = offline L2-plan endpoints (not SPICE)">
+        <option value="approx">Approximate Positions (L1 default)</option>
+        <option value="sample-de">Sample table endpoints (L2-plan)</option>
+      </select>
+    </div>
     <div class="route-field-row">
       <label>Display scale</label>
       <select id="display-mode-select" title="Cinematic exaggeration vs schematic inclinations">
@@ -919,11 +930,15 @@ input[type="range"]::-webkit-slider-thumb {
 
     <h3>Ephemeris fidelity badges</h3>
     <table>
-      <tr><td><span class="pill">L1</span> default</td><td>Offline JPL Approximate Positions — always used for planning geometry. No network.</td></tr>
-      <tr><td><span class="pill amber">L2</span> optional</td><td>After an explicit Horizons VECTOR compare only. Badge records that a Δr check was run; <strong>planning still uses L1 ephemeris</strong>. Not SPICE.</td></tr>
-      <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">L3</span> out of scope</td><td>SPICE kernels / covariance / navigation solutions — <strong>never a planning mode</strong> in HELIOS. Documented for trust ceiling only.</td></tr>
+      <tr><td><span class="pill">L1</span> default</td><td>Offline JPL Approximate Positions for planning geometry. No network. Nominal error classes (λ, φ, ρ) from the JPL SSD table are shown on the Measurement Card — not formal covariances.</td></tr>
+      <tr><td><span class="pill amber">L2-compare</span></td><td>After an explicit Horizons VECTOR compare only. Records that a Δr check was run; <strong>planning still uses L1 geometry</strong>. Not SPICE.</td></tr>
+      <tr><td><span class="pill" style="color:var(--green);border-color:rgba(0,230,118,0.4)">L2-plan</span></td><td>Optional offline sample-table endpoints for Lambert Need (educational DE-class samples when enabled). Animation still uses Approximate Positions. Not SPICE navigation.</td></tr>
+      <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">L3</span> out of scope</td><td>SPICE kernels / covariance / navigation solutions — <strong>never a planning mode</strong> in HELIOS.</td></tr>
     </table>
-    <p>Export JSON records <code>measurement.fidelity</code> and <code>methodology.fidelity</code> as L1 or L2.</p>
+    <p>JPL Approximate Positions accuracy table: <a href="https://ssd.jpl.nasa.gov/planets/approx_pos.html" target="_blank" style="color:var(--cyan)">ssd.jpl.nasa.gov/planets/approx_pos.html</a>. Export records <code>measurement.fidelity</code> and <code>methodology.ephemeris_backend</code>.</p>
+
+    <h3>Launch geometry (educational stub)</h3>
+    <p>Full site latitude / departure asymptote declination (DLA) integration is <strong>not</strong> modeled yet. Parking-orbit Need uses a simplified circular low orbit. Future work may add educational DLA vs launch-site sketches — not flight-design launch windows.</p>
 
     <h3>Known limitations</h3>
     <p>· 2-body Kepler propagation (no Jupiter/Saturn perturbations on the transfer orbit). Lambert solutions close to &lt;2 km in 2-body; under full N-body the actual miss could be tens of km. A Lambert+N-body shooter is the next planned upgrade.</p>
