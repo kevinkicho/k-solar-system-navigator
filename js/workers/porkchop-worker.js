@@ -13,6 +13,11 @@ function isCancelled(requestId) {
   return cancelled.has(requestId) || activeRequestId !== requestId;
 }
 
+function clearRequest(requestId) {
+  cancelled.delete(requestId);
+  if (activeRequestId === requestId) activeRequestId = null;
+}
+
 /**
  * Yield so cancel messages can be processed between rows.
  */
@@ -34,6 +39,7 @@ async function runSweep(msg) {
       requestId,
       message: `Unknown body id(s): ${missing}`,
     });
+    clearRequest(requestId);
     return;
   }
 
@@ -50,6 +56,7 @@ async function runSweep(msg) {
   for (let iy = 0; iy < ny; iy++) {
     if (isCancelled(requestId)) {
       self.postMessage({ type: 'cancelled', requestId });
+      clearRequest(requestId);
       return;
     }
 
@@ -75,20 +82,25 @@ async function runSweep(msg) {
       vinfRow[ix] = vinf[idx];
     }
 
-    self.postMessage({
-      type: 'row',
-      requestId,
-      iy,
-      dv: dvRow,
-      c3: c3Row,
-      vinf: vinfRow,
-    });
+    // Transfer buffers to avoid structured-clone cost on progressive rows.
+    self.postMessage(
+      {
+        type: 'row',
+        requestId,
+        iy,
+        dv: dvRow,
+        c3: c3Row,
+        vinf: vinfRow,
+      },
+      [dvRow.buffer, c3Row.buffer, vinfRow.buffer],
+    );
 
     await yieldTick();
   }
 
   if (isCancelled(requestId)) {
     self.postMessage({ type: 'cancelled', requestId });
+    clearRequest(requestId);
     return;
   }
 
@@ -105,6 +117,7 @@ async function runSweep(msg) {
       vinfMax: maxVI,
     },
   });
+  clearRequest(requestId);
 }
 
 self.onmessage = (ev) => {
@@ -127,6 +140,7 @@ self.onmessage = (ev) => {
         requestId: msg.requestId,
         message: err?.message || String(err),
       });
+      clearRequest(msg.requestId);
     });
   }
 };

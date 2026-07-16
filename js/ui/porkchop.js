@@ -37,20 +37,41 @@ export function wirePorkchop() {
   let workerReady = false;
   let requestSeq = 0;
   let activeRequestId = 0;
+  // Listeners notified on hard worker death (load/script error). fillGridWorker
+  // registers so its promise always resolves even if shared `worker` is cleared.
+  const workerDeathHandlers = new Set();
+
+  function discardWorker(w) {
+    workerReady = false;
+    if (worker === w) worker = null;
+    if (w) {
+      try { w.terminate(); } catch (_) { /* ignore */ }
+    }
+  }
+
+  function notifyWorkerDeath(w) {
+    workerReady = false;
+    const handlers = [...workerDeathHandlers];
+    workerDeathHandlers.clear();
+    for (const h of handlers) {
+      try { h(w); } catch (_) { /* ignore */ }
+    }
+    if (worker === w || worker == null) discardWorker(w);
+  }
 
   function tryCreateWorker() {
     if (typeof Worker === 'undefined') return false;
+    // Already have a live worker.
+    if (worker && workerReady) return true;
+    // Tear down a dead ref before retry (Issue 5: recreate after hard error).
+    if (worker) discardWorker(worker);
     try {
       const w = new Worker(
         new URL('../workers/porkchop-worker.js', import.meta.url),
         { type: 'module' },
       );
-      w.onerror = () => {
-        // Module workers may fail under file:// or bad MIME — fall back.
-        workerReady = false;
-        try { w.terminate(); } catch (_) { /* ignore */ }
-        if (worker === w) worker = null;
-      };
+      // Hard errors (module load, etc.) — fan out to in-flight waiters, then discard.
+      w.onerror = () => notifyWorkerDeath(w);
       worker = w;
       workerReady = true;
       return true;
@@ -210,22 +231,27 @@ export function wirePorkchop() {
     pcState.minCell = acc.minIdx;
   }
 
+  function emptyAcc() {
+    return {
+      minDv: Infinity, maxDv: -Infinity,
+      minC3: Infinity, maxC3: -Infinity,
+      minVI: Infinity, maxVI: -Infinity,
+      minIdx: null,
+    };
+  }
+
   /**
    * Progressive grid fill on the main thread (rAF slices). Used as fallback
    * when module Workers are unavailable, and for refine neighborhoods.
+   * opts.startIy / opts.seedAcc allow resuming after a partial worker fill.
    */
   function fillGridMainThread(body1, body2, gridSpec, data, c3, vinf, opts = {}) {
     const { ny } = gridSpec;
     const onProgress = opts.onProgress || null;
     const requestId = opts.requestId;
     return new Promise((resolve) => {
-      let iy = 0;
-      const acc = {
-        minDv: Infinity, maxDv: -Infinity,
-        minC3: Infinity, maxC3: -Infinity,
-        minVI: Infinity, maxVI: -Infinity,
-        minIdx: null,
-      };
+      let iy = opts.startIy | 0;
+      const acc = opts.seedAcc || emptyAcc();
       function step() {
         if (requestId != null && requestId !== activeRequestId) {
           resolve(null);
@@ -251,38 +277,46 @@ export function wirePorkchop() {
 
   /**
    * Run a sweep via module Worker. Progressive row messages fill `data`/`c3`/`vinf`.
-   * Returns acc or null if cancelled / stale / error.
+   * Resolves:
+   *   - { ok:true, acc } on success
+   *   - { ok:false, reason:'cancel'|'error', nextIy, acc } on failure (caller may fall back)
+   *   - null only if worker was unavailable at start
    */
   function fillGridWorker(body1Id, body2Id, gridSpec, data, c3, vinf, opts = {}) {
     const { nx, ny } = gridSpec;
     const requestId = opts.requestId;
     const onProgress = opts.onProgress || null;
+    // Capture local ref so cleanup still works if shared `worker` is nulled.
+    const w = worker;
 
     return new Promise((resolve) => {
-      if (!worker || !workerReady) {
+      if (!w || !workerReady) {
         resolve(null);
         return;
       }
 
-      const acc = {
-        minDv: Infinity, maxDv: -Infinity,
-        minC3: Infinity, maxC3: -Infinity,
-        minVI: Infinity, maxVI: -Infinity,
-        minIdx: null,
-      };
+      const acc = emptyAcc();
       let finished = false;
+      let nextIy = 0;
 
-      function cleanup() {
+      function finish(result) {
         if (finished) return;
         finished = true;
-        worker.removeEventListener('message', onMsg);
-        worker.removeEventListener('error', onErr);
+        workerDeathHandlers.delete(onDeath);
+        try {
+          w.removeEventListener('message', onMsg);
+          w.removeEventListener('error', onErr);
+        } catch (_) { /* worker may already be dead */ }
+        resolve(result);
+      }
+
+      function onDeath() {
+        finish({ ok: false, reason: 'error', nextIy, acc });
       }
 
       function onErr() {
-        cleanup();
-        workerReady = false;
-        resolve(null);
+        // Property onerror + death handlers may also run; finish is idempotent.
+        notifyWorkerDeath(w);
       }
 
       function onMsg(ev) {
@@ -291,8 +325,7 @@ export function wirePorkchop() {
         if (!msg || msg.requestId !== requestId) return;
         if (requestId !== activeRequestId) {
           if (msg.type === 'done' || msg.type === 'cancelled' || msg.type === 'error') {
-            cleanup();
-            resolve(null);
+            finish({ ok: false, reason: 'cancel', nextIy, acc });
           }
           return;
         }
@@ -329,12 +362,12 @@ export function wirePorkchop() {
             minC3: rowMinC3, maxC3: rowMaxC3,
             minVI: rowMinVI, maxVI: rowMaxVI,
           }, acc);
-          if (onProgress) onProgress(iy + 1, ny, acc);
+          nextIy = iy + 1;
+          if (onProgress) onProgress(nextIy, ny, acc);
           return;
         }
 
         if (msg.type === 'done') {
-          cleanup();
           if (msg.minCell) acc.minIdx = msg.minCell;
           if (msg.stats) {
             if (msg.stats.dvMin < acc.minDv) acc.minDv = msg.stats.dvMin;
@@ -344,27 +377,26 @@ export function wirePorkchop() {
             if (msg.stats.vinfMin < acc.minVI) acc.minVI = msg.stats.vinfMin;
             if (msg.stats.vinfMax > acc.maxVI) acc.maxVI = msg.stats.vinfMax;
           }
-          resolve(acc);
+          finish({ ok: true, acc });
           return;
         }
 
         if (msg.type === 'cancelled') {
-          cleanup();
-          resolve(null);
+          finish({ ok: false, reason: 'cancel', nextIy, acc });
           return;
         }
 
         if (msg.type === 'error') {
-          cleanup();
           console.warn('[porkchop-worker]', msg.message);
-          resolve(null);
+          finish({ ok: false, reason: 'error', nextIy, acc });
         }
       }
 
-      worker.addEventListener('message', onMsg);
-      worker.addEventListener('error', onErr);
+      workerDeathHandlers.add(onDeath);
+      w.addEventListener('message', onMsg);
+      w.addEventListener('error', onErr);
       try {
-        worker.postMessage({
+        w.postMessage({
           type: 'sweep',
           requestId,
           body1Id,
@@ -379,21 +411,41 @@ export function wirePorkchop() {
           },
         });
       } catch (err) {
-        cleanup();
         workerReady = false;
-        resolve(null);
+        finish({ ok: false, reason: 'error', nextIy: 0, acc });
       }
     });
   }
 
   async function runGridFill(body1, body2, body1Id, body2Id, gridSpec, data, c3, vinf, opts) {
+    // Lazy recreate after a prior hard error (Issue 5).
+    if (!workerReady || !worker) tryCreateWorker();
+
     if (workerReady && worker) {
-      const acc = await fillGridWorker(body1Id, body2Id, gridSpec, data, c3, vinf, opts);
-      if (acc) return acc;
-      // Worker failed mid-flight or unavailable — fall through to main thread
-      // only if this request is still active.
+      const result = await fillGridWorker(body1Id, body2Id, gridSpec, data, c3, vinf, opts);
+      if (result && result.ok) return result.acc;
+
+      // Cancelled / stale — do not fall back.
       if (opts.requestId != null && opts.requestId !== activeRequestId) return null;
+      if (result && result.reason === 'cancel') return null;
+
+      // Worker error: continue remaining rows on main (keep partial progress).
+      if (result && result.reason === 'error') {
+        const startIy = result.nextIy | 0;
+        console.warn(
+          `[porkchop] worker error; falling back to main thread`
+          + (startIy > 0 ? ` from row ${startIy}` : ''),
+        );
+        return fillGridMainThread(body1, body2, gridSpec, data, c3, vinf, {
+          ...opts,
+          requireRunning: true,
+          startIy,
+          seedAcc: result.acc,
+        });
+      }
+      // Worker unavailable at start of call.
     }
+
     return fillGridMainThread(body1, body2, gridSpec, data, c3, vinf, {
       ...opts,
       requireRunning: true,
@@ -409,8 +461,6 @@ export function wirePorkchop() {
     if (!pcState || requestId !== activeRequestId) return;
     const body1 = pcState.body1;
     const body2 = pcState.body2;
-    const body1Id = pcState.body1Id;
-    const body2Id = pcState.body2Id;
     const coarseInfo = cellInfo(ix, iy);
     if (!isFinite(coarseInfo.dv)) return;
 
@@ -474,6 +524,8 @@ export function wirePorkchop() {
 
   async function beginSweep(originBody, destBody, departStart) {
     cancelActiveSweep();
+    // Retry worker creation if a previous session permanently failed.
+    if (!workerReady || !worker) tryCreateWorker();
 
     const body1Id = bodyId(originBody);
     const body2Id = bodyId(destBody);
