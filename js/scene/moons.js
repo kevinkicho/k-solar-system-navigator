@@ -32,7 +32,7 @@ for (const moon of MOONS) {
       moonMat.emissiveIntensity = 0.06;
       moonMat.needsUpdate = true;
       planetTextureTargets.push({ map: tex, period: 27.322 * DAY });
-    });
+    }, undefined, () => { /* keep solid-color fallback */ });
   }
 
   const div = document.createElement('div');

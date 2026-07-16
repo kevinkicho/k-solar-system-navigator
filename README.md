@@ -68,11 +68,11 @@ node tests/module_integration.mjs     # imports js/* modules: load, accuracy, pe
 node tests/ephemeris_check.mjs        # JPL element-rate model: J2000 self-consistency, perihelion/aphelion, Mars opposition, drift vs frozen-J2000
 ```
 
-End-to-end UI test (requires Puppeteer):
+End-to-end UI test (requires Puppeteer; full install also pulls Three for the 3D app):
 
 ```bash
-npm install puppeteer
-node tests/ui_smoke.mjs     # drives the app in headless Chromium, screenshots in tests/screenshots/
+npm install                 # Three.js + Playwright/Puppeteer (and other deps)
+npm run test:ui             # or: node tests/ui_smoke.mjs — screenshots in tests/screenshots/
 ```
 
 ## Getting started
