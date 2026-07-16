@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { BODIES } from './data/bodies.js';
 import { MOONS } from './data/moons.js';
+import { listDwarfs, listNeos, listWaypoints } from './data/catalog.js';
 import { SPACECRAFT } from './data/spacecraft.js';
 import { getBodyPosition3D, getMoonPosition, getSunBarycentricOffset } from './physics/kepler.js';
 import { getSpacecraftPosition } from './physics/helio.js';
@@ -64,7 +65,8 @@ export function animate() {
     t.map.offset.x = (timeState.simTime / t.period) % 1;
   }
 
-  for (const body of BODIES) {
+  const extraBodies = [...listDwarfs(), ...listNeos(), ...listWaypoints()];
+  for (const body of [...BODIES, ...extraBodies]) {
     const helio = getBodyPosition3D(body, timeState.simTime);
     const scenePos = {
       x: helio.x + sunOff.x, y: helio.y + sunOff.y, z: helio.z + sunOff.z,

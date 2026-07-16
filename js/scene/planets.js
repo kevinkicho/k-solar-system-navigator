@@ -5,7 +5,8 @@ import { BODIES } from '../data/bodies.js';
 import { generateOrbitPoints } from '../physics/kepler.js';
 import { scene, texLoader } from './setup.js';
 
-const TEX_BASE = 'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/';
+// Pinned commit (not @master) — solid-color materials remain if load fails.
+const TEX_BASE = 'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@01ca2b7/images/';
 
 const PLANET_TEXTURES = {
   Mercury: 'mercurymap.jpg',

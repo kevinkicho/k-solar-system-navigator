@@ -21,115 +21,142 @@ function magToSize(mag) {
   return 1.2 * Math.pow(1 - t, 2.2) + 0.08;
 }
 
+function addStarPoints(stars) {
+  const count = stars.length;
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const sizes = new Float32Array(count);
+  const STAR_SPHERE_RADIUS = 180;
+
+  for (let i = 0; i < count; i++) {
+    const s = stars[i];
+    const nx = s.x / s.len, ny = s.y / s.len, nz = s.z / s.len;
+    positions[i * 3]     = nx * STAR_SPHERE_RADIUS;
+    positions[i * 3 + 1] = nz * STAR_SPHERE_RADIUS;  // HYG z -> scene y (up)
+    positions[i * 3 + 2] = ny * STAR_SPHERE_RADIUS;  // HYG y -> scene z
+    const [r, g, b] = bvToColor(s.ci);
+    colors[i * 3] = r; colors[i * 3 + 1] = g; colors[i * 3 + 2] = b;
+    sizes[i] = magToSize(s.mag);
+  }
+
+  const starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  starGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+  const starMaterial = new THREE.ShaderMaterial({
+    uniforms: {},
+    vertexShader: `
+      attribute float size;
+      varying vec3 vColor;
+      void main() {
+        vColor = color;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = size * (200.0 / -mvPosition.z);
+        gl_PointSize = clamp(gl_PointSize, 0.5, 8.0);
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vColor;
+      void main() {
+        vec2 uv = gl_PointCoord - 0.5;
+        float d = length(uv);
+        if (d > 0.5) discard;
+        float alpha = smoothstep(0.5, 0.1, d);
+        gl_FragColor = vec4(vColor, alpha * 0.9);
+      }
+    `,
+    transparent: true,
+    vertexColors: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+
+  starFieldPoints = new THREE.Points(starGeo, starMaterial);
+  scene.add(starFieldPoints);
+  return count;
+}
+
+function addPlaceholderStars() {
+  const starGeo = new THREE.BufferGeometry();
+  const n = 2000, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const theta = Math.random() * TWO_PI;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const r = 150 + Math.random() * 100;
+    pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+    pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+    pos[i * 3 + 2] = r * Math.cos(phi);
+  }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({
+    color: 0xccddff, size: 0.15, sizeAttenuation: true, transparent: true, opacity: 0.55,
+  })));
+}
+
 export let starFieldPoints = null;
 
 export async function loadStarField() {
+  // Progressive placeholder while the real catalog loads.
+  addPlaceholderStars();
+
   try {
-    const resp = await fetch('hyg_v42.csv');
-    const text = await resp.text();
-    const lines = text.split('\n');
-    const header = lines[0].split(',').map(h => h.replace(/"/g, ''));
+    // Prefer prebaked mag≤7.5 asset (PR 4).
+    let stars = null;
+    try {
+      const pre = await fetch('assets/stars-mag75.json');
+      if (pre.ok) {
+        const data = await pre.json();
+        stars = (data.stars || []).map(row => {
+          const [x, y, z, mag, ci] = row;
+          const len = Math.sqrt(x * x + y * y + z * z);
+          return { x, y, z, mag, ci, len };
+        }).filter(s => s.len >= 0.001);
+        console.log(`Loaded ${stars.length} stars from prebaked asset`);
+      }
+    } catch { /* fall through to CSV */ }
 
-    const iX = header.indexOf('x');
-    const iY = header.indexOf('y');
-    const iZ = header.indexOf('z');
-    const iMag = header.indexOf('mag');
-    const iCI = header.indexOf('ci');
-    const iProper = header.indexOf('proper');
+    if (!stars || stars.length === 0) {
+      const resp = await fetch('hyg_v42.csv');
+      const text = await resp.text();
+      const lines = text.split(/\r?\n/);
+      const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
+      const iX = header.indexOf('x');
+      const iY = header.indexOf('y');
+      const iZ = header.indexOf('z');
+      const iMag = header.indexOf('mag');
+      const iCI = header.indexOf('ci');
 
-    const stars = [];
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      const cols = lines[i].match(/(".*?"|[^,]*)/g);
-      if (!cols) continue;
-      const clean = col => (col || '').replace(/^"|"$/g, '').trim();
-
-      const x = parseFloat(clean(cols[iX]));
-      const y = parseFloat(clean(cols[iY]));
-      const z = parseFloat(clean(cols[iZ]));
-      const mag = parseFloat(clean(cols[iMag]));
-      const ci = parseFloat(clean(cols[iCI]));
-      const proper = clean(cols[iProper]);
-
-      if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(mag)) continue;
-      if (mag > 7.5) continue;
-      const len = Math.sqrt(x*x + y*y + z*z);
-      if (len < 0.001) continue;
-
-      stars.push({ x, y, z, mag, ci: isNaN(ci) ? 0.65 : ci, proper, len });
+      stars = [];
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const cols = lines[i].split(',');
+        if (cols.length <= Math.max(iX, iY, iZ, iMag)) continue;
+        const clean = col => (col || '').replace(/^"|"$/g, '').trim();
+        const x = parseFloat(clean(cols[iX]));
+        const y = parseFloat(clean(cols[iY]));
+        const z = parseFloat(clean(cols[iZ]));
+        const mag = parseFloat(clean(cols[iMag]));
+        const ci = parseFloat(clean(cols[iCI]));
+        if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(mag)) continue;
+        if (mag > 7.5) continue;
+        const len = Math.sqrt(x * x + y * y + z * z);
+        if (len < 0.001) continue;
+        stars.push({ x, y, z, mag, ci: isNaN(ci) ? 0.65 : ci, len });
+      }
+      console.log(`Loaded ${stars.length} stars from HYG v4.2 CSV`);
     }
 
-    console.log(`Loaded ${stars.length} stars from HYG v4.2`);
+    // Remove placeholder points before adding real field.
+    scene.children
+      .filter(c => c.isPoints && c !== starFieldPoints)
+      .forEach(c => scene.remove(c));
 
-    const count = stars.length;
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const sizes = new Float32Array(count);
-    const STAR_SPHERE_RADIUS = 180;
-
-    for (let i = 0; i < count; i++) {
-      const s = stars[i];
-      const nx = s.x / s.len, ny = s.y / s.len, nz = s.z / s.len;
-      positions[i*3]     = nx * STAR_SPHERE_RADIUS;
-      positions[i*3 + 1] = nz * STAR_SPHERE_RADIUS;  // HYG z -> scene y (up)
-      positions[i*3 + 2] = ny * STAR_SPHERE_RADIUS;  // HYG y -> scene z
-      const [r, g, b] = bvToColor(s.ci);
-      colors[i*3] = r; colors[i*3+1] = g; colors[i*3+2] = b;
-      sizes[i] = magToSize(s.mag);
-    }
-
-    const starGeo = new THREE.BufferGeometry();
-    starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    starGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-
-    const starMaterial = new THREE.ShaderMaterial({
-      uniforms: {},
-      vertexShader: `
-        attribute float size;
-        varying vec3 vColor;
-        void main() {
-          vColor = color;
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = size * (200.0 / -mvPosition.z);
-          gl_PointSize = clamp(gl_PointSize, 0.5, 8.0);
-          gl_Position = projectionMatrix * mvPosition;
-        }
-      `,
-      fragmentShader: `
-        varying vec3 vColor;
-        void main() {
-          vec2 uv = gl_PointCoord - 0.5;
-          float d = length(uv);
-          if (d > 0.5) discard;
-          float alpha = smoothstep(0.5, 0.1, d);
-          gl_FragColor = vec4(vColor, alpha * 0.9);
-        }
-      `,
-      transparent: true,
-      vertexColors: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-
-    starFieldPoints = new THREE.Points(starGeo, starMaterial);
-    scene.add(starFieldPoints);
+    const count = addStarPoints(stars);
     notify(`${count.toLocaleString()} REAL STARS LOADED`);
   } catch (err) {
-    console.error('Failed to load star data, falling back to random stars:', err);
-    const starGeo = new THREE.BufferGeometry();
-    const n = 4000, pos = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      const theta = Math.random() * TWO_PI;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const r = 150 + Math.random() * 100;
-      pos[i*3] = r*Math.sin(phi)*Math.cos(theta);
-      pos[i*3+1] = r*Math.sin(phi)*Math.sin(theta);
-      pos[i*3+2] = r*Math.cos(phi);
-    }
-    starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({
-      color: 0xccddff, size: 0.15, sizeAttenuation: true, transparent: true, opacity: 0.8,
-    })));
+    console.error('Failed to load star data, keeping placeholder stars:', err);
+    notify('STAR CATALOG FALLBACK');
   }
 }

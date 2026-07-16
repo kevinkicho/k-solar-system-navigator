@@ -78,16 +78,36 @@ node tests/ui_smoke.mjs     # drives the app in headless Chromium, screenshots i
 ## Getting started
 
 ```bash
+npm install   # optional — only needed for Playwright/Puppeteer UI tests
 npm start
 ```
 
-The server picks a free port automatically and prints the URL:
+The local-dev server picks a free port automatically and prints the URL:
 
 ```
 HELIOS server running at http://localhost:XXXXX
 ```
 
-Open that URL in your browser.
+Open that URL in your browser. For production, prefer any static file host (GitHub Pages, etc.) — `server.js` is local-dev only (path-jailed).
+
+### Scripts
+
+| Command | Purpose |
+|---|---|
+| `npm start` | Local path-jailed static server (ESM) |
+| `npm test` / `npm run test:physics` | Offline physics + catalog + share + multi-leg suite |
+| `npm run test:server` | Path-jail HTTP tests |
+| `npm run build:stars` | Rebuild `assets/stars-mag75.json` from `hyg_v42.csv` |
+
+### Trip planner (new)
+
+- **Vehicle presets** — Super Heavy + Starship (default), abstract Δv budget, chemical / heavy-lift / high-energy class budgets
+- **Cost basis** — heliocentric leg vs full parking-orbit mission Δv (mission basis is single-leg only)
+- **Display scale** — cinematic (exaggerated) vs schematic (true inclinations & sun wobble; moon layout still schematic)
+- **Catalog** — planets, major moons, dwarf planets, curated NEOs, EM-L1/L2 geometric waypoints
+- **Share links** — URL hash codec v1 (`#v=1&o=earth&d=mars&dep=…`); JSON export schema v2
+- **Multi-leg window search** — coarse local search when flyby seed is infeasible (not a global optimum)
+- **Classroom mode** — `?mode=classroom` sets schematic view + abstract budget
 
 ## Data sources
 
@@ -118,19 +138,19 @@ Open that URL in your browser.
 ## Project structure
 
 ```
-index.html                — HTML/CSS shell + DOM (~650 lines)
-js/                       — application code, split into ES modules
-  constants.js              — G, AU, exaggerations, etc.
-  state.js                  — shared mutable app state
-  data/                     — bodies, moons, spacecraft data tables
-  physics/                  — vec3, kepler, lambert, helio, gravity-assist, routing
-  scene/                    — Three.js scene construction (one module per object)
-  ui/                       — controls, route-planner, porkchop, info-panel, etc.
-  mission.js                — launch / abort / per-frame mission updates
-  animation.js              — render loop
-  main.js                   — entry point: wires modules and starts animate()
-trajectory-calculator.js  — vehicle stack Δv model (Super Heavy + Starship)
-server.js                 — static file server (Node.js, zero dependencies)
-hyg_v42.csv               — HYG stellar database (119,600 stars, ~32 MB)
-tests/                    — offline physics + module-integration + Playwright UI tests
+index.html                — HTML/CSS shell + DOM
+js/                       — application code, ES modules
+  constants.js / state.js / display-scale.js
+  data/                   — bodies, moons, dwarfs, neos, waypoints, catalog, scenarios
+  physics/                — kepler, lambert, routing, porkchop-grid, vehicles, mission-budget
+  scene/                  — Three.js construction (+ extra-bodies, prebaked stars)
+  ui/                     — route planner, porkchop, share, scenarios, controls
+  mission.js / animation.js / main.js
+assets/stars-mag75.json   — prebaked mag≤7.5 star field (~1 MB)
+trajectory-calculator.js  — re-export shim → js/physics/vehicles.js
+server.js                 — path-jailed local-dev static server (ESM)
+hyg_v42.csv               — full HYG source (optional; not on critical path)
+tests/                    — offline physics + server + share codec + Playwright
+LICENSE                   — MIT
+docs/trip-planner-design.md — product redesign + PR plan
 ```

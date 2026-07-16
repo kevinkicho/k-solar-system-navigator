@@ -1,8 +1,8 @@
 import { J2000 } from '../constants.js';
-import { findBodyByName } from '../data/bodies.js';
+import { findByIdOrName } from '../data/catalog.js';
 import { SCENARIOS } from '../data/scenarios.js';
 import { state } from '../state.js';
-import { dateToInputValue, notify, simTimeToDate } from './format.js';
+import { dateToInputValue, notify } from './format.js';
 import {
   renderFlybyList, setRouteDestination, setRouteOrigin,
 } from './route-planner.js';
@@ -29,8 +29,8 @@ export function wireScenarios() {
 
     summary.textContent = sc.summary;
 
-    const origin = findBodyByName(sc.origin);
-    const dest   = findBodyByName(sc.destination);
+    const origin = findByIdOrName(sc.origin);
+    const dest   = findByIdOrName(sc.destination);
     if (!origin || !dest) {
       notify('SCENARIO ORIGIN/DEST UNKNOWN');
       return;
@@ -51,10 +51,14 @@ export function wireScenarios() {
     timeState.updateDisplay();
 
     // Add any flybys (in chronological order).
-    state.flybys = sc.flybys.map(f => ({
-      bodyName: f.bodyName,
-      simTime:  (f.dateUTC - J2000) / 1000,
-    }));
+    state.flybys = sc.flybys.map(f => {
+      const b = findByIdOrName(f.bodyName || f.bodyId);
+      return {
+        bodyId: b?.id || f.bodyId,
+        bodyName: b?.name || f.bodyName,
+        simTime: (f.dateUTC - J2000) / 1000,
+      };
+    });
     renderFlybyList();
 
     notify(`SCENARIO LOADED: ${sc.name.toUpperCase()}`);

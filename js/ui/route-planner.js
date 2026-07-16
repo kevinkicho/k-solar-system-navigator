@@ -1,9 +1,10 @@
 import { AU, DAY } from '../constants.js';
 import { BODIES } from '../data/bodies.js';
+import { bodyId, findByIdOrName, listFlybyEligible, resolveFlybyBody } from '../data/catalog.js';
 import { state } from '../state.js';
 import { hohmannTransfer } from '../physics/kepler.js';
 import {
-  MIN_PERIHELION_AU, findNearestFeasibleTransfer,
+  MIN_PERIHELION_AU, findNearestFeasibleTransfer, findMultiLegWindow,
   solveMultiLegRoute, solveTransferOrbit,
 } from '../physics/routing.js';
 import { dateToInputValue, dateToSimTime, inputValueToDate, notify, simTimeToDate } from './format.js';
@@ -71,7 +72,8 @@ export function clearRoute() {
 export function renderFlybyList() {
   const list = document.getElementById('flyby-list');
   if (state.flybys.length === 0) { list.innerHTML = ''; return; }
-  const options = BODIES.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
+  const options = listFlybyEligible()
+    .map(b => `<option value="${b.id}">${b.name}</option>`).join('');
   list.innerHTML = state.flybys.map((f, i) => `
     <div class="flyby-row" data-index="${i}">
       <select class="flyby-body">${options}</select>
@@ -81,10 +83,18 @@ export function renderFlybyList() {
   `).join('');
   state.flybys.forEach((f, i) => {
     const row = list.querySelector(`.flyby-row[data-index="${i}"]`);
-    row.querySelector('.flyby-body').value = f.bodyName;
+    const body = resolveFlybyBody(f);
+    const sel = row.querySelector('.flyby-body');
+    if (body) sel.value = body.id;
+    else if (f.bodyName) {
+      const byName = findByIdOrName(f.bodyName);
+      if (byName) sel.value = byName.id;
+    }
     row.querySelector('.flyby-date').value = dateToInputValue(simTimeToDate(f.simTime));
-    row.querySelector('.flyby-body').addEventListener('change', (e) => {
-      state.flybys[i].bodyName = e.target.value;
+    sel.addEventListener('change', (e) => {
+      const b = findByIdOrName(e.target.value);
+      state.flybys[i].bodyId = b?.id || e.target.value;
+      state.flybys[i].bodyName = b?.name || e.target.value;
     });
     row.querySelector('.flyby-date').addEventListener('change', (e) => {
       const d = inputValueToDate(e.target.value);
@@ -108,12 +118,13 @@ export function addFlyby() {
   const lastSim = state.flybys.length > 0 ? state.flybys[state.flybys.length - 1].simTime : depSim;
   const endSim = h.arrivalSimTime;
   const midSim = 0.5 * (lastSim + endSim);
-  const a1 = state.routeOrigin.a, a2 = state.routeDestination.a;
+  const a1 = state.routeOrigin.a ?? 1, a2 = state.routeDestination.a ?? 1.5;
   const goingOut = a2 > a1;
   const defaultName = goingOut
     ? (a1 < 1.0 ? 'Earth' : (a1 < 5.2 ? 'Jupiter' : 'Saturn'))
     : (a1 > 1.0 ? 'Earth' : 'Venus');
-  state.flybys.push({ bodyName: defaultName, simTime: midSim });
+  const def = findByIdOrName(defaultName) || BODIES[2];
+  state.flybys.push({ bodyId: def.id, bodyName: def.name, simTime: midSim });
   renderFlybyList();
 }
 
@@ -134,11 +145,12 @@ export function snapFlybyDates() {
     const wps = [
       { body: state.routeOrigin, simTime: depSim },
       ...state.flybys.map((f, i) => ({
-        body: BODIES.find(b => b.name === f.bodyName),
+        body: resolveFlybyBody(f),
         simTime: times[i],
       })),
       { body: state.routeDestination, simTime: 0 },
     ];
+    if (wps.some(w => !w.body)) return Infinity;
     const lastF = wps[wps.length - 2];
     const tail = hohmannTransfer(lastF.body, state.routeDestination, lastF.simTime);
     wps[wps.length - 1].simTime = tail.arrivalSimTime;
@@ -213,19 +225,63 @@ export function computeRoute() {
   }
 
   if (state.flybys.length > 0) {
-    const waypoints = [
+    // Coerce mission cost basis for multi-leg
+    if (state.costBasis === 'mission') {
+      state.costBasis = 'helio';
+      const basisSel = document.getElementById('cost-basis-select');
+      if (basisSel) { basisSel.value = 'helio'; basisSel.disabled = true; }
+    }
+
+    let waypoints = [
       { body: state.routeOrigin, simTime: departureSimTime },
       ...state.flybys.map(f => ({
-        body: BODIES.find(b => b.name === f.bodyName),
+        body: resolveFlybyBody(f),
         simTime: f.simTime,
       })),
       { body: state.routeDestination, simTime: 0 },
     ];
+    if (waypoints.some(w => !w.body)) {
+      notify('INVALID FLYBY BODY'); return;
+    }
     const lastFlyby = waypoints[waypoints.length - 2];
     const tailHohmann = hohmannTransfer(lastFlyby.body, state.routeDestination, lastFlyby.simTime);
     waypoints[waypoints.length - 1].simTime = tailHohmann.arrivalSimTime;
 
-    state.transferData = solveMultiLegRoute(waypoints);
+    let td = solveMultiLegRoute(waypoints);
+    // If seed is infeasible, run coarse multi-leg window search (local opt).
+    if (!td.allLegsOk || td.flybys.some(f => !f.achievable)) {
+      const win = findMultiLegWindow(
+        state.routeOrigin,
+        state.routeDestination,
+        state.flybys.map(f => ({ body: resolveFlybyBody(f), simTime: f.simTime })),
+        departureSimTime,
+      );
+      if (win) {
+        departureSimTime = win.departureSimTime;
+        dateInput.value = dateToInputValue(simTimeToDate(win.departureSimTime));
+        timeState.simTime = win.departureSimTime;
+        timeState.setSpeed(3);
+        timeState.updateDisplay();
+        state.flybys.forEach((f, i) => {
+          f.simTime = win.flybyTimes[i];
+        });
+        renderFlybyList();
+        waypoints = [
+          { body: state.routeOrigin, simTime: win.departureSimTime },
+          ...state.flybys.map(f => ({ body: resolveFlybyBody(f), simTime: f.simTime })),
+          { body: state.routeDestination, simTime: win.arrivalSimTime },
+        ];
+        td = solveMultiLegRoute(waypoints);
+        state.transferData = td;
+        state.showTransferOrbit = true;
+        updateTransferOrbitVisual();
+        renderRouteUI();
+        notify('MULTI-LEG WINDOW SEARCHED (local optimum — not global)');
+        return;
+      }
+    }
+
+    state.transferData = td;
     state.showTransferOrbit = true;
     updateTransferOrbitVisual();
     renderRouteUI();
@@ -233,13 +289,8 @@ export function computeRoute() {
     return;
   }
 
-  // Single-leg path. Try the user's exact date with the textbook Hohmann TOF
-  // first.  When Earth and the destination aren't phased for a direct
-  // transfer, that produces a Sun-grazing trajectory with absurd Δv — instead
-  // of displaying it, sweep the surrounding window and snap to the nearest
-  // *feasible* (perihelion ≥ 0.3 AU) launch opportunity.  This is the kind of
-  // thing the OPT button does for one specific case; doing it implicitly on
-  // Compute means the user always sees a real mission.
+  // Single-leg path.
+  state.userTofDays = null;
   state.transferData = hohmannTransfer(state.routeOrigin, state.routeDestination, departureSimTime);
   solveTransferOrbit(state.transferData);
 

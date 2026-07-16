@@ -1,14 +1,19 @@
 {
   "name": "helios-solar-system-navigator",
   "version": "1.0.0",
-  "description": "HELIOS Solar System Navigator with real HYG stellar data",
+  "description": "HELIOS Solar System Navigator — browser-first interplanetary trip planner",
+  "type": "module",
+  "license": "MIT",
   "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "puppeteer": "^24.42.0"
+    "start": "node server.js",
+    "test": "npm run test:physics",
+    "test:physics": "node tests/run_physics.mjs",
+    "test:server": "node tests/server_path_jail.mjs",
+    "test:ui": "node tests/ui_smoke.mjs",
+    "build:stars": "node scripts/build-stars.mjs"
   },
   "devDependencies": {
-    "playwright": "^1.59.1"
+    "playwright": "^1.59.1",
+    "puppeteer": "^24.42.0"
   }
 }

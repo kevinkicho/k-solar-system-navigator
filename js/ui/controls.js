@@ -1,11 +1,16 @@
+import * as THREE from 'three';
 import { DAY, J2000 } from '../constants.js';
+import { BODIES } from '../data/bodies.js';
 import { state } from '../state.js';
-import { hohmannTransfer } from '../physics/kepler.js';
+import { setDisplayMode } from '../display-scale.js';
+import { generateOrbitPoints, hohmannTransfer } from '../physics/kepler.js';
 import { camera3D, controls } from '../scene/setup.js';
+import { orbitLines } from '../scene/planets.js';
 import { FX, hillMeshes, potentialMesh, updateHillSpheres, updatePotentialField } from '../scene/gravity-field.js';
 import { dateToInputValue, inputValueToDate, dateToSimTime, notify, simTimeToDate } from './format.js';
 import { addFlyby, computeRoute, clearRoute, snapFlybyDates } from './route-planner.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
+import { updateViewBadge } from './share.js';
 import { selectBody } from './selection.js';
 import { timeState } from './time-system.js';
 
@@ -90,6 +95,72 @@ export function wireControls() {
   document.getElementById('clear-route').onclick = clearRoute;
   document.getElementById('btn-add-flyby').onclick = addFlyby;
   document.getElementById('btn-snap-flybys').onclick = snapFlybyDates;
+
+  // Vehicle / cost basis / display mode
+  const vehSel = document.getElementById('vehicle-select');
+  const abRow = document.getElementById('abstract-budget-row');
+  const abInput = document.getElementById('abstract-budget');
+  const basisSel = document.getElementById('cost-basis-select');
+  const dispSel = document.getElementById('display-mode-select');
+
+  function syncVehicleUI() {
+    if (vehSel) vehSel.value = state.vehicleId;
+    if (abRow) abRow.style.display = state.vehicleId === 'abstract' ? 'flex' : 'none';
+    if (abInput) abInput.value = String(state.abstractBudget_m_s);
+    if (basisSel) {
+      basisSel.value = state.costBasis;
+      basisSel.disabled = state.flybys.length > 0;
+    }
+    if (dispSel) dispSel.value = state.display.mode;
+    updateViewBadge();
+  }
+  syncVehicleUI();
+
+  if (vehSel) vehSel.onchange = () => {
+    state.vehicleId = vehSel.value;
+    if (abRow) abRow.style.display = state.vehicleId === 'abstract' ? 'flex' : 'none';
+    if (state.transferData) renderRouteUI();
+  };
+  if (abInput) abInput.onchange = () => {
+    state.abstractBudget_m_s = Math.max(500, Math.min(50000, Number(abInput.value) || 8000));
+    if (state.transferData) renderRouteUI();
+  };
+  if (basisSel) basisSel.onchange = () => {
+    if (state.flybys.length > 0) {
+      basisSel.value = 'helio';
+      state.costBasis = 'helio';
+      notify('MISSION BASIS IS SINGLE-LEG ONLY');
+      return;
+    }
+    state.costBasis = basisSel.value;
+    if (state.transferData) renderRouteUI();
+  };
+  if (dispSel) dispSel.onchange = () => {
+    setDisplayMode(dispSel.value);
+    // Rebuild planet orbit lines with new inclination scale
+    for (const [name, data] of orbitLines) {
+      const body = BODIES.find(b => b.name === name);
+      if (!body || !data.line) continue;
+      const pts = generateOrbitPoints(body, 256).map(p => new THREE.Vector3(p.x, p.y, p.z));
+      data.line.geometry.dispose();
+      data.line.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+    }
+    if (state.showTransferOrbit && state.transferData) {
+      if (state.transferData.isMultiLeg) {
+        // re-solve visual branch via recompute is heavy; just refresh visual
+        updateTransferOrbitVisual();
+      } else {
+        import('../physics/routing.js').then(({ solveTransferOrbit }) => {
+          solveTransferOrbit(state.transferData);
+          updateTransferOrbitVisual();
+        });
+      }
+    }
+    updateViewBadge();
+    notify(dispSel.value === 'schematic'
+      ? 'SCHEMATIC VIEW — true incl./wobble; moons still layout-scaled'
+      : 'CINEMATIC VIEW — exaggerated inclinations');
+  };
 
   document.getElementById('fx-potential').onclick = (e) => {
     FX.potential = !FX.potential;

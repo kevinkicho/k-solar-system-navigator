@@ -4,7 +4,8 @@ export const state = {
   selectedBody: null,
   routeOrigin: null,
   routeDestination: null,
-  flybys: [],          // [{ bodyName, simTime }]
+  // flybys: [{ bodyId, bodyName?, simTime }]
+  flybys: [],
   transferData: null,
   showTransferOrbit: false,
   followMode: false,
@@ -13,6 +14,21 @@ export const state = {
   // Per-frame world positions (barycentric scene coords, AU).
   bodyPositions: new Map(),
   moonPositions: new Map(),
+
+  // Vehicle / budget (PR 6–7).
+  vehicleId: 'sh-starship',
+  abstractBudget_m_s: 8000,
+  costBasis: 'helio', // 'helio' | 'mission' — multi-leg always coerced to helio
+  userTofDays: null,  // optional TOF override from porkchop / share
+  moonMissionSuggestDone: false,
+
+  // Display (PR 5).
+  display: {
+    mode: 'cinematic', // 'cinematic' | 'schematic'
+  },
+
+  // Classroom mode (PR 15).
+  classroomMode: false,
 
   mission: {
     active: false,

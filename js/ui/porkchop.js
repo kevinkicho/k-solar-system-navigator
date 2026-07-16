@@ -1,10 +1,10 @@
-import { AU, DAY, G_CONST, PI, TWO_PI } from '../constants.js';
-import { SUN_DATA } from '../data/bodies.js';
+import { DAY } from '../constants.js';
 import { state } from '../state.js';
-import { getBodyPosition3D, getBodyVelocity3D, hohmannTransfer } from '../physics/kepler.js';
-import { solveLambertBestBranch } from '../physics/lambert.js';
+import { hohmannTransfer } from '../physics/kepler.js';
+import {
+  cellTimes, defaultGridSpec, fillGridRow,
+} from '../physics/porkchop-grid.js';
 import { solveTransferOrbit } from '../physics/routing.js';
-import { v3dot, v3mag, v3sub } from '../physics/vec3.js';
 import { dateToInputValue, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
 import { timeState } from './time-system.js';
@@ -141,35 +141,27 @@ export function wirePorkchop() {
     }
   }
 
-  function synodicPeriod(b1, b2) {
-    const n1 = TWO_PI / b1.period, n2 = TWO_PI / b2.period;
-    const dn = Math.abs(n1 - n2);
-    return dn > 1e-20 ? TWO_PI / dn : b1.period;
-  }
-
   function beginSweep(body1, body2, departStart) {
-    const mu = G_CONST * SUN_DATA.mass;
-    const aT = (body1.a + body2.a) * AU / 2;
-    const hohmannTof = PI * Math.sqrt(aT*aT*aT / mu);
-    const synodic = synodicPeriod(body1, body2);
-    const departSpan = Math.max(2 * 365.25 * DAY, Math.min(3 * synodic, 10 * 365.25 * DAY));
-    const departEnd = departStart + departSpan;
-    const tofMin = Math.max(10 * DAY, 0.35 * hohmannTof);
-    const tofMax = 2.2 * hohmannTof;
+    const gridSpec = defaultGridSpec(body1, body2, departStart, GRID_X, GRID_Y);
     const data = new Float64Array(GRID_X * GRID_Y);
     const c3   = new Float64Array(GRID_X * GRID_Y);
     const vinf = new Float64Array(GRID_X * GRID_Y);
 
     pcState = {
-      body1, body2, departStart, departEnd, tofMin, tofMax,
+      body1, body2,
+      departStart: gridSpec.departStart,
+      departEnd: gridSpec.departEnd,
+      tofMin: gridSpec.tofMin,
+      tofMax: gridSpec.tofMax,
+      gridSpec,
       data, c3, vinf,
       dvMin:   Infinity, dvMax:   -Infinity,
       c3Min:   Infinity, c3Max:   -Infinity,
       vinfMin: Infinity, vinfMax: -Infinity,
-      hohmannTof, minCell: null, selectedCell: null,
+      hohmannTof: gridSpec.hohmannTof, minCell: null, selectedCell: null,
     };
     renderAxes(pcState);
-    routeLabel.innerHTML = `${body1.name.toUpperCase()} &rarr; ${body2.name.toUpperCase()} &middot; ${fmt(simTimeToDate(departStart))} + ${(departSpan / (365.25 * DAY)).toFixed(1)}yr`;
+    routeLabel.innerHTML = `${body1.name.toUpperCase()} &rarr; ${body2.name.toUpperCase()} &middot; ${fmt(simTimeToDate(departStart))} + ${(gridSpec.departSpan / (365.25 * DAY)).toFixed(1)}yr`;
     repaintAll();
     progressFill.style.width = '0%';
     applyBtn.disabled = true;
@@ -181,7 +173,7 @@ export function wirePorkchop() {
     document.getElementById('pc-vinf').textContent = '—';
 
     running = true;
-    let iy = 0, ix = 0;
+    let iy = 0;
     let minDv = Infinity, minIdx = null, maxDv = -Infinity;
     let minC3 = Infinity, maxC3 = -Infinity;
     let minVI = Infinity, maxVI = -Infinity;
@@ -189,35 +181,17 @@ export function wirePorkchop() {
       if (!running) return;
       const endTime = performance.now() + 14;
       while (performance.now() < endTime && iy < GRID_Y) {
-        const tof = tofMin + ((iy + 0.5) / GRID_Y) * (tofMax - tofMin);
-        const dep = departStart + ((ix + 0.5) / GRID_X) * (departEnd - departStart);
-        const d = getBodyPosition3D(body1, dep, false);
-        const a = getBodyPosition3D(body2, dep + tof, false);
-        const r1v = [d.x*AU, d.y*AU, d.z*AU];
-        const r2v = [a.x*AU, a.y*AU, a.z*AU];
-        const vb1 = getBodyVelocity3D(body1, dep, false);
-        const vb2 = getBodyVelocity3D(body2, dep + tof, false);
-        const best = solveLambertBestBranch(r1v, r2v, tof, mu, vb1, vb2);
-        let dv = NaN, c3v = NaN, viArr = NaN;
-        if (best) {
-          dv = best.cost;
-          // Hyperbolic excess at departure / arrival.
-          const vInfDep = v3sub(best.sol.v1, vb1);
-          const vInfArr = v3sub(best.sol.v2, vb2);
-          c3v   = v3dot(vInfDep, vInfDep);   // m²/s²
-          viArr = v3mag(vInfArr);             // m/s
-          if (dv < minDv) { minDv = dv; minIdx = { ix, iy }; }
-          if (dv > maxDv) maxDv = dv;
-          if (c3v < minC3) minC3 = c3v;
-          if (c3v > maxC3) maxC3 = c3v;
-          if (viArr < minVI) minVI = viArr;
-          if (viArr > maxVI) maxVI = viArr;
+        const row = fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf);
+        if (row.minIx >= 0 && row.minDv < minDv) {
+          minDv = row.minDv;
+          minIdx = { ix: row.minIx, iy };
         }
-        data[iy * GRID_X + ix] = dv;
-        c3[iy   * GRID_X + ix] = c3v;
-        vinf[iy * GRID_X + ix] = viArr;
-        ix++;
-        if (ix >= GRID_X) { ix = 0; iy++; }
+        if (row.maxDv > maxDv) maxDv = row.maxDv;
+        if (row.minC3 < minC3) minC3 = row.minC3;
+        if (row.maxC3 > maxC3) maxC3 = row.maxC3;
+        if (row.minVI < minVI) minVI = row.minVI;
+        if (row.maxVI > maxVI) maxVI = row.maxVI;
+        iy++;
       }
       if (minDv < Infinity) {
         pcState.dvMin = minDv;     pcState.dvMax = Math.min(maxDv, 3 * minDv);
@@ -254,8 +228,7 @@ export function wirePorkchop() {
   }
 
   function cellInfo(ix, iy) {
-    const dep = pcState.departStart + ((ix + 0.5) / GRID_X) * (pcState.departEnd - pcState.departStart);
-    const tof = pcState.tofMin + ((iy + 0.5) / GRID_Y) * (pcState.tofMax - pcState.tofMin);
+    const { dep, tof } = cellTimes(pcState.gridSpec, ix, iy);
     const dv  = pcState.data[iy * GRID_X + ix];
     const c3v = pcState.c3[iy   * GRID_X + ix];
     const vi  = pcState.vinf[iy * GRID_X + ix];
@@ -307,9 +280,11 @@ export function wirePorkchop() {
     timeState.setSpeed(3);
     timeState.updateDisplay();
 
+    state.userTofDays = tof / DAY;
     state.transferData = hohmannTransfer(pcState.body1, pcState.body2, dep);
     state.transferData.transferTime = tof;
     state.transferData.arrivalSimTime = dep + tof;
+    state.transferData.departureSimTime = dep;
     solveTransferOrbit(state.transferData);
     state.showTransferOrbit = true;
     updateTransferOrbitVisual();

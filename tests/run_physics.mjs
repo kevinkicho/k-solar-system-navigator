@@ -1,0 +1,49 @@
+// Runs the offline physics suite (no browser install required).
+// Exit non-zero if any child fails.
+
+import { spawnSync } from 'child_process';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(__dirname, '..');
+
+const SUITE = [
+  'tests/trip_planning_test.mjs',
+  'tests/verify_fix.mjs',
+  'tests/module_integration.mjs',
+  'tests/ephemeris_check.mjs',
+  'tests/porkchop_sim.mjs',
+  'tests/gravity_assist_sim.mjs',
+  'tests/flyby_optimizer.mjs',
+  'tests/spacecraft_check.mjs',
+  'tests/visual_alignment.mjs',
+  'tests/sun_wobble.mjs',
+  'tests/lambert_both_branches.mjs',
+  'tests/vehicles_presets.mjs',
+  'tests/catalog_check.mjs',
+  'tests/share_codec.mjs',
+  'tests/ml_window_seeds.mjs',
+];
+
+let failed = 0;
+for (const rel of SUITE) {
+  console.log(`\n▶ ${rel}`);
+  const r = spawnSync(process.execPath, [rel], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: process.env,
+  });
+  if (r.status !== 0) {
+    failed++;
+    console.error(`✗ ${rel} exited ${r.status}`);
+  } else {
+    console.log(`✓ ${rel}`);
+  }
+}
+
+if (failed > 0) {
+  console.error(`\n${failed}/${SUITE.length} physics tests failed`);
+  process.exit(1);
+}
+console.log(`\nAll ${SUITE.length} physics tests passed`);

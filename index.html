@@ -63,6 +63,25 @@ html, body {
   font-family: var(--font-display); font-size: 10px; font-weight: 700;
   letter-spacing: 1.5px; color: var(--cyan); text-transform: uppercase;
 }
+#view-mode-badge {
+  font-family: var(--font-display); font-size: 8px; font-weight: 700;
+  letter-spacing: 1px; color: var(--text-dim); max-width: 280px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.route-field-row {
+  display: flex; flex-direction: column; gap: 4px; margin: 8px 0;
+}
+.route-field-row label {
+  font-family: var(--font-display); font-size: 8px; letter-spacing: 1.5px;
+  color: var(--text-dim); text-transform: uppercase;
+}
+.route-field-row select, .route-field-row input[type="number"] {
+  background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: var(--text);
+  font-family: var(--font-mono); font-size: 11px; padding: 6px 8px; border-radius: 3px;
+  outline: none; width: 100%;
+}
+.route-field-row select:focus, .route-field-row input:focus { border-color: var(--cyan); }
+.route-field-row select:disabled { opacity: 0.45; }
 #btn-about {
   font-family: var(--font-display); font-size: 9px; font-weight: 700;
   letter-spacing: 1.5px; color: var(--text-dim);
@@ -611,6 +630,7 @@ input[type="range"]::-webkit-slider-thumb {
     <div><span class="label">Frame</span><span class="frame-badge">J2000 · ECLIPTIC</span></div>
   </div>
   <div class="right-info">
+    <span id="view-mode-badge" title="Display scale mode">VIEW: CINEMATIC</span>
     <span id="fps-display">60 FPS</span>
     <span id="cursor-coords">0, 0</span>
     <button id="btn-about" title="About the physics & methodology">ⓘ ABOUT</button>
@@ -671,6 +691,34 @@ input[type="range"]::-webkit-slider-thumb {
         </span>
       </div>
       <div id="flyby-list"></div>
+    </div>
+    <div class="route-field-row">
+      <label>Vehicle / Δv budget</label>
+      <select id="vehicle-select" title="Transfer Δv budget preset">
+        <option value="sh-starship">Super Heavy + Starship</option>
+        <option value="abstract">Abstract Δv budget</option>
+        <option value="chem-medium">Chemical medium (6 km/s)</option>
+        <option value="fh-class">Heavy-lift chemical (9 km/s)</option>
+        <option value="high-energy">High-energy / advanced (15 km/s)</option>
+      </select>
+    </div>
+    <div class="route-field-row" id="abstract-budget-row" style="display:none">
+      <label>Abstract budget (m/s)</label>
+      <input type="number" id="abstract-budget" min="500" max="50000" step="100" value="8000">
+    </div>
+    <div class="route-field-row">
+      <label>Cost basis</label>
+      <select id="cost-basis-select" title="Heliocentric leg vs full parking-orbit mission Δv">
+        <option value="helio">Heliocentric leg</option>
+        <option value="mission">Full mission (parking)</option>
+      </select>
+    </div>
+    <div class="route-field-row">
+      <label>Display scale</label>
+      <select id="display-mode-select" title="Cinematic exaggeration vs schematic inclinations">
+        <option value="cinematic">Cinematic (exaggerated)</option>
+        <option value="schematic">Schematic (true incl./wobble)</option>
+      </select>
     </div>
     <button class="route-btn" id="calc-route">Compute Transfer</button>
     <button class="route-btn" id="find-windows" style="font-size:10px;padding:8px;margin-top:4px;">Find Launch Windows</button>

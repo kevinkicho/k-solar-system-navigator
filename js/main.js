@@ -3,6 +3,8 @@
 
 import { SUN_WOBBLE_EXAGGERATION } from './constants.js';
 import { state } from './state.js';
+import { setDisplayMode } from './display-scale.js';
+import * as catalog from './data/catalog.js';
 
 // Scene construction (each import builds its piece of the THREE.js scene).
 import './scene/setup.js';
@@ -12,6 +14,7 @@ import './scene/asteroid-belt.js';
 import { planetMeshes } from './scene/planets.js';
 import './scene/moons.js';
 import './scene/spacecraft.js';
+import './scene/extra-bodies.js';
 import { FX, hillMeshes, potentialMesh } from './scene/gravity-field.js';
 import './scene/selection-ring.js';
 import { shipGroup } from './scene/ship.js';
@@ -32,6 +35,7 @@ import { wireScenarios } from './ui/scenarios.js';
 import { dateToInputValue } from './ui/format.js';
 import { bindMissionHandlers } from './ui/route-display.js';
 import { bindAbortHandler, setRouteDestination, setRouteOrigin } from './ui/route-planner.js';
+import { tryApplyHashOnLoad, updateViewBadge } from './ui/share.js';
 import { timeState } from './ui/time-system.js';
 
 // Mission + animation.
@@ -43,6 +47,16 @@ bindMissionHandlers({ launch: launchMission });
 bindAbortHandler(abortMission);
 bindRouteSetters({ origin: setRouteOrigin, destination: setRouteDestination });
 
+// Classroom mode: ?mode=classroom → schematic + abstract budget.
+const params = new URLSearchParams(location.search);
+if (params.get('mode') === 'classroom') {
+  state.classroomMode = true;
+  setDisplayMode('schematic');
+  state.vehicleId = 'abstract';
+  state.abstractBudget_m_s = 8000;
+  state.costBasis = 'helio';
+}
+
 // Build body list, set initial time + departure-date input, fade help hint.
 buildBodyList();
 setupRouteDropTargets();
@@ -51,12 +65,19 @@ wireInput();
 wirePorkchop();
 wireScenarios();
 loadStarField();
+updateViewBadge();
 
 timeState.setSpeed(3);
 timeState.updateDisplay();
 document.getElementById('depart-date').value = dateToInputValue(timeState.getDate());
 
-setTimeout(() => { document.getElementById('help-hint').style.opacity = '0'; }, 8000);
+// Apply share hash after UI is ready (overrides classroom defaults if present).
+tryApplyHashOnLoad();
+
+setTimeout(() => {
+  const hint = document.getElementById('help-hint');
+  if (hint) hint.style.opacity = '0';
+}, 8000);
 
 // Test hook — exposes live scene state to automation (Playwright, Puppeteer).
 window.__HELIOS = {
@@ -77,6 +98,9 @@ window.__HELIOS = {
   get mission() { return state.mission; },
   get flybyMarkers() { return flybyMarkers; },
   get shipGroup() { return shipGroup; },
+  get state() { return state; },
+  get catalog() { return catalog; },
+  get display() { return state.display; },
   getSunBarycentricOffset,
   getBodyPosition3D,
 };

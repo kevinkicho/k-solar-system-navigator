@@ -1,7 +1,7 @@
-import { BODIES, findBodyByName, findRoutingBodySync } from '../data/bodies.js';
+import { BODIES, findRoutingBodySync } from '../data/bodies.js';
 import { MOONS, moonsByParent } from '../data/moons.js';
+import { listDwarfs, listNeos, listWaypoints, findByIdOrName } from '../data/catalog.js';
 import { state } from '../state.js';
-import { notify } from './format.js';
 import { selectBody } from './selection.js';
 
 function makeDraggable(el, bodyName) {
@@ -12,6 +12,16 @@ function makeDraggable(el, bodyName) {
   });
 }
 
+function bindContextRoute(el, body) {
+  el.oncontextmenu = (ev) => {
+    ev.preventDefault();
+    if (!setRouteOrigin || !setRouteDestination) return;
+    if (!state.routeOrigin) setRouteOrigin(body);
+    else if (!state.routeDestination && body !== state.routeOrigin) setRouteDestination(body);
+    else { setRouteOrigin(body); setRouteDestination(null); }
+  };
+}
+
 // route-planner can't be imported here without a cycle, so we inject these handlers.
 let setRouteOrigin = null;
 let setRouteDestination = null;
@@ -20,22 +30,39 @@ export function bindRouteSetters({ origin, destination }) {
   setRouteDestination = destination;
 }
 
+function appendSection(el, title, bodies, className = 'body-item') {
+  if (!bodies.length) return;
+  const hdr = document.createElement('div');
+  hdr.className = 'moon-toggle';
+  hdr.style.cursor = 'default';
+  hdr.style.opacity = '0.7';
+  hdr.textContent = title;
+  el.appendChild(hdr);
+  for (const body of bodies) {
+    const item = document.createElement('div');
+    item.className = className;
+    item.dataset.name = body.name;
+    item.dataset.id = body.id || '';
+    item.innerHTML = `<div class="body-dot" style="color:${body.color};background:${body.color}"></div>
+      <span class="body-name">${body.name}</span><span class="body-dist" id="dist-${body.name}">--</span>`;
+    item.onclick = () => selectBody(body);
+    bindContextRoute(item, body);
+    makeDraggable(item, body.name);
+    el.appendChild(item);
+  }
+}
+
 export function buildBodyList() {
   const el = document.getElementById('body-list');
   el.innerHTML = '';
   for (const body of BODIES) {
     const item = document.createElement('div');
     item.className = 'body-item'; item.dataset.name = body.name;
+    item.dataset.id = body.id || '';
     item.innerHTML = `<div class="body-dot" style="color:${body.color};background:${body.color}"></div>
       <span class="body-name">${body.name}</span><span class="body-dist" id="dist-${body.name}">--</span>`;
     item.onclick = () => selectBody(body);
-    item.oncontextmenu = (ev) => {
-      ev.preventDefault();
-      if (!setRouteOrigin || !setRouteDestination) return;
-      if (!state.routeOrigin) setRouteOrigin(body);
-      else if (!state.routeDestination && body !== state.routeOrigin) setRouteDestination(body);
-      else { setRouteOrigin(body); setRouteDestination(null); }
-    };
+    bindContextRoute(item, body);
     makeDraggable(item, body.name);
     el.appendChild(item);
 
@@ -48,17 +75,11 @@ export function buildBodyList() {
       for (const moon of moons) {
         const mItem = document.createElement('div');
         mItem.className = 'moon-item'; mItem.dataset.name = moon.name;
+        mItem.dataset.id = moon.id || '';
         mItem.innerHTML = `<div class="moon-dot" style="color:${moon.color};background:${moon.color}"></div>
           <span class="moon-name">${moon.name}</span>`;
         mItem.onclick = () => selectBody(moon);
-        // Right-click sets origin/destination just like planets.
-        mItem.oncontextmenu = (ev) => {
-          ev.preventDefault();
-          if (!setRouteOrigin || !setRouteDestination) return;
-          if (!state.routeOrigin) setRouteOrigin(moon);
-          else if (!state.routeDestination && moon !== state.routeOrigin) setRouteDestination(moon);
-          else { setRouteOrigin(moon); setRouteDestination(null); }
-        };
+        bindContextRoute(mItem, moon);
         makeDraggable(mItem, moon.name);
         moonContainer.appendChild(mItem);
       }
@@ -75,14 +96,19 @@ export function buildBodyList() {
       el.insertBefore(toggle, moonContainer);
     }
   }
+
+  appendSection(el, '— DWARFS —', listDwarfs());
+  appendSection(el, '— NEOs —', listNeos());
+  appendSection(el, '— WAYPOINTS —', listWaypoints());
 }
 
 export function updateBodyList() {
-  for (const body of BODIES) {
+  for (const body of [...BODIES, ...listDwarfs(), ...listNeos(), ...listWaypoints()]) {
     const pos = state.bodyPositions.get(body.name);
-    if (!pos) continue;
-    const el = document.getElementById(`dist-${body.name}`);
-    if (el) el.textContent = pos.r.toFixed(2) + ' AU';
+    if (pos) {
+      const el = document.getElementById(`dist-${body.name}`);
+      if (el) el.textContent = pos.r.toFixed(2) + ' AU';
+    }
     const item = document.querySelector(`.body-item[data-name="${body.name}"]`);
     if (item) {
       item.classList.toggle('selected', state.selectedBody === body);
@@ -113,8 +139,7 @@ export function setupRouteDropTargets() {
       ev.preventDefault();
       slotEl.classList.remove('drag-over');
       const name = ev.dataTransfer.getData('text/plain');
-      // Search planets first, then moons.
-      const body = findRoutingBodySync(name, MOONS);
+      const body = findByIdOrName(name) || findRoutingBodySync(name, MOONS);
       if (body) setFn(body);
     });
   }

@@ -231,6 +231,68 @@ export function solveMultiLegRoute(waypoints) {
   };
 }
 
+/**
+ * Coarse multi-leg launch-window search (local coordinate descent seed).
+ * flybyHints: [{ body, simTime }] relative offsets from depHint are preserved
+ * as durations when dep is shifted, then refined with a small date grid.
+ *
+ * Returns { departureSimTime, flybyTimes[], arrivalSimTime, dvTotal } or null.
+ * Label in UI: local optimum — not global.
+ */
+export function findMultiLegWindow(origin, dest, flybyHints, depHint) {
+  if (!flybyHints || flybyHints.length === 0) return null;
+
+  const nFb = flybyHints.length;
+  const N_DEP = 36;
+  const N_FB = 20;
+  const lookForward = 6 * 365.25 * DAY;
+  const lookBack = 90 * DAY;
+  const mu = G_CONST * SUN_DATA.mass;
+
+  let best = null;
+
+  // Sweep departure and first-flyby lag broadly; later flybys keep relative gaps.
+  for (let i = 0; i < N_DEP; i++) {
+    const dep = depHint - lookBack + ((i + 0.5) / N_DEP) * (lookForward + lookBack);
+    for (let j = 0; j < N_FB; j++) {
+      // First flyby 40–500 days after dep (covers Venus/Mars assist corridors)
+      const lag0 = (40 + (500 - 40) * (j + 0.5) / N_FB) * DAY;
+      const flybyTimes = [dep + lag0];
+      for (let k = 1; k < nFb; k++) {
+        const gap = 180 * DAY * k;
+        flybyTimes.push(flybyTimes[k - 1] + gap);
+      }
+      const lastBody = flybyHints[nFb - 1].body;
+      const a1 = lastBody.a || 1.5;
+      const a2 = dest.a || 5.2;
+      const aT = (a1 + a2) / 2;
+      const tofTail = Math.PI * Math.sqrt(Math.pow(aT * AU, 3) / mu);
+      // Also try 0.6×–1.4× Hohmann tail
+      for (const scale of [0.7, 1.0, 1.3]) {
+        const arr = flybyTimes[nFb - 1] + tofTail * scale;
+        const wps = [
+          { body: origin, simTime: dep },
+          ...flybyHints.map((f, idx) => ({ body: f.body, simTime: flybyTimes[idx] })),
+          { body: dest, simTime: arr },
+        ];
+        const td = solveMultiLegRoute(wps);
+        if (!td.allLegsOk) continue;
+        if (td.flybys.some(fb => !fb.achievable)) continue;
+        const cost = td.dvTotalMultiLeg;
+        if (!best || cost < best.dvTotal) {
+          best = {
+            departureSimTime: dep,
+            flybyTimes: flybyTimes.slice(),
+            arrivalSimTime: arr,
+            dvTotal: cost,
+          };
+        }
+      }
+    }
+  }
+  return best;
+}
+
 // Ship position using real orbital mechanics. Handles single-leg (tData.orbit)
 // and multi-leg (tData.legs) routes. Returns heliocentric scene coords (AU);
 // callers add getSunBarycentricOffset(t) for barycentric placement. For multi-leg,

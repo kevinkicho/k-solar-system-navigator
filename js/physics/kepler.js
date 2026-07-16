@@ -1,8 +1,9 @@
 import {
-  AU, CENTURY_SEC, DEG, G_CONST, INCL_EXAGGERATION, PI,
-  SUN_WOBBLE_EXAGGERATION, TWO_PI,
+  AU, CENTURY_SEC, DEG, G_CONST, PI, TWO_PI,
 } from '../constants.js';
 import { BODIES, SUN_DATA } from '../data/bodies.js';
+import { MOONS } from '../data/moons.js';
+import { inclMultiplier, sunWobbleMultiplier } from '../display-scale.js';
 
 export function solveKepler(M, e, tol = 1e-10) {
   M = ((M % TWO_PI) + TWO_PI) % TWO_PI;
@@ -42,6 +43,9 @@ function evolvedElements(body, T) {
 // position with the moon's offset around the parent (using real distance
 // units, not the visualisation-scaled `displayOrbit`).
 export function getBodyPosition3D(body, timeSec, exaggerate = true) {
+  if (body.waypointOf) {
+    return getWaypointPosition3D(body, timeSec, exaggerate);
+  }
   if (body.parent) {
     const parent = BODIES.find(b => b.name === body.parent);
     if (!parent) return { x: 0, y: 0, z: 0, r: 0, v: 0, E: 0 };
@@ -62,12 +66,29 @@ export function getBodyPosition3D(body, timeSec, exaggerate = true) {
   const w = el.wBar - el.omega;
   const cosO = Math.cos(el.omega), sinO = Math.sin(el.omega);
   const cosWV = Math.cos(w + v), sinWV = Math.sin(w + v);
-  const Ivis = el.I * (exaggerate ? INCL_EXAGGERATION : 1);
+  const Ivis = el.I * (exaggerate ? inclMultiplier() : 1);
   const cosI = Math.cos(Ivis), sinI = Math.sin(Ivis);
   const xe = r * (cosO * cosWV - sinO * sinWV * cosI);
   const ye = r * (sinO * cosWV + cosO * sinWV * cosI);
   const ze = r * (sinWV * sinI);
   return { x: xe, y: ze, z: ye, r, v, E };
+}
+
+// Collinear Earth–Moon Lagrange sketch: r = r_E + f * (r_M - r_E).
+// f=0.84 → L1, f=1.16 → L2. Not CR3BP.
+export function getWaypointPosition3D(wp, timeSec, exaggerate = true) {
+  const cfg = wp.waypointOf;
+  if (!cfg) return { x: 0, y: 0, z: 0, r: 0, v: 0, E: 0 };
+  const earth = BODIES.find(b => b.id === (cfg.primaryId || 'earth') || b.name === 'Earth');
+  const moon = MOONS.find(m => m.id === (cfg.secondaryId || 'moon') || m.name === 'Moon');
+  if (!earth || !moon) return { x: 0, y: 0, z: 0, r: 0, v: 0, E: 0 };
+  const re = getBodyPosition3D(earth, timeSec, exaggerate);
+  const rm = getBodyPosition3D(moon, timeSec, exaggerate);
+  const f = cfg.f ?? (cfg.lagrange === 'L2' ? 1.16 : 0.84);
+  const x = re.x + f * (rm.x - re.x);
+  const y = re.y + f * (rm.y - re.y);
+  const z = re.z + f * (rm.z - re.z);
+  return { x, y, z, r: Math.sqrt(x * x + y * y + z * z), v: 0, E: 0 };
 }
 
 // Moon position RELATIVE to its parent planet, in AU.  Uses the real
@@ -104,7 +125,7 @@ export function getSunBarycentricOffset(timeSec, exaggerate = true) {
     sz += body.mass * p.z;
     mTotal += body.mass;
   }
-  const wobbleScale = exaggerate ? SUN_WOBBLE_EXAGGERATION : 1;
+  const wobbleScale = exaggerate ? sunWobbleMultiplier() : 1;
   const k = -wobbleScale / mTotal;
   return { x: sx * k, y: sy * k, z: sz * k };
 }
@@ -160,6 +181,12 @@ export function generateMoonOrbitPoints(moon, segments = 64) {
 // for moons it's (parent.a, parent.period) since the moon co-orbits the Sun
 // with its parent.  Used by hohmannTransfer to size the heliocentric leg.
 function helioElements(body) {
+  if (body.waypointOf) {
+    // Approximate heliocentric radius from current position for TOF guesses.
+    const p = getBodyPosition3D(body, 0, false);
+    const a = Math.max(0.5, p.r || 1);
+    return { a, period: Math.sqrt(a * a * a) * 365.25 * DAY };
+  }
   if (body.parent) {
     const parent = BODIES.find(b => b.name === body.parent);
     if (parent) return { a: parent.a, period: parent.period };

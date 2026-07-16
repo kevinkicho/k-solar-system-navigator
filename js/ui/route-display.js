@@ -1,7 +1,11 @@
 import * as THREE from 'three';
-import { VEHICLE_SPECS, reservedDeltaV, starshipDeltaV, superHeavyDeltaV, totalMissionDeltaV, transferDeltaV } from '../../trajectory-calculator.js';
+import {
+  VEHICLE_SPECS, reservedDeltaV, starshipDeltaV, superHeavyDeltaV, totalMissionDeltaV,
+  getTransferBudget, presetDisplayName, presetDisclaimer, getPreset,
+} from '../physics/vehicles.js';
 import { AU, DAY, DEG, LEG_COLORS, PI } from '../constants.js';
 import { state } from '../state.js';
+import { bodyId } from '../data/catalog.js';
 import { getBodyPosition3D, getBodyVelocity3D, getSunBarycentricOffset } from '../physics/kepler.js';
 import { propagateOrbit } from '../physics/helio.js';
 import { v3dot, v3mag, v3sub } from '../physics/vec3.js';
@@ -249,6 +253,53 @@ function renderMultiLegVisual() {
   }
 }
 
+/** Required Δv for feasibility under selected cost basis (design K6). */
+export function requiredDeltaV(td) {
+  if (!td) return Infinity;
+  if (td.isMultiLeg) {
+    // Mission parking budget is single-leg only.
+    return td.dvTotalMultiLeg ?? Infinity;
+  }
+  const lambertOk = !!td.lambertOk;
+  const helio = lambertOk ? td.dvTotal_lambert : td.dvTotal;
+  if (state.costBasis === 'mission' && lambertOk) {
+    const budget = computeMissionBudget(td);
+    if (budget) return budget.totalMission;
+  }
+  return helio;
+}
+
+export function transferBudgetNow() {
+  return getTransferBudget(state.vehicleId, state.abstractBudget_m_s);
+}
+
+function vehicleBlockHtml(requiredDv, isMulti = false) {
+  const budget = transferBudgetNow();
+  const feasible = budget >= requiredDv;
+  const basis = isMulti ? 'helio' : state.costBasis;
+  const basisLabel = basis === 'mission' ? 'full mission (parking)' : 'heliocentric leg';
+  const isSketch = !!(state.routeOrigin?.waypointOf || state.routeDestination?.waypointOf
+    || state.transferData?.body1?.waypointOf || state.transferData?.body2?.waypointOf);
+  let lines = `
+      <div class="info-row"><span class="key">Vehicle</span><span class="val">${presetDisplayName(state.vehicleId)}</span></div>
+      <div class="info-row"><span class="key">Cost basis</span><span class="val">${basisLabel}${isMulti ? ' (multi-leg)' : ''}</span></div>
+      <div class="info-row"><span class="key">Required Δv</span><span class="val amber">${formatVelocity(requiredDv)}</span></div>
+      <div class="info-row"><span class="key">Usable transfer Δv</span><span class="val">${formatVelocity(budget)}</span></div>`;
+  if (state.vehicleId === 'sh-starship') {
+    lines += `
+      <div class="info-row"><span class="key">Super Heavy Δv (transfer)</span><span class="val">${formatVelocity(superHeavyDeltaV())}</span></div>
+      <div class="info-row"><span class="key">Starship Δv (reserved)</span><span class="val">${formatVelocity(starshipDeltaV())}</span></div>
+      <div class="info-row"><span class="key">Total stack Δv</span><span class="val">${formatVelocity(totalMissionDeltaV())}</span></div>`;
+  }
+  if (isSketch) {
+    lines += `<div class="info-row"><span class="key">Note</span><span class="val amber">Waypoint sketch — Δv geometric only</span></div>`;
+  }
+  lines += `
+      <div class="info-row"><span class="key">Mission feasible</span><span class="val ${feasible ? 'green' : 'red-val'}">${feasible ? 'YES' : 'NO'}</span></div>
+      <div class="info-row"><span class="key" style="font-size:9px;opacity:0.75">Disclaimer</span><span class="val" style="font-size:9px;opacity:0.75">${presetDisclaimer(state.vehicleId)}</span></div>`;
+  return lines;
+}
+
 // ---- DOM-side: results panel + mission controls ----
 export function renderRouteUI() {
   const td = state.transferData;
@@ -260,20 +311,21 @@ export function renderRouteUI() {
   const lambertOk = !!td.lambertOk;
   const orbPhys = td.orbitPhysical;
 
-  // computeRoute auto-snaps to the nearest feasible launch window when the
-  // user's hint date would have produced a Sun-grazer, so by the time the
-  // results panel renders, perihelion is already ≥ 0.3 AU and Δv is in a
-  // realistic range. Just display the orbit's diagnostics; perihelion is the
-  // most useful number a mission designer wants to see.
   const periAU  = orbPhys ? (orbPhys.a * (1 - orbPhys.e)) / AU : null;
   const apoAU   = orbPhys ? (orbPhys.a * (1 + orbPhys.e)) / AU : null;
   const totalDv = lambertOk ? td.dvTotal_lambert : td.dvTotal;
-  const usesMoon = !!(td.body1?.parent || td.body2?.parent);
-  // Patched-conic mission budget — full Δv from low parking orbit at origin
-  // to low parking orbit at destination, including parent-SOI escape/capture
-  // for moon endpoints.  Always displayed when computable; gives users an
-  // honest end-to-end cost.
+  // Patched-conic mission budget for all single-leg Lambert-ok transfers.
   const budget = lambertOk ? computeMissionBudget(td) : null;
+  const required = requiredDeltaV(td);
+
+  // Suggest mission basis once when a moon endpoint is selected.
+  if ((td.body1?.parent || td.body2?.parent) && !state.moonMissionSuggestDone) {
+    state.moonMissionSuggestDone = true;
+    if (state.costBasis !== 'mission') {
+      import('./format.js').then(({ notify }) =>
+        notify('TIP: switch Cost basis → Mission for parking-orbit Δv'));
+    }
+  }
 
   const res = document.getElementById('transfer-results');
   res.innerHTML = `
@@ -313,12 +365,7 @@ export function renderRouteUI() {
       <div class="info-row"><span class="key">Phase at departure</span><span class="val">${(td.currentPhase / DEG).toFixed(2)}&deg;</span></div>
       <div class="info-row"><span class="key">Next optimal window</span><span class="val highlight">${formatTime(td.timeToWindow)}</span></div>
       <div style="height:8px"></div>
-      <div class="info-row"><span class="key">Vehicle</span><span class="val">${VEHICLE_SPECS.combined.name}</span></div>
-      <div class="info-row"><span class="key">Super Heavy Δv (transfer)</span><span class="val">${formatVelocity(superHeavyDeltaV())}</span></div>
-      <div class="info-row"><span class="key">Starship Δv (reserved)</span><span class="val">${formatVelocity(starshipDeltaV())}</span></div>
-      <div class="info-row"><span class="key">Total stack Δv</span><span class="val">${formatVelocity(totalMissionDeltaV())}</span></div>
-      <div class="info-row"><span class="key">Usable transfer Δv</span><span class="val">${formatVelocity(transferDeltaV())}</span></div>
-      <div class="info-row"><span class="key">Mission feasible</span><span class="val ${transferDeltaV() >= (lambertOk ? td.dvTotal_lambert : td.dvTotal) ? 'green' : 'red-val'}">${transferDeltaV() >= (lambertOk ? td.dvTotal_lambert : td.dvTotal) ? 'YES' : 'NO'}</span></div>
+      ${vehicleBlockHtml(required, false)}
     </div>`;
 
   const mc = document.getElementById('mission-controls');
@@ -326,6 +373,7 @@ export function renderRouteUI() {
     <button class="route-btn launch" id="btn-launch">Launch Mission</button>
     <button class="route-btn" id="btn-goto-depart" style="font-size:9px;padding:7px;margin-top:4px;">Jump to Departure Date</button>
     <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
+    <button class="route-btn" id="btn-share-link" style="font-size:9px;padding:7px;margin-top:4px;">Copy share link</button>
   `;
   document.getElementById('btn-launch').onclick = () => _launchMission && _launchMission();
   document.getElementById('btn-goto-depart').onclick = () => {
@@ -335,6 +383,9 @@ export function renderRouteUI() {
     import('./format.js').then(({ notify }) => notify('JUMPED TO DEPARTURE DATE'));
   };
   document.getElementById('btn-export-plan').onclick = () => exportMissionPlan(td);
+  document.getElementById('btn-share-link').onclick = () => {
+    import('./share.js').then(({ copyShareLink }) => copyShareLink());
+  };
 }
 
 function renderMultiLegRouteUI() {
@@ -342,7 +393,7 @@ function renderMultiLegRouteUI() {
   const res = document.getElementById('transfer-results');
   const allOk = td.allLegsOk;
   const totalDv = td.dvTotalMultiLeg;
-  const feasible = transferDeltaV() >= totalDv;
+  const required = requiredDeltaV(td);
 
   const legRows = td.legs.map((L, i) => {
     const color = '#' + LEG_COLORS[i % LEG_COLORS.length].toString(16).padStart(6, '0');
@@ -382,11 +433,10 @@ function renderMultiLegRouteUI() {
       <div style="height:8px"></div>
       ${manRows}
       <div style="height:8px"></div>
-      <div class="info-row"><span class="key">Total Δv</span><span class="val amber">${formatVelocity(totalDv)}</span></div>
+      <div class="info-row"><span class="key">Total Δv (heliocentric)</span><span class="val amber">${formatVelocity(totalDv)}</span></div>
       <div style="height:8px"></div>
-      <div class="info-row"><span class="key">Vehicle</span><span class="val">${VEHICLE_SPECS.combined.name}</span></div>
-      <div class="info-row"><span class="key">Usable transfer Δv</span><span class="val">${formatVelocity(transferDeltaV())}</span></div>
-      <div class="info-row"><span class="key">Mission feasible</span><span class="val ${feasible ? 'green' : 'red-val'}">${feasible ? 'YES' : 'NO'}</span></div>
+      ${vehicleBlockHtml(required, true)}
+      <div class="info-row"><span class="key" style="font-size:9px;opacity:0.7">Note</span><span class="val" style="font-size:9px;opacity:0.7">Mission parking budget is single-leg only</span></div>
     </div>`;
 
   const mc = document.getElementById('mission-controls');
@@ -394,6 +444,7 @@ function renderMultiLegRouteUI() {
     <button class="route-btn launch" id="btn-launch">Launch Mission</button>
     <button class="route-btn" id="btn-goto-depart" style="font-size:9px;padding:7px;margin-top:4px;">Jump to Departure Date</button>
     <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
+    <button class="route-btn" id="btn-share-link" style="font-size:9px;padding:7px;margin-top:4px;">Copy share link</button>
   ` : `
     <div class="info-row"><span class="key" style="color:var(--red)">Some legs failed Lambert</span><span class="val">Fix dates to launch</span></div>
     <button class="route-btn" id="btn-goto-depart" style="font-size:10px;padding:8px;">Jump to Departure Date</button>
@@ -401,6 +452,9 @@ function renderMultiLegRouteUI() {
   `;
   if (td.allLegsOk) {
     document.getElementById('btn-launch').onclick = () => _launchMission && _launchMission();
+    document.getElementById('btn-share-link').onclick = () => {
+      import('./share.js').then(({ copyShareLink }) => copyShareLink());
+    };
   }
   document.getElementById('btn-goto-depart').onclick = () => {
     timeState.simTime = td.departureSimTime;
@@ -434,32 +488,62 @@ function exportMissionPlan(td) {
 
 function buildPlanObject(td) {
   const isMulti = !!td.isMultiLeg;
-  const totalDv = isMulti ? td.dvTotalMultiLeg
+  const helioDv = isMulti ? td.dvTotalMultiLeg
                           : (td.lambertOk ? td.dvTotal_lambert : td.dvTotal);
-  const feasible = transferDeltaV() >= totalDv;
+  const missionBudget = (!isMulti && td.lambertOk) ? computeMissionBudget(td) : null;
+  const costBasis = isMulti ? 'helio' : state.costBasis;
+  const required = requiredDeltaV(td);
+  const budget = transferBudgetNow();
+  const feasible = budget >= required;
   const isoUTC = (simT) => new Date(simT * 1000 + Date.UTC(2000, 0, 1, 12, 0, 0)).toISOString();
 
   const plan = {
-    schema_version: 1,
+    schema_version: 2,
     generated_at: new Date().toISOString(),
     frame: 'Heliocentric Ecliptic J2000',
     units: { distance: 'm', velocity: 'm/s', angle: 'deg', time: 'ISO-8601 UTC' },
+    methodology: {
+      ephemeris: 'JPL Approximate Positions of Major Planets 1800-2050',
+      transfer: 'Lambert universal-variable, dual geometry (physical Δv / visual line)',
+      disclaimer: 'Educational / early mission sketch — not for flight operations.',
+      display_mode: state.display?.mode || 'cinematic',
+    },
     summary: {
       origin: td.body1.name,
+      origin_id: bodyId(td.body1),
       destination: td.body2.name,
+      destination_id: bodyId(td.body2),
       departure_utc: isoUTC(td.departureSimTime),
       arrival_utc:   isoUTC(td.arrivalSimTime),
       transit_days:  td.transferTime / DAY,
-      total_dv_m_s:  totalDv,
+      total_dv_m_s:  required,
+      heliocentric_total_dv_m_s: helioDv,
+      mission_total_dv_m_s: missionBudget ? missionBudget.totalMission : null,
+      cost_basis: costBasis,
       multi_leg:     isMulti,
       n_flybys:      isMulti ? td.flybys.length : 0,
     },
+    plan_request: {
+      v: 1,
+      o: bodyId(td.body1),
+      d: bodyId(td.body2),
+      dep: isoUTC(td.departureSimTime).slice(0, 10),
+      tof: Math.round(td.transferTime / DAY),
+      veh: state.vehicleId,
+      ab: state.abstractBudget_m_s,
+      basis: costBasis,
+      view: state.display?.mode || 'cinematic',
+    },
     feasibility: {
-      vehicle: VEHICLE_SPECS.combined.name,
-      transfer_dv_budget_m_s: transferDeltaV(),
-      total_stack_dv_m_s: totalMissionDeltaV(),
-      reserved_dv_m_s: reservedDeltaV(),
+      vehicle: presetDisplayName(state.vehicleId),
+      vehicle_id: state.vehicleId,
+      transfer_dv_budget_m_s: budget,
+      required_dv_m_s: required,
+      cost_basis: costBasis,
+      total_stack_dv_m_s: state.vehicleId === 'sh-starship' ? totalMissionDeltaV() : null,
+      reserved_dv_m_s: state.vehicleId === 'sh-starship' ? reservedDeltaV() : null,
       feasible,
+      disclaimer: presetDisclaimer(state.vehicleId),
     },
   };
 
