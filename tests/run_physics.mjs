@@ -33,6 +33,7 @@ const SUITE = [
   'tests/approx_error_table.mjs',
   'tests/ephemeris_provider.mjs',
   'tests/ephemeris_fixtures.mjs',
+  'tests/vehicle_performance.mjs',
   // Soft / informational only (always exits 0) — PR 18 perf budgets.
   'tests/porkchop_refine.mjs',
   'tests/ui_split_static.mjs',

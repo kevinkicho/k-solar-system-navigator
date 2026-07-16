@@ -8,6 +8,7 @@ import {
 import { formatApproxErrorSummary } from '../data/approx-ephemeris-errors.js';
 import { formatVelocity } from './format.js';
 import { computeNeedNow } from './mission-budget-ui.js';
+import { vehicleEngineeringHtml } from './vehicle-engineering-ui.js';
 
 /** Normalize legacy 'L2' → 'L2-compare'. */
 export function normalizeFidelity(level) {
@@ -154,6 +155,15 @@ export function buildMeasurementCard(td) {
       <div class="info-row"><span class="key">Starship Δv (reserved)</span><span class="val">${formatVelocity(starshipDeltaV())}</span></div>
       <div class="info-row"><span class="key">Total stack Δv</span><span class="val">${formatVelocity(totalMissionDeltaV())}</span></div>`;
   }
+
+  // Sample vehicle engineering sheet (SH / Starship / F9)
+  html += vehicleEngineeringHtml({
+    vehicleId: state.vehicleId,
+    starshipArch: state.starshipArch,
+    tankerCount: state.tankerCount,
+    cargoMass_kg: state.cargoMass_kg,
+    falcon9Variant: state.falcon9Variant,
+  });
 
   html += `
       <div style="height:8px"></div>
