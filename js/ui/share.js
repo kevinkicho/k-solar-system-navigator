@@ -166,12 +166,15 @@ export function applyPlanRequest(req) {
   return true;
 }
 
+export { syncShareHash } from './share-sync.js';
+
 export function copyShareLink() {
   const hash = encodePlanRequest();
   if (!hash) {
     notify('CANNOT SHARE — set origin/destination (or plan too long)');
     return;
   }
+  import('./share-sync.js').then(({ syncShareHash }) => syncShareHash());
   const url = location.origin + location.pathname + location.search + hash;
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(url).then(

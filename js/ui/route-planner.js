@@ -12,6 +12,7 @@ import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
 import { selectBody } from './selection.js';
 import { timeState } from './time-system.js';
 import { updateBodyList } from './body-list.js';
+import { syncShareHash } from './share-sync.js';
 
 // Mission abort handler — injected by main.js so route-planner can cancel an
 // in-flight mission without importing mission.js (which would create a cycle).
@@ -276,6 +277,7 @@ export function computeRoute() {
         state.showTransferOrbit = true;
         updateTransferOrbitVisual();
         renderRouteUI();
+        syncShareHash();
         notify('MULTI-LEG WINDOW SEARCHED (local optimum — not global)');
         return;
       }
@@ -285,6 +287,7 @@ export function computeRoute() {
     state.showTransferOrbit = true;
     updateTransferOrbitVisual();
     renderRouteUI();
+    syncShareHash();
     notify('MULTI-LEG ROUTE COMPUTED');
     return;
   }
@@ -324,6 +327,7 @@ export function computeRoute() {
   state.showTransferOrbit = true;
   updateTransferOrbitVisual();
   renderRouteUI();
+  syncShareHash();
   if (adjusted) {
     const newDate = simTimeToDate(state.transferData.departureSimTime).toISOString().slice(0, 10);
     notify(`LAUNCH ADJUSTED TO ${newDate} (NEAREST FEASIBLE WINDOW)`);

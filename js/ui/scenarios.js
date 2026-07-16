@@ -4,7 +4,7 @@ import { SCENARIOS } from '../data/scenarios.js';
 import { state } from '../state.js';
 import { dateToInputValue, notify } from './format.js';
 import {
-  renderFlybyList, setRouteDestination, setRouteOrigin,
+  computeRoute, renderFlybyList, setRouteDestination, setRouteOrigin,
 } from './route-planner.js';
 import { timeState } from './time-system.js';
 
@@ -61,6 +61,14 @@ export function wireScenarios() {
     });
     renderFlybyList();
 
-    notify(`SCENARIO LOADED: ${sc.name.toUpperCase()}`);
+    // Auto-compute so scenarios are one-click demos.
+    try {
+      computeRoute();
+    } catch (e) {
+      console.error(e);
+      notify(`SCENARIO LOADED: ${sc.name.toUpperCase()} (compute failed — try SNAP)`);
+      return;
+    }
+    notify(`SCENARIO LOADED + COMPUTED: ${sc.name.toUpperCase()}`);
   });
 }

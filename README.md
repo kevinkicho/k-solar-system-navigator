@@ -117,7 +117,10 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 | `npm start` | Local path-jailed static server (ESM) |
 | `npm test` / `npm run test:physics` | Offline physics + catalog + share + multi-leg suite |
 | `npm run test:server` | Path-jail HTTP tests |
+| `npm run test:ui:ci` | Playwright UI smoke (starts its own server) |
 | `npm run build:stars` | Rebuild `assets/stars-mag75.json` from `hyg_v42.csv` |
+
+**CI:** GitHub Actions runs physics offline tests on every push/PR to `main`, plus a Playwright Chromium UI smoke job.
 
 ### Trip planner (new)
 

@@ -24,6 +24,7 @@ const SUITE = [
   'tests/vehicles_presets.mjs',
   'tests/catalog_check.mjs',
   'tests/share_codec.mjs',
+  'tests/mission_import_check.mjs',
   'tests/ml_window_seeds.mjs',
   // Soft / informational only (always exits 0) — PR 18 perf budgets.
   'tests/porkchop_refine.mjs',

@@ -725,6 +725,14 @@ input[type="range"]::-webkit-slider-thumb {
     </div>
     <button class="route-btn" id="calc-route">Compute Transfer</button>
     <button class="route-btn" id="find-windows" style="font-size:10px;padding:8px;margin-top:4px;">Find Launch Windows</button>
+    <div class="route-field-row" style="margin-top:8px">
+      <label>Import / recent</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-tiny" id="btn-import-plan" title="Import HELIOS mission JSON (v1/v2)">Import JSON</button>
+        <input type="file" id="import-plan-file" accept="application/json,.json" hidden>
+      </div>
+      <div id="recent-routes" class="recent-routes" aria-label="Recent routes"></div>
+    </div>
     <div id="transfer-results"></div>
     <div id="mission-controls"></div>
     <button class="route-btn clear" id="clear-route">Clear Route</button>

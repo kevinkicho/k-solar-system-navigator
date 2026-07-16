@@ -36,6 +36,8 @@ import { dateToInputValue } from './ui/format.js';
 import { bindMissionHandlers } from './ui/route-display.js';
 import { bindAbortHandler, setRouteDestination, setRouteOrigin } from './ui/route-planner.js';
 import { tryApplyHashOnLoad, updateViewBadge } from './ui/share.js';
+import { wireMissionImport } from './ui/mission-import.js';
+import { wireRecentRoutes } from './ui/recent-routes.js';
 import { timeState } from './ui/time-system.js';
 
 // Mission + animation.
@@ -64,6 +66,8 @@ wireControls();
 wireInput();
 wirePorkchop();
 wireScenarios();
+wireMissionImport();
+wireRecentRoutes();
 loadStarField();
 updateViewBadge();
 

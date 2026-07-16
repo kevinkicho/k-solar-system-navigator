@@ -221,3 +221,21 @@
     transition: none;
   }
 }
+
+/* Recent routes (product) */
+.recent-routes {
+  display: flex; flex-direction: column; gap: 4px; margin-top: 6px;
+  max-height: 120px; overflow-y: auto;
+}
+.recent-routes .recent-empty {
+  font-size: 9px; color: var(--text-dim); letter-spacing: 0.5px; padding: 4px 0;
+}
+.recent-routes .recent-item {
+  text-align: left; font-family: var(--font-mono); font-size: 10px;
+  color: var(--text); background: rgba(0,212,255,0.06);
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 5px 8px; cursor: pointer; transition: all 0.12s;
+}
+.recent-routes .recent-item:hover {
+  border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,0.12);
+}
