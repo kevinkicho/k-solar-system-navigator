@@ -38,7 +38,7 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 
 ## Tech stack
 
-- **Three.js r0.164** — 3D rendering with UnrealBloom post-processing (vendored via npm; importmap loads local files, no CDN for the library)
+- **Three.js r0.164** — 3D rendering with UnrealBloom post-processing
 - **CSS2DRenderer** — planet/moon/spacecraft labels
 - **Node.js** — zero-dependency static file server
 
@@ -68,21 +68,19 @@ node tests/module_integration.mjs     # imports js/* modules: load, accuracy, pe
 node tests/ephemeris_check.mjs        # JPL element-rate model: J2000 self-consistency, perihelion/aphelion, Mars opposition, drift vs frozen-J2000
 ```
 
-End-to-end UI test (requires Puppeteer; full install also pulls Three for the 3D app):
+End-to-end UI test (requires Puppeteer):
 
 ```bash
-npm install                 # Three.js + Playwright/Puppeteer (and other deps)
-npm run test:ui             # or: node tests/ui_smoke.mjs — screenshots in tests/screenshots/
+npm install puppeteer
+node tests/ui_smoke.mjs     # drives the app in headless Chromium, screenshots in tests/screenshots/
 ```
 
 ## Getting started
 
 ```bash
-npm install   # installs Three.js r0.164 (required for the 3D app) + optional UI-test tools
+npm install   # optional — only needed for Playwright/Puppeteer UI tests
 npm start
 ```
-
-Three.js is loaded from local files via the importmap in `index.html` (`./node_modules/three/...`), not from a CDN. After `npm install`, the app works offline for the library (planet surface textures still fetch from jsDelivr; solid-color materials remain if a texture fails to load). The path-jailed `server.js` serves anything under the repo root, including `node_modules/three`.
 
 The local-dev server picks a free port automatically and prints the URL:
 
@@ -90,7 +88,7 @@ The local-dev server picks a free port automatically and prints the URL:
 HELIOS server running at http://localhost:XXXXX
 ```
 
-Open that URL in your browser. For production, prefer any static file host (GitHub Pages, etc.) — `server.js` is local-dev only (path-jailed). If hosting without `node_modules`, copy or install `three@0.164.x` so the importmap paths resolve.
+Open that URL in your browser. For production, prefer any static file host (GitHub Pages, etc.) — `server.js` is local-dev only (path-jailed).
 
 ### Scripts
 
@@ -140,15 +138,16 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 ## Project structure
 
 ```
-index.html                — HTML/CSS shell + DOM + local Three.js importmap
+index.html                — HTML shell + DOM
+css/app.css               — application styles
 js/                       — application code, ES modules
   constants.js / state.js / display-scale.js
   data/                   — bodies, moons, dwarfs, neos, waypoints, catalog, scenarios
   physics/                — kepler, lambert, routing, porkchop-grid, vehicles, mission-budget
   scene/                  — Three.js construction (+ extra-bodies, prebaked stars)
   ui/                     — route planner, porkchop, share, scenarios, controls
+                            (+ route-display, route-orbit-visual, mission-export, mission-budget-ui)
   mission.js / animation.js / main.js
-node_modules/three/       — Three.js r0.164 (after npm install; not committed)
 assets/stars-mag75.json   — prebaked mag≤7.5 star field (~1 MB)
 trajectory-calculator.js  — re-export shim → js/physics/vehicles.js
 server.js                 — path-jailed local-dev static server (ESM)

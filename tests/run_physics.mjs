@@ -25,6 +25,7 @@ const SUITE = [
   'tests/catalog_check.mjs',
   'tests/share_codec.mjs',
   'tests/ml_window_seeds.mjs',
+  'tests/ui_split_static.mjs',
 ];
 
 let failed = 0;

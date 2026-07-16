@@ -1,11 +1,12 @@
 /**
  * Route results panel + mission controls (DOM).
  * Scene transfer visuals live in route-orbit-visual.js;
- * plan JSON export lives in mission-export.js.
+ * plan JSON export lives in mission-export.js;
+ * shared Δv helpers live in mission-budget-ui.js.
  */
 import {
   starshipDeltaV, superHeavyDeltaV, totalMissionDeltaV,
-  getTransferBudget, presetDisplayName, presetDisclaimer,
+  presetDisplayName, presetDisclaimer,
 } from '../physics/vehicles.js';
 import { AU, DAY, DEG, LEG_COLORS } from '../constants.js';
 import { state } from '../state.js';
@@ -14,33 +15,16 @@ import {
   formatDateShort, formatDist, formatTime, formatTimePrecise, formatVelocity, simTimeToDate,
 } from './format.js';
 import { timeState } from './time-system.js';
+import { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
+import { exportMissionPlan } from './mission-export.js';
 export { updateTransferOrbitVisual } from './route-orbit-visual.js';
+export { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 
 // Launch handler — injected by main.js to break the route ↔ mission cycle.
 // (Abort uses bindAbortHandler in route-planner.js for the same reason.)
 let _launchMission = null;
 export function bindMissionHandlers({ launch }) {
   _launchMission = launch;
-}
-
-/** Required Δv for feasibility under selected cost basis (design K6). */
-export function requiredDeltaV(td) {
-  if (!td) return Infinity;
-  if (td.isMultiLeg) {
-    // Mission parking budget is single-leg only.
-    return td.dvTotalMultiLeg ?? Infinity;
-  }
-  const lambertOk = !!td.lambertOk;
-  const helio = lambertOk ? td.dvTotal_lambert : td.dvTotal;
-  if (state.costBasis === 'mission' && lambertOk) {
-    const budget = computeMissionBudget(td);
-    if (budget) return budget.totalMission;
-  }
-  return helio;
-}
-
-export function transferBudgetNow() {
-  return getTransferBudget(state.vehicleId, state.abstractBudget_m_s);
 }
 
 function vehicleBlockHtml(requiredDv, isMulti = false) {
@@ -83,9 +67,7 @@ function bindMissionControlButtons(td, { canLaunch }) {
     timeState.updateDisplay();
     import('./format.js').then(({ notify }) => notify('JUMPED TO DEPARTURE DATE'));
   };
-  document.getElementById('btn-export-plan').onclick = () => {
-    import('./mission-export.js').then(({ exportMissionPlan }) => exportMissionPlan(td));
-  };
+  document.getElementById('btn-export-plan').onclick = () => exportMissionPlan(td);
 }
 
 // ---- DOM-side: results panel + mission controls ----

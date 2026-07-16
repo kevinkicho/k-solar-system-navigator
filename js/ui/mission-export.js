@@ -5,14 +5,14 @@
 import {
   reservedDeltaV, totalMissionDeltaV, presetDisplayName, presetDisclaimer,
 } from '../physics/vehicles.js';
-import { AU, DAY, DEG } from '../constants.js';
+import { DAY, DEG } from '../constants.js';
 import { state } from '../state.js';
 import { bodyId } from '../data/catalog.js';
-import { getBodyPosition3D, getBodyVelocity3D } from '../physics/kepler.js';
+import { getBodyVelocity3D } from '../physics/kepler.js';
 import { propagateOrbit } from '../physics/helio.js';
 import { v3dot, v3sub } from '../physics/vec3.js';
 import { computeMissionBudget } from '../physics/mission-budget.js';
-import { requiredDeltaV, transferBudgetNow } from './route-display.js';
+import { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 
 export function exportMissionPlan(td) {
   const plan = buildPlanObject(td);
@@ -136,14 +136,9 @@ function buildSingleLegManeuvers(td) {
     ];
   }
   // Compute V∞ at departure & arrival from the Lambert solution.
-  const depP = getBodyPosition3D(td.body1, td.departureSimTime, false);
-  const arrP = getBodyPosition3D(td.body2, td.arrivalSimTime, false);
   const vBody1 = getBodyVelocity3D(td.body1, td.departureSimTime, false);
   const vBody2 = getBodyVelocity3D(td.body2, td.arrivalSimTime, false);
-  const r1m = [depP.x*AU, depP.y*AU, depP.z*AU];
-  // Re-derive v1 from the orbit's M0 (orbit was built from r1, v1 originally).
-  // Easier: use the fact that orbit propagated 0s gives r1, and (orb.p_hat, orb.q_hat, orb.M0, orb.n)
-  // implicitly defines v1; we can recover it by infinitesimal propagation.
+  // Re-derive v1/v2 by infinitesimal propagation on the physical transfer orbit.
   const r1 = propagateOrbit(td.orbitPhysical, 0);
   const r2 = propagateOrbit(td.orbitPhysical, td.transferTime);
   const dt = 60;
