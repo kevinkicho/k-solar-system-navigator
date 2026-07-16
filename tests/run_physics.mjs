@@ -35,6 +35,9 @@ const SUITE = [
   'tests/ephemeris_fixtures.mjs',
   'tests/vehicle_performance.mjs',
   'tests/plan_quality.mjs',
+  'tests/departure_asymptote.mjs',
+  'tests/ascent_loss_model.mjs',
+  'tests/scenario_gate_audit.mjs',
   // Soft / informational only (always exits 0) — PR 18 perf budgets.
   'tests/porkchop_refine.mjs',
   'tests/ui_split_static.mjs',

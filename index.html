@@ -566,6 +566,22 @@ html, body {
   font-size: 9px !important;
   letter-spacing: 0.5px;
 }
+.trust-card {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 6px;
+}
+#vehicle-lab-panel {
+  position: fixed; z-index: 90; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(480px, 94vw);
+  max-height: 85vh;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-bright);
+  padding: 14px 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.55);
+}
+#vehicle-lab-panel[hidden] { display: none !important; }
 #classroom-banner {
   position: fixed; top: 48px; left: 50%; transform: translateX(-50%);
   z-index: 15; max-width: min(720px, 92vw);
@@ -811,6 +827,19 @@ input[type="range"]::-webkit-slider-thumb {
         <option value="2000">2.0 km/s class</option>
       </select>
     </div>
+    <div class="route-field-row" id="launch-site-row">
+      <label>Launch site (edu DLA band)</label>
+      <select id="launch-site" title="Educational |DLA| vs site latitude band — not range safety">
+        <option value="any">No site constraint</option>
+        <option value="cape">Cape-class (~28.5°N)</option>
+        <option value="vandenberg">Vandenberg-class (~34.7°N)</option>
+        <option value="kourou">Kourou-class (~5.2°N)</option>
+      </select>
+    </div>
+    <div class="route-field-row">
+      <label>Vehicle lab</label>
+      <button type="button" class="btn-tiny" id="btn-vehicle-lab" title="Browse SH / Starship / F9 engineering without a route">OPEN VEHICLE LAB</button>
+    </div>
     <div class="route-field-row">
       <label>Display scale</label>
       <select id="display-mode-select" title="Cinematic exaggeration vs schematic inclinations">
@@ -847,6 +876,16 @@ input[type="range"]::-webkit-slider-thumb {
     <input type="range" id="speed-slider" min="0" max="10" step="1" value="3">
   </div>
   <button class="time-btn" id="btn-today" title="Reset to today" style="font-size:10px;font-family:var(--font-display);letter-spacing:1px;">NOW</button>
+</div>
+
+<div id="vehicle-lab-panel" hidden aria-hidden="true" role="dialog" aria-labelledby="vehicle-lab-title">
+  <div class="vehicle-lab-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div class="result-subtitle" id="vehicle-lab-title" style="margin:0">VEHICLE LAB · CONCEPT-GRADE</div>
+      <button type="button" class="btn-tiny" id="vehicle-lab-close">CLOSE</button>
+    </div>
+    <div id="vehicle-lab-body" style="max-height:70vh;overflow:auto"></div>
+  </div>
 </div>
 
 <div id="date-picker-overlay">

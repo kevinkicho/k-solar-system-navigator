@@ -5,7 +5,7 @@
 | **Document title** | Concept-Grade Boundaries & Extras Roadmap |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | Approved for implementation (rev 1 — residual polish after reliability + fidelity) |
+| **Status** | Implemented on `main` (X0–X7 extras landing) |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
 | **Branch policy** | **`main` only** — sequential green commits |
 | **Baseline** | `main` @ reliability dossier (`plan-quality`, `plan-dossier`), fidelity L1/L2-plan, vehicle engineering sheets, cargo triad |

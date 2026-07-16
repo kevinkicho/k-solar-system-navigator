@@ -38,6 +38,16 @@ export function bindPlanRecoveryButtons(handlers = {}) {
         notify('ADJUST VEHICLE, CARGO, OR ARCHITECTURE');
         return;
       }
+      if (id === 'adjust_site') {
+        const el = document.getElementById('launch-site');
+        if (el) {
+          el.value = 'any';
+          el.dispatchEvent(new Event('change'));
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        notify('LAUNCH SITE SET TO ANY (NO DLA CONSTRAINT)');
+        return;
+      }
       notify(`RECOVERY: ${id || '?'}`);
     };
   });

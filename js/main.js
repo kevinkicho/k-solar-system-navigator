@@ -40,6 +40,7 @@ import { wireMissionImport } from './ui/mission-import.js';
 import { wireRecentRoutes } from './ui/recent-routes.js';
 import { timeState } from './ui/time-system.js';
 import { buildMeasurementCard } from './ui/measurement-card.js';
+import { wireVehicleLab } from './ui/vehicle-lab.js';
 
 // Mission + animation.
 import { abortMission, launchMission } from './mission.js';
@@ -75,6 +76,7 @@ wirePorkchop();
 wireScenarios();
 wireMissionImport();
 wireRecentRoutes();
+wireVehicleLab();
 loadStarField();
 updateViewBadge();
 

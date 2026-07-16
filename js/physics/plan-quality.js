@@ -18,12 +18,19 @@ const MIN_PERIHELION_AU = 0.3;
  * @param {boolean} [opts.dateAdjusted]
  * @param {boolean} [opts.sampleFallback]
  * @param {boolean} [opts.strictVehicle=true]
+ * @param {boolean} [opts.strictSite=false]
  * @param {number|null} [opts.prevDepartureSimTime]
+ * @param {number|null} [opts.dla_eq_deg] equatorial DLA if available
+ * @param {number|null} [opts.dla_ecliptic_deg]
+ * @param {string} [opts.launchSiteId]
+ * @param {number|null} [opts.site_dla_max_deg]
+ * @param {boolean} [opts.multiLeg]
  * @returns {{ status: PlanStatus, gates: object[], confidence_0_100: number, mission_ready: boolean }}
  */
 export function runQualityGates(td, measurement = null, opts = {}) {
   const gates = [];
   const strictVehicle = opts.strictVehicle !== false;
+  const strictSite = !!opts.strictSite;
 
   if (!td) {
     gates.push({
@@ -199,6 +206,34 @@ export function runQualityGates(td, measurement = null, opts = {}) {
     });
   }
 
+  // Multi-leg parking completeness honesty (always ok with n/a note via completeness UI)
+  if (opts.multiLeg || td.isMultiLeg) {
+    gates.push({
+      code: 'G_MISSION_PARKING',
+      level: 'ok',
+      message: 'Mission parking budget is single-leg only (multi-leg n/a by design).',
+    });
+  }
+
+  // Launch site vs DLA (educational)
+  const siteMax = opts.site_dla_max_deg;
+  const dlaUse = opts.dla_eq_deg != null && isFinite(opts.dla_eq_deg)
+    ? Math.abs(opts.dla_eq_deg)
+    : (opts.dla_ecliptic_deg != null && isFinite(opts.dla_ecliptic_deg)
+      ? Math.abs(opts.dla_ecliptic_deg) : null);
+  if (siteMax != null && siteMax < 90 && dlaUse != null) {
+    const ok = dlaUse <= siteMax + 0.5;
+    const level = ok ? 'ok' : (strictSite ? 'fail' : 'warn');
+    gates.push({
+      code: 'G_SITE_DLA',
+      level,
+      message: ok
+        ? `Asymptote |DLA| ${dlaUse.toFixed(1)}° within site band ${siteMax}° (${opts.launchSiteId || 'site'}).`
+        : `Asymptote |DLA| ${dlaUse.toFixed(1)}° exceeds educational site band ${siteMax}° (${opts.launchSiteId || 'site'}) — not range safety.`,
+      detail: { dla_deg: dlaUse, site_max_deg: siteMax, site: opts.launchSiteId },
+    });
+  }
+
   return finalize(gates);
 }
 
@@ -251,6 +286,12 @@ export function recoveryFromGates(gates, td) {
       id: 'adjust_vehicle',
       label: 'Adjust vehicle / cargo / architecture',
       primary: true,
+    });
+  }
+  if (failCodes.has('G_SITE_DLA') || (gates || []).some((g) => g.code === 'G_SITE_DLA' && g.level === 'warn')) {
+    actions.push({
+      id: 'adjust_site',
+      label: 'Relax launch site or change window',
     });
   }
   if (!actions.length && td) {

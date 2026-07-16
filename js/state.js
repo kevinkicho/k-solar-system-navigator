@@ -41,6 +41,10 @@ export const state = {
   planStrictVehicle: true,
   /** Optional educational ascent loss (m/s), not mixed into Lambert Need. */
   ascentLossBudget_m_s: 0,
+  /** Educational launch-site band for DLA gate (default any = no constraint). */
+  launchSiteId: 'any',
+  /** If true, G_SITE_DLA is fail instead of warn. */
+  planStrictSite: false,
 
   mission: {
     active: false,

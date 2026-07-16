@@ -17,7 +17,11 @@ export function wireScenarios() {
   for (const sc of SCENARIOS) {
     const opt = document.createElement('option');
     opt.value = sc.id;
-    opt.textContent = sc.name;
+    const unsafe = sc.plan_expect === 'demo_unsafe' ? ' ⚠' : '';
+    opt.textContent = sc.name + unsafe;
+    if (sc.plan_expect === 'demo_unsafe') {
+      opt.title = sc.plan_notes || 'May fail plan quality gates (educational)';
+    }
     select.appendChild(opt);
   }
 
@@ -27,7 +31,9 @@ export function wireScenarios() {
     const sc = SCENARIOS.find(s => s.id === id);
     if (!sc) return;
 
-    summary.textContent = sc.summary;
+    summary.textContent = sc.plan_expect === 'demo_unsafe'
+      ? `${sc.summary} · ⚠ demo may fail gates`
+      : sc.summary;
 
     const origin = findByIdOrName(sc.origin);
     const dest   = findByIdOrName(sc.destination);

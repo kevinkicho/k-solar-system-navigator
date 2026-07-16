@@ -1,19 +1,12 @@
 // Pre-baked mission profiles. Clicking one populates origin, destination,
-// departure date, and any gravity-assist flybys in the route planner. The
-// user can then hit "Compute Transfer" to see the trajectory.
+// departure date, and any gravity-assist flybys in the route planner.
 //
-// Dates are chosen so the heliocentric geometry under our JPL Approximate-
-// Positions model produces a feasible Lambert solution. Flyby dates are
-// approximate — hitting "SNAP" after loading will optimize them ±30 days.
-//
-// Format:
-//   id          — stable identifier
-//   name        — display label
-//   summary     — one-line description shown next to the dropdown
-//   origin      — planet name (must be in BODIES)
-//   destination — planet name
-//   departureUTC — absolute UTC milliseconds (Date.UTC(...))
-//   flybys      — [{ bodyName, dateUTC }] in chronological order, or []
+// plan_expect (reliability K12 / extras E2):
+//   mission_ready — dossier.mission_ready must be true under audit vehicle
+//   warn_ok       — pass or pass_with_warnings
+//   demo_unsafe   — expected to fail gates (teaching / high-Δv)
+// auditVehicleId  — frozen vehicle for CI audit (not ambient app default)
+
 export const SCENARIOS = [
   {
     id: 'mars-2026',
@@ -21,8 +14,11 @@ export const SCENARIOS = [
     summary: 'Real upcoming opportunity — late-Nov launch, ~258-day transit',
     origin: 'Earth',
     destination: 'Mars',
-    departureUTC: Date.UTC(2026, 10, 21),    // Nov 21, 2026
+    departureUTC: Date.UTC(2026, 10, 21),
     flybys: [],
+    plan_expect: 'mission_ready',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
   },
   {
     id: 'mars-2033-ideal',
@@ -30,8 +26,11 @@ export const SCENARIOS = [
     summary: 'Ideal Hohmann opportunity, ~5.3 km/s total Δv',
     origin: 'Earth',
     destination: 'Mars',
-    departureUTC: Date.UTC(2033, 3, 22),     // Apr 22, 2033
+    departureUTC: Date.UTC(2033, 3, 22),
     flybys: [],
+    plan_expect: 'mission_ready',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
   },
   {
     id: 'mars-return-2029',
@@ -39,8 +38,11 @@ export const SCENARIOS = [
     summary: 'Return leg from a 2026 arrival; demonstrates outbound-and-return planning',
     origin: 'Mars',
     destination: 'Earth',
-    departureUTC: Date.UTC(2029, 0, 15),     // Jan 15, 2029
+    departureUTC: Date.UTC(2029, 0, 15),
     flybys: [],
+    plan_expect: 'mission_ready',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
   },
   {
     id: 'jupiter-direct',
@@ -50,6 +52,9 @@ export const SCENARIOS = [
     destination: 'Jupiter',
     departureUTC: Date.UTC(2031, 7, 15),
     flybys: [],
+    plan_expect: 'mission_ready',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
   },
   {
     id: 'jupiter-via-mars',
@@ -61,6 +66,10 @@ export const SCENARIOS = [
     flybys: [
       { bodyName: 'Mars', dateUTC: Date.UTC(2031, 9, 1) },
     ],
+    plan_expect: 'warn_ok',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
+    plan_notes: 'Flyby may need SNAP; warn_ok allows any dossier status',
   },
   {
     id: 'venus-mars-via-venus',
@@ -72,6 +81,9 @@ export const SCENARIOS = [
     flybys: [
       { bodyName: 'Venus', dateUTC: Date.UTC(2027, 5, 15) },
     ],
+    plan_expect: 'warn_ok',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
   },
   {
     id: 'saturn-direct',
@@ -81,6 +93,9 @@ export const SCENARIOS = [
     destination: 'Saturn',
     departureUTC: Date.UTC(2030, 5, 1),
     flybys: [],
+    plan_expect: 'mission_ready',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
   },
   {
     id: 'ceres-direct',
@@ -90,6 +105,9 @@ export const SCENARIOS = [
     destination: 'Ceres',
     departureUTC: Date.UTC(2028, 4, 1),
     flybys: [],
+    plan_expect: 'mission_ready',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
   },
   {
     id: 'bennu-sample',
@@ -99,6 +117,9 @@ export const SCENARIOS = [
     destination: 'Bennu',
     departureUTC: Date.UTC(2027, 8, 15),
     flybys: [],
+    plan_expect: 'mission_ready',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
   },
   {
     id: 'em-l2-sketch',
@@ -108,6 +129,10 @@ export const SCENARIOS = [
     destination: 'EM-L2',
     departureUTC: Date.UTC(2026, 6, 1),
     flybys: [],
+    plan_expect: 'warn_ok',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
+    plan_notes: 'Waypoint sketch — geometric only',
   },
   {
     id: 'pluto-direct',
@@ -117,6 +142,9 @@ export const SCENARIOS = [
     destination: 'Pluto',
     departureUTC: Date.UTC(2029, 0, 20),
     flybys: [],
+    plan_expect: 'mission_ready',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
   },
   {
     id: 'venus-direct',
@@ -126,5 +154,21 @@ export const SCENARIOS = [
     destination: 'Venus',
     departureUTC: Date.UTC(2026, 9, 1),
     flybys: [],
+    plan_expect: 'mission_ready',
+    auditVehicleId: 'abstract',
+    auditAbstractBudget_m_s: 50000,
+  },
+  {
+    id: 'sh-legacy-jupiter-demo',
+    name: 'Earth → Jupiter · SH legacy (expected fail)',
+    summary: 'Teaching case: Super Heavy legacy cannot meet high Need — demo_unsafe',
+    origin: 'Earth',
+    destination: 'Jupiter',
+    departureUTC: Date.UTC(2031, 7, 15),
+    flybys: [],
+    plan_expect: 'demo_unsafe',
+    auditVehicleId: 'sh-starship',
+    auditStarshipArch: 'legacy-demo',
+    plan_notes: 'Expected mission_ready false under SH legacy',
   },
 ];

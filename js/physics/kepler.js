@@ -1,5 +1,5 @@
 import {
-  AU, CENTURY_SEC, DEG, G_CONST, PI, TWO_PI,
+  AU, CENTURY_SEC, DAY, DEG, G_CONST, PI, TWO_PI,
 } from '../constants.js';
 import { BODIES, SUN_DATA } from '../data/bodies.js';
 import { MOONS } from '../data/moons.js';
