@@ -11,6 +11,7 @@
 | **Branch baseline** | `main` (cargo platform, Measurement Card, L1/L2 badge, Horizons compare, porkchop cargo heatmap) |
 | **Audience** | Engineers implementing evolutionary commits on `main` |
 | **Prior designs** | `docs/trip-planner-design.md`, `docs/cargo-vehicle-platform-design.md` |
+| **Companion** | `docs/trip-plan-reliability-completeness-design.md` (no silent plan failures) |
 | **Related research** | DE440/DE441, NAIF SPK, JPL Approximate Positions accuracy table, Horizons VECTOR API |
 
 ---
