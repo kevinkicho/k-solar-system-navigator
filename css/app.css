@@ -148,6 +148,15 @@
   #porkchop-overlay .pc-info {
     grid-template-columns: repeat(2, 1fr);
   }
+  #classroom-banner {
+    top: auto;
+    bottom: 52px;
+    left: 8px;
+    right: 8px;
+    transform: none;
+    max-width: none;
+    font-size: 10px;
+  }
   #porkchop-canvas {
     max-width: 100%;
     height: auto;

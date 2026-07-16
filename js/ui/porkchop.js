@@ -1,11 +1,13 @@
 import { DAY } from '../constants.js';
 import { bodyId, findById } from '../data/catalog.js';
 import { state } from '../state.js';
+import { falcon9MaxPayloadKg, falcon9EarthDepartureOnly } from '../data/falcon9-c3-table.js';
 import { hohmannTransfer } from '../physics/kepler.js';
 import {
   cellTimes, defaultGridSpec, fillGridRow, refineGridSpec,
 } from '../physics/porkchop-grid.js';
 import { solveTransferOrbit } from '../physics/routing.js';
+import { maxCargoForNeed } from '../physics/starship-architecture.js';
 import { dateToInputValue, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
 import { timeState } from './time-system.js';
@@ -632,6 +634,41 @@ export function wirePorkchop() {
     return { dep, tof, dv, c3: c3v, vinf: vi };
   }
 
+  function fmtCargoKg(kg) {
+    if (kg == null || !isFinite(kg)) return '—';
+    if (Math.abs(kg) >= 1000) return `${(kg / 1000).toFixed(2)} t`;
+    return `${Math.round(kg)} kg`;
+  }
+
+  /** PR15: selected-cell cargo readout for F9 (Earth-origin) and SS cargo arches. */
+  function cargoReadoutForCell(c3v, dv) {
+    const origin = pcState?.body1 || state.routeOrigin;
+    if (state.vehicleId === 'falcon9') {
+      if (!falcon9EarthDepartureOnly(origin)) {
+        return { text: 'n/a (Earth dep only)', title: 'Falcon 9 illustrative table applies only to Earth departure' };
+      }
+      if (!isFinite(c3v)) return { text: '—', title: '' };
+      const maxPay = falcon9MaxPayloadKg(c3v, state.falcon9Variant || 'expendable');
+      if (maxPay == null) return { text: 'C3 out of table', title: '' };
+      const variant = state.falcon9Variant === 'asds' ? 'ASDS' : 'expendable';
+      return {
+        text: `${fmtCargoKg(maxPay)} max @ C₃ (${variant})`,
+        title: 'Illustrative F9 payload-vs-C3 — not SpaceX performance',
+      };
+    }
+    if (state.vehicleId === 'sh-starship'
+        && state.starshipArch && state.starshipArch !== 'legacy-demo'
+        && isFinite(dv)) {
+      const maxC = maxCargoForNeed(dv, state.starshipArch, state.tankerCount || 0);
+      if (maxC == null || !isFinite(maxC)) return { text: '—', title: '' };
+      return {
+        text: `${fmtCargoKg(maxC)} max @ cell Δv`,
+        title: 'Concept-grade Starship cargo at selected cell need Δv',
+      };
+    }
+    return { text: '—', title: 'Select Falcon 9 (Earth) or SS unrefueled/tanker for cargo readout' };
+  }
+
   function showSelection(cell) {
     const info = (cell.dep != null && isFinite(cell.dv))
       ? { dep: cell.dep, tof: cell.tof, dv: cell.dv, c3: cell.c3, vinf: cell.vinf }
@@ -643,6 +680,12 @@ export function wirePorkchop() {
     document.getElementById('pc-dv').textContent   = isFinite(dv)  ? (dv  / 1000).toFixed(2) + ' km/s'  : '—';
     document.getElementById('pc-c3').textContent   = isFinite(c3v) ? (c3v / 1e6 ).toFixed(1) + ' km²/s²' : '—';
     document.getElementById('pc-vinf').textContent = isFinite(vi)  ? (vi  / 1000).toFixed(2) + ' km/s'  : '—';
+    const cargoEl = document.getElementById('pc-cargo');
+    if (cargoEl) {
+      const ro = cargoReadoutForCell(c3v, dv);
+      cargoEl.textContent = ro.text;
+      cargoEl.title = ro.title || '';
+    }
   }
 
   canvas.addEventListener('mousemove', (e) => {

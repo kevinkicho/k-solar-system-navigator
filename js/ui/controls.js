@@ -283,17 +283,20 @@ export function wireControls() {
             if (hzOut) hzOut.textContent = `Skipped: ${result.reason}`;
             return;
           }
+          // PR14: successful explicit Horizons compare → L2 badge (planning still L1 ephemeris).
+          state.fidelityLevel = 'L2';
           const km = result.comparison.distanceKm;
           const au = result.comparison.distanceAU;
           const msg = `${body.name} @ ${epoch.toISOString().slice(0, 16)}Z — |Δr| ≈ ${
             km >= 1e6 ? (km / 1e6).toFixed(2) + ' M km' : km.toFixed(0) + ' km'
-          } (${au.toExponential(2)} AU) vs approximate ephemeris. Educational only — not SPICE, not flight ops.`;
+          } (${au.toExponential(2)} AU) vs approximate ephemeris. Fidelity badge → L2 (educational only — not SPICE, not flight ops). Planning still uses offline approximate ephemeris.`;
           if (hzOut) hzOut.textContent = msg;
-          notify(`HORIZONS Δr ≈ ${km >= 1e6 ? (km / 1e6).toFixed(1) + 'M km' : Math.round(km) + ' km'}`);
+          notify(`HORIZONS L2 · Δr ≈ ${km >= 1e6 ? (km / 1e6).toFixed(1) + 'M km' : Math.round(km) + ' km'}`);
+          if (state.transferData) renderRouteUI();
         } catch (err) {
           const detail = err && err.message ? err.message : String(err);
           if (hzOut) {
-            hzOut.textContent = `Horizons compare failed (network or parse): ${detail}. Planning still uses offline approximate ephemeris.`;
+            hzOut.textContent = `Horizons compare failed (network or parse): ${detail}. Planning still uses offline approximate ephemeris (L1).`;
           }
           notify('HORIZONS FETCH FAILED — OFFLINE PATH UNCHANGED');
         } finally {

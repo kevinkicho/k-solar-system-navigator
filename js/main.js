@@ -32,13 +32,14 @@ import { wireControls } from './ui/controls.js';
 import { wireInput } from './ui/input.js';
 import { wirePorkchop } from './ui/porkchop.js';
 import { wireScenarios } from './ui/scenarios.js';
-import { dateToInputValue } from './ui/format.js';
+import { dateToInputValue, notify } from './ui/format.js';
 import { bindMissionHandlers } from './ui/route-display.js';
 import { bindAbortHandler, setRouteDestination, setRouteOrigin } from './ui/route-planner.js';
 import { tryApplyHashOnLoad, updateViewBadge } from './ui/share.js';
 import { wireMissionImport } from './ui/mission-import.js';
 import { wireRecentRoutes } from './ui/recent-routes.js';
 import { timeState } from './ui/time-system.js';
+import { buildMeasurementCard } from './ui/measurement-card.js';
 
 // Mission + animation.
 import { abortMission, launchMission } from './mission.js';
@@ -49,7 +50,7 @@ bindMissionHandlers({ launch: launchMission });
 bindAbortHandler(abortMission);
 bindRouteSetters({ origin: setRouteOrigin, destination: setRouteDestination });
 
-// Classroom mode: ?mode=classroom → schematic + abstract budget.
+// Classroom mode: ?mode=classroom → schematic + abstract budget (offline, methodology-first).
 const params = new URLSearchParams(location.search);
 if (params.get('mode') === 'classroom') {
   state.classroomMode = true;
@@ -58,6 +59,8 @@ if (params.get('mode') === 'classroom') {
   state.abstractBudget_m_s = 8000;
   state.costBasis = 'helio';
   state.starshipArch = 'legacy-demo';
+  state.fidelityLevel = 'L1';
+  // Optional ?veh= is not classroom default (PR16) — only abstract.
 } else {
   // Product default after Measurement Card (K25 / PR 9): unrefueled SS arch.
   applyProductVehicleDefaults();
@@ -74,6 +77,17 @@ wireMissionImport();
 wireRecentRoutes();
 loadStarField();
 updateViewBadge();
+
+// PR16: classroom banner + methodology emphasis (no network).
+if (state.classroomMode) {
+  const banner = document.getElementById('classroom-banner');
+  if (banner) {
+    banner.hidden = false;
+    banner.setAttribute('aria-hidden', 'false');
+  }
+  document.body.classList.add('classroom-mode');
+  notify('CLASSROOM MODE · abstract Δv · schematic · offline L1');
+}
 
 timeState.setSpeed(3);
 timeState.updateDisplay();
@@ -109,6 +123,9 @@ window.__HELIOS = {
   get state() { return state; },
   get catalog() { return catalog; },
   get display() { return state.display; },
+  /** Offline/CI helpers for vehicle triad + fidelity (PR14–17). */
+  get fidelityLevel() { return state.fidelityLevel; },
+  buildMeasurementCard,
   getSunBarycentricOffset,
   getBodyPosition3D,
 };

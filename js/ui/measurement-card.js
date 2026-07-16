@@ -41,10 +41,21 @@ export function buildMeasurementCard(td) {
   const isLegacy = state.vehicleId === 'sh-starship'
     && (state.starshipArch === 'legacy-demo' || !state.starshipArch);
   const isSketch = !!(td?.body1?.waypointOf || td?.body2?.waypointOf);
+  const fidelity = state.fidelityLevel === 'L2' ? 'L2' : 'L1';
+  const fidelityLabel = fidelity === 'L2'
+    ? 'L2 · Horizons compare (educational)'
+    : 'L1 · JPL approx (offline default)';
+  const classroomNote = state.classroomMode
+    ? `<div class="info-row"><span class="key">Classroom</span><span class="val amber">Methodology-first · abstract Δv default · offline</span></div>`
+    : '';
 
   let html = `
-      <div class="measurement-card" data-fidelity="${state.fidelityLevel || 'L1'}">
-      <div class="result-subtitle">MEASUREMENT CARD · ${state.fidelityLevel || 'L1'}</div>
+      <div class="measurement-card" data-fidelity="${fidelity}" id="measurement-card">
+      <div class="result-subtitle">MISSION MEASUREMENT
+        <span class="fidelity-badge fidelity-${fidelity}" title="L1 = offline JPL Approximate Positions. L2 = optional Horizons Δr compare only (planning still uses L1 ephemeris). L3 SPICE is out of product scope.">${fidelity}</span>
+      </div>
+      <div class="info-row"><span class="key">Ephemeris fidelity</span><span class="val">${fidelityLabel}</span></div>
+      ${classroomNote}
       <div class="info-row"><span class="key">Vehicle</span><span class="val">${presetDisplayName(state.vehicleId)}</span></div>`;
 
   if (isLegacy) {

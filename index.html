@@ -523,8 +523,30 @@ html, body {
 }
 #porkchop-overlay .pc-info {
   margin-top: 10px; font-size: 10px; color: var(--text-dim);
-  display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
 }
+.measurement-card .fidelity-badge {
+  display: inline-block; margin-left: 8px; padding: 1px 7px;
+  font-size: 9px; letter-spacing: 1px; border-radius: 3px;
+  border: 1px solid var(--border-bright); vertical-align: middle;
+}
+.measurement-card .fidelity-badge.fidelity-L1 {
+  color: var(--cyan); background: rgba(0,212,255,0.08); border-color: rgba(0,212,255,0.35);
+}
+.measurement-card .fidelity-badge.fidelity-L2 {
+  color: var(--amber); background: rgba(255,152,0,0.1); border-color: rgba(255,152,0,0.4);
+}
+#classroom-banner {
+  position: fixed; top: 48px; left: 50%; transform: translateX(-50%);
+  z-index: 15; max-width: min(720px, 92vw);
+  padding: 8px 16px; font-size: 11px; letter-spacing: 0.5px;
+  color: var(--amber); background: var(--bg-panel);
+  border: 1px solid rgba(255,152,0,0.35); border-radius: 2px;
+  text-align: center; pointer-events: none;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+#classroom-banner[hidden] { display: none !important; }
+body.classroom-mode #help-hint { bottom: 90px; }
 #porkchop-overlay .pc-info div { border-left: 2px solid var(--border); padding-left: 8px; }
 #porkchop-overlay .pc-info .val { color: var(--text); font-size: 12px; display: block; margin-top: 2px; }
 #porkchop-overlay .pc-info .key { font-family: var(--font-display); letter-spacing: 1px; font-size: 8px; color: var(--text-dim); }
@@ -827,6 +849,7 @@ input[type="range"]::-webkit-slider-thumb {
     <div><span class="key">TOTAL &Delta;V</span><span class="val" id="pc-dv">&mdash;</span></div>
     <div><span class="key">C3 (DEPART)</span><span class="val" id="pc-c3">&mdash;</span></div>
     <div><span class="key">V&infin; ARRIVE</span><span class="val" id="pc-vinf">&mdash;</span></div>
+    <div><span class="key">MAX CARGO</span><span class="val" id="pc-cargo" title="Illustrative cargo at selected cell (F9 Earth-origin or SS cargo arch)">&mdash;</span></div>
   </div>
   <div class="pc-legend">
     <span id="pc-scale-min">&mdash;</span>
@@ -851,6 +874,9 @@ input[type="range"]::-webkit-slider-thumb {
 </div>
 
 <div id="tooltip"></div>
+<div id="classroom-banner" hidden aria-hidden="true">
+  CLASSROOM MODE · schematic · abstract Δv budget · offline L1 ephemeris · concept-grade only (not flight ops)
+</div>
 <div id="help-hint">SCROLL to zoom &middot; DRAG to orbit &middot; RIGHT-DRAG to pan &middot; CLICK to select &middot; RIGHT-CLICK to set route</div>
 <div id="notification"></div>
 
@@ -882,8 +908,17 @@ input[type="range"]::-webkit-slider-thumb {
     <p><code>e = 1 + r_p · V∞² / μ_planet</code> &nbsp; · &nbsp; <code>δ_max = 2·asin(1/e_min)</code></p>
     <p>Infeasible swingbys are flagged <span class="pill amber">TOO SHARP</span> with the required-vs-minimum periapsis shown.</p>
 
-    <h3>Vehicle model</h3>
-    <p>Default stack: SpaceX Super Heavy + fully-fueled Starship as payload. Starship's full propellant load is <em>reserved for final-mile ops</em> (rendezvous, landing, plane changes); the interplanetary transfer Δv budget is <strong>Super Heavy alone</strong>. This makes mission feasibility honest: if a route exceeds Super Heavy's lift, it shows <span class="pill" style="color:var(--red);background:rgba(255,45,85,0.08);border-color:rgba(255,45,85,0.3)">NOT FEASIBLE</span>.</p>
+    <h3>Vehicle model (concept-grade)</h3>
+    <p>Results use a <strong>Need / Capability / Margin</strong> measurement triad. Sample architectures: <strong>Falcon 9</strong> (illustrative payload-vs-C3 table), <strong>Starship + Super Heavy</strong> (legacy demo booster-only Δv, unrefueled LEO→TMI injection, N-tanker refuel), and abstract Δv budgets. Numbers are educational only — <strong>not SpaceX-certified, not flight operations</strong>.</p>
+    <p>Legacy demo mode keeps Super Heavy transfer Δv with Starship propellant reserved; cargo-aware arches use rocket-equation Starship capability at requested cargo mass. Margin may be Δv, cargo kg, or tankers depending on the primary metric.</p>
+
+    <h3>Ephemeris fidelity badges</h3>
+    <table>
+      <tr><td><span class="pill">L1</span> default</td><td>Offline JPL Approximate Positions — always used for planning geometry. No network.</td></tr>
+      <tr><td><span class="pill amber">L2</span> optional</td><td>After an explicit Horizons VECTOR compare only. Badge records that a Δr check was run; <strong>planning still uses L1 ephemeris</strong>. Not SPICE.</td></tr>
+      <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">L3</span> out of scope</td><td>SPICE kernels / covariance / navigation solutions — <strong>never a planning mode</strong> in HELIOS. Documented for trust ceiling only.</td></tr>
+    </table>
+    <p>Export JSON records <code>measurement.fidelity</code> and <code>methodology.fidelity</code> as L1 or L2.</p>
 
     <h3>Known limitations</h3>
     <p>· 2-body Kepler propagation (no Jupiter/Saturn perturbations on the transfer orbit). Lambert solutions close to &lt;2 km in 2-body; under full N-body the actual miss could be tens of km. A Lambert+N-body shooter is the next planned upgrade.</p>
