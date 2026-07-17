@@ -29,6 +29,18 @@ shipGroup.add(shipMesh);
   shipGroup.add(sprite);
 }
 
+// Velocity arrow: points along Kepler velocity (local +Z of shipGroup after lookAt)
+const velArrow = new THREE.ArrowHelper(
+  new THREE.Vector3(1, 0, 0),
+  new THREE.Vector3(0, 0, 0),
+  0.08,
+  0x69f0ae,
+  0.02,
+  0.012,
+);
+velArrow.visible = false;
+shipGroup.add(velArrow);
+
 export const shipLabelDiv = document.createElement('div');
 shipLabelDiv.className = 'ship-label';
 shipLabelDiv.textContent = '';
@@ -44,7 +56,33 @@ shipGroup.add(shipLabel);
 export function setShipLabelVisible(on) {
   shipLabel.visible = !!on;
   shipLabelDiv.style.display = on ? '' : 'none';
-  if (!on) shipLabelDiv.textContent = '';
+  if (!on) {
+    shipLabelDiv.textContent = '';
+    velArrow.visible = false;
+  }
+}
+
+/**
+ * Point ship velocity arrow along helio/parent velocity (m/s).
+ * Arrow length scales gently with |v| so fast perihelion legs read as longer.
+ */
+export function setShipVelocityDirection(vx, vy, vz, v_km_s = null) {
+  if (vx == null || vy == null || vz == null) {
+    velArrow.visible = false;
+    return;
+  }
+  const dir = new THREE.Vector3(vx, vy, vz);
+  if (dir.lengthSq() < 1e-18) {
+    velArrow.visible = false;
+    return;
+  }
+  dir.normalize();
+  velArrow.setDirection(dir);
+  const vk = v_km_s != null ? v_km_s : Math.hypot(vx, vy, vz) / 1000;
+  // ~0.04 AU at 10 km/s → ~0.2 AU at 60 km/s (screen units)
+  const len = Math.min(0.35, Math.max(0.04, 0.004 * Math.max(vk, 1)));
+  velArrow.setLength(len, len * 0.28, len * 0.16);
+  velArrow.visible = true;
 }
 
 const trailPositions = new Float32Array(MAX_TRAIL_POINTS * 3);

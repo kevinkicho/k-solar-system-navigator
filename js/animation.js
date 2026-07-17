@@ -10,6 +10,7 @@ import { sunGlowSprite, sunMesh } from './scene/sun.js';
 import { moonMeshes, moonOrbitLines } from './scene/moons.js';
 import { orbitLines, planetMeshes, planetTextureTargets } from './scene/planets.js';
 import { spacecraftMeshes } from './scene/spacecraft.js';
+import { shipGroup } from './scene/ship.js';
 import { selectionRing } from './scene/selection-ring.js';
 import { flybyMarkers, transferMarkers } from './scene/transfer-visual.js';
 import { FX, prefersReducedMotion, updateHillSpheres, updatePotentialField } from './scene/gravity-field.js';
@@ -134,9 +135,13 @@ export function animate() {
   updateMission();
   updateFlybyPulses(now);
 
+  // Body follow takes priority over ship follow if both somehow set
   if (state.followMode && state.selectedBody) {
+    state.followShip = false;
     const mesh = planetMeshes.get(state.selectedBody.name) || moonMeshes.get(state.selectedBody.name);
     if (mesh) controls.target.copy(mesh.position);
+  } else if (state.followShip && shipGroup.visible) {
+    controls.target.copy(shipGroup.position);
   }
 
   if (frameCount % 15 === 0) {

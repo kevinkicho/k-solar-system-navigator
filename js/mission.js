@@ -3,27 +3,23 @@ import { getSunBarycentricOffset } from './physics/kepler.js';
 import { getShipPositionOnTransfer } from './physics/routing.js';
 import {
   addTrailPoint, resetTrail, shipGroup, shipLabelDiv, trailLine,
-  setShipLabelVisible,
+  setShipLabelVisible, setShipVelocityDirection,
 } from './scene/ship.js';
 import {
   flybyMarkers, hideArrivalGhost, hideDepartureGhost, transferMarkers,
 } from './scene/transfer-visual.js';
 import { DAY, MAX_TRAIL_POINTS } from './constants.js';
-import { formatDateShort, formatTimePrecise, notify, simTimeToDate } from './ui/format.js';
+import {
+  formatDateShort, formatTimePrecise, formatVelocity, notify, simTimeToDate,
+} from './ui/format.js';
 import { renderRouteUI } from './ui/route-display.js';
-import { timeState } from './ui/time-system.js';
+import {
+  timeState, pickMissionStudySpeed, formatTimeCompression,
+} from './ui/time-system.js';
 import { canLaunchMission } from './mission-gates.js';
 
-/** Pick bottom-bar speed index suited to transit length (study, not blur). */
-export function pickMissionStudySpeed(transferTime) {
-  if (!(transferTime > 0)) return 4;
-  if (transferTime < 2 * DAY) return 4;       // 1 day/s — short moon hops
-  if (transferTime < 14 * DAY) return 4;      // still day/s for Galilean
-  if (transferTime < 60 * DAY) return 5;      // 1 week/s
-  if (transferTime < 400 * DAY) return 6;     // 1 month/s
-  if (transferTime < 5 * 365.25 * DAY) return 7; // 3 months/s
-  return 8; // 1 year/s for outer multi-year legs
-}
+// Re-export for callers / tests that imported from mission.js
+export { pickMissionStudySpeed, formatTimeCompression };
 
 export function showMissionStudyBar(visible) {
   const bar = document.getElementById('mission-study-bar');
@@ -171,13 +167,25 @@ export function launchMission() {
       <div class="info-row"><span class="key">ETA</span><span class="val highlight" id="mission-eta">${formatDateShort(simTimeToDate(m.arrivalSimTime))}</span></div>
       ${legRow}
       <div class="progress-bar-wrap"><div class="progress-bar" id="mission-progress" style="width:0%"></div></div>
-      <div class="info-row"><span class="key">Progress</span><span class="val" id="mission-pct">0%</span></div>
+      <div class="info-row"><span class="key">Progress (time)</span><span class="val" id="mission-pct">0%</span></div>
       <div class="info-row"><span class="key">Time remaining</span><span class="val highlight" id="mission-remaining">--</span></div>
-      <p class="mission-study-hint">Study transit with the <strong>bottom bar</strong>: scrub, DEP/ARR, play/speed.</p>
+      <div class="info-row"><span class="key">Helio speed</span><span class="val green" id="mission-speed">—</span></div>
+      <div class="info-row"><span class="key">Sun distance</span><span class="val" id="mission-r">—</span></div>
+      <div class="info-row"><span class="key">Path mode</span><span class="val" id="mission-path-mode">—</span></div>
+      <div class="info-row"><span class="key">Time compression</span><span class="val amber" id="mission-time-x">—</span></div>
+      <p class="mission-study-hint">Ship follows the <strong>2-body Kepler transfer</strong> (vis-viva speed). Calendar time is sped up for study — that is not a thruster throttle. Fast near the Sun, slow in the outer system is physical. Bottom bar: scrub, DEP/ARR, play/speed. <button type="button" class="btn-tiny" id="ms-follow-ship">Follow ship</button></p>
     </div>
     <button class="route-btn abort" id="btn-abort">Abort Mission</button>
   `;
   document.getElementById('btn-abort').onclick = abortMission;
+  const followBtn = document.getElementById('ms-follow-ship');
+  if (followBtn) {
+    followBtn.onclick = () => {
+      state.followMode = true;
+      state.followShip = true;
+      notify('CAMERA FOLLOWS SHIP · drag to orbit, Follow off when done');
+    };
+  }
 
   const label = isMulti
     ? `MULTI-LEG MISSION LAUNCHED: ${td.body1.name.toUpperCase()} -> ${td.body2.name.toUpperCase()} (${td.legs.length} LEGS)`
@@ -194,8 +202,10 @@ export function abortMission() {
   m.flybysTriggered = new Set();
   shipGroup.visible = false;
   setShipLabelVisible(false);
+  setShipVelocityDirection(null);
   trailLine.visible = false;
   resetTrail();
+  state.followShip = false;
   // Re-show the rendezvous markers if we still have transferData — abort
   // doesn't clear the route, so the user may want to re-launch.
   if (state.transferData && state.showTransferOrbit) {
@@ -228,6 +238,7 @@ export function updateMission() {
   if (t < m.departureSimTime) {
     shipGroup.visible = false;
     setShipLabelVisible(false);
+    setShipVelocityDirection(null);
     return;
   }
 
@@ -250,6 +261,7 @@ export function updateMission() {
     hideDepartureGhost();
     transferMarkers.arrive.visible = false;
     transferMarkers.depart.visible = false;
+    setShipVelocityDirection(null);
 
     const box = document.getElementById('mission-status-box');
     if (box) {
@@ -265,18 +277,26 @@ export function updateMission() {
       const off = getSunBarycentricOffset(t);
       const sx = shipInfo.x + off.x, sy = shipInfo.y + off.y, sz = shipInfo.z + off.z;
       shipGroup.position.set(sx, sy, sz);
+      setShipVelocityDirection(shipInfo.vx, shipInfo.vy, shipInfo.vz, shipInfo.v_km_s);
 
-      const trailInterval = td.transferTime / MAX_TRAIL_POINTS;
+      // Trail denser when physically faster (more path length per sim second)
+      const vRef = Math.max(1, shipInfo.v_km_s || 20); // km/s
+      const baseInterval = td.transferTime / MAX_TRAIL_POINTS;
+      const trailInterval = baseInterval * (20 / vRef);
       if (t - m.lastTrailTime >= trailInterval) {
         addTrailPoint(sx, sy, sz);
         m.lastTrailTime = t;
       }
-      shipLabelDiv.textContent = `SHIP ${Math.round(progress * 100)}%`;
+      const vLabel = shipInfo.v_km_s != null
+        ? ` · ${shipInfo.v_km_s.toFixed(1)} km/s`
+        : '';
+      shipLabelDiv.textContent = `SHIP ${Math.round(progress * 100)}%${vLabel}`;
     }
   } else {
     const destPos = state.bodyPositions.get(td.body2.name);
     if (destPos) shipGroup.position.set(destPos.x, destPos.y, destPos.z);
     shipLabelDiv.textContent = 'ARRIVED';
+    setShipVelocityDirection(null);
   }
 
   if (isMulti && shipInfo && typeof shipInfo.legIndex === 'number') {
@@ -301,11 +321,42 @@ export function updateMission() {
   const pctEl = document.getElementById('mission-pct');
   const barEl = document.getElementById('mission-progress');
   const remEl = document.getElementById('mission-remaining');
+  const spdEl = document.getElementById('mission-speed');
+  const rEl = document.getElementById('mission-r');
+  const modeEl = document.getElementById('mission-path-mode');
+  const xEl = document.getElementById('mission-time-x');
   if (pctEl) pctEl.textContent = Math.round(progress * 100) + '%';
   if (barEl) barEl.style.width = Math.round(progress * 100) + '%';
   if (remEl) {
     const remaining = Math.max(0, td.transferTime - elapsed);
     remEl.textContent = remaining > 0 ? formatTimePrecise(remaining) : 'ARRIVED';
+  }
+  if (spdEl) {
+    if (shipInfo?.v_km_s != null && progress < 1) {
+      const modeNote = shipInfo.mode === 'kepler' ? '' : ' (approx)';
+      spdEl.textContent = `${formatVelocity(shipInfo.v_km_s * 1000)}${modeNote}`;
+      spdEl.className = shipInfo.mode === 'kepler' ? 'val green' : 'val amber';
+    } else if (progress >= 1) {
+      spdEl.textContent = '—';
+    }
+  }
+  if (rEl) {
+    if (shipInfo?.r_AU != null && progress < 1) {
+      rEl.textContent = `${shipInfo.r_AU.toFixed(3)} AU`;
+    } else if (progress >= 1) {
+      rEl.textContent = '—';
+    }
+  }
+  if (modeEl) {
+    const map = {
+      kepler: 'Kepler 2-body (vis-viva)',
+      cosine: 'Geometric blend (no orbit)',
+      endpoint: 'At endpoint',
+    };
+    modeEl.textContent = map[shipInfo?.mode] || (progress >= 1 ? 'arrived' : '—');
+  }
+  if (xEl) {
+    xEl.textContent = formatTimeCompression(timeState.timeScale);
   }
   syncMissionStudyBar();
 }

@@ -33,19 +33,63 @@ export function buildTransferOrbit(r1v, v1, mu) {
   const M0 = E0 - e * Math.sin(E0);
   const n = Math.sqrt(mu / (a * a * a));
 
-  return { a, e, p, p_hat, q_hat, w_hat, M0, n };
+  return { a, e, p, p_hat, q_hat, w_hat, M0, n, mu };
+}
+
+/**
+ * Perifocal velocity at true anomaly ν (m/s).
+ * v = √(μ/p) [ −sin ν · p̂ + (e + cos ν) · q̂ ]
+ */
+function velocityAtTrueAnomaly(orb, nu, mu) {
+  const p = orb.p;
+  if (!(p > 0) || !(mu > 0)) return [0, 0, 0];
+  const s = Math.sqrt(mu / p);
+  return v3add(
+    v3scale(orb.p_hat, -s * Math.sin(nu)),
+    v3scale(orb.q_hat, s * (orb.e + Math.cos(nu))),
+  );
+}
+
+function positionAtTrueAnomaly(orb, nu) {
+  const r = orb.p / (1 + orb.e * Math.cos(nu));
+  return v3add(
+    v3scale(orb.p_hat, r * Math.cos(nu)),
+    v3scale(orb.q_hat, r * Math.sin(nu)),
+  );
+}
+
+/** μ for an orbit object (stored or Sun default). */
+function orbitMu(orb) {
+  if (orb?.mu > 0) return orb.mu;
+  return G_CONST * SUN_DATA.mass;
 }
 
 // Propagate a (planet-bound, elliptical) transfer orbit by dt seconds. Returns [x,y,z] in metres.
 export function propagateOrbit(orb, dt) {
+  const st = propagateOrbitState(orb, dt);
+  return st ? st.r : null;
+}
+
+/**
+ * Elliptical orbit state at t0+dt.
+ * @returns {{ r: number[], v: number[], nu: number, r_mag: number, v_mag: number }|null}
+ */
+export function propagateOrbitState(orb, dt, mu = null) {
+  if (!orb || !(orb.p > 0)) return null;
   const M = orb.M0 + orb.n * dt;
   const E = solveKepler(M, orb.e);
-  const cosNu = (Math.cos(E) - orb.e) / (1 - orb.e * Math.cos(E));
-  const sinNu = Math.sqrt(1 - orb.e * orb.e) * Math.sin(E) / (1 - orb.e * Math.cos(E));
+  const den = 1 - orb.e * Math.cos(E);
+  if (!(Math.abs(den) > 1e-14)) return null;
+  const cosNu = (Math.cos(E) - orb.e) / den;
+  const sinNu = Math.sqrt(Math.max(0, 1 - orb.e * orb.e)) * Math.sin(E) / den;
   const nu = Math.atan2(sinNu, cosNu);
-  const r  = orb.p / (1 + orb.e * Math.cos(nu));
-  return v3add(v3scale(orb.p_hat, r * Math.cos(nu)),
-               v3scale(orb.q_hat, r * Math.sin(nu)));
+  const r = positionAtTrueAnomaly(orb, nu);
+  const v = velocityAtTrueAnomaly(orb, nu, mu ?? orbitMu(orb));
+  return {
+    r, v, nu,
+    r_mag: v3mag(r),
+    v_mag: v3mag(v),
+  };
 }
 
 // Heliocentric 2-body orbit from a Cartesian state (r_m, v_m_s). Handles both
@@ -84,17 +128,28 @@ export function buildHelioOrbit(r0v, v0, mu) {
     M0 = E0 - e * Math.sin(E0);
     n  = Math.sqrt(mu / (a * a * a));
   }
-  return { a, e, p, p_hat, q_hat, w_hat, M0, n, hyperbolic };
+  return { a, e, p, p_hat, q_hat, w_hat, M0, n, hyperbolic, mu };
 }
 
 export function propagateHelioOrbit(orb, dt) {
+  const st = propagateHelioOrbitState(orb, dt);
+  return st ? st.r : null;
+}
+
+/**
+ * Heliocentric (ellipse or hyperbola) state at t0+dt.
+ * @returns {{ r: number[], v: number[], nu: number, r_mag: number, v_mag: number }|null}
+ */
+export function propagateHelioOrbitState(orb, dt, mu = null) {
+  if (!orb || !(orb.p > 0)) return null;
   const M = orb.M0 + orb.n * dt;
   let nu;
   if (orb.hyperbolic) {
-    let H = Math.asinh(M / orb.e);
+    let H = Math.asinh(M / Math.max(orb.e, 1e-12));
     for (let i = 0; i < 60; i++) {
       const f  = orb.e * Math.sinh(H) - H - M;
       const df = orb.e * Math.cosh(H) - 1;
+      if (!(Math.abs(df) > 1e-14)) break;
       const dH = f / df;
       H -= dH;
       if (Math.abs(dH) < 1e-12) break;
@@ -104,13 +159,19 @@ export function propagateHelioOrbit(orb, dt) {
       Math.sqrt(orb.e - 1) * Math.cosh(H / 2));
   } else {
     const E = solveKepler(M, orb.e);
-    const cosNu = (Math.cos(E) - orb.e) / (1 - orb.e * Math.cos(E));
-    const sinNu = Math.sqrt(1 - orb.e * orb.e) * Math.sin(E) / (1 - orb.e * Math.cos(E));
+    const den = 1 - orb.e * Math.cos(E);
+    if (!(Math.abs(den) > 1e-14)) return null;
+    const cosNu = (Math.cos(E) - orb.e) / den;
+    const sinNu = Math.sqrt(Math.max(0, 1 - orb.e * orb.e)) * Math.sin(E) / den;
     nu = Math.atan2(sinNu, cosNu);
   }
-  const r = orb.p / (1 + orb.e * Math.cos(nu));
-  return v3add(v3scale(orb.p_hat, r * Math.cos(nu)),
-               v3scale(orb.q_hat, r * Math.sin(nu)));
+  const r = positionAtTrueAnomaly(orb, nu);
+  const v = velocityAtTrueAnomaly(orb, nu, mu ?? orbitMu(orb));
+  return {
+    r, v, nu,
+    r_mag: v3mag(r),
+    v_mag: v3mag(v),
+  };
 }
 
 // Spacecraft position at simTime (seconds since J2000), scene coords (AU).

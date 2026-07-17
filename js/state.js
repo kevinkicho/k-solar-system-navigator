@@ -13,6 +13,8 @@ export const state = {
   transferData: null,
   showTransferOrbit: false,
   followMode: false,
+  /** When true, camera target tracks the mission ship each frame. */
+  followShip: false,
   hoveredBody: null,
 
   bodyPositions: new Map(),

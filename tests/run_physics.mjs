@@ -48,6 +48,7 @@ const SUITE = [
   'tests/planet_relative.mjs',
   'tests/vehicle_design.mjs',
   'tests/transfer_path_smooth.mjs',
+  'tests/ship_velocity.mjs',
   'tests/perf_budgets.mjs',
 ];
 
