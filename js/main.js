@@ -46,6 +46,7 @@ import { wireRailUi } from './ui/rail-ui.js';
 import { wireBodyPicker } from './ui/body-picker.js';
 import { wireBodyDossier } from './ui/body-dossier-modal.js';
 import { wireSurfacePointUi } from './ui/surface-point-ui.js';
+import { wireFirebaseUi } from './ui/firebase-ui.js';
 
 // Mission + animation.
 import { abortMission, launchMission, wireMissionStudyBar } from './mission.js';
@@ -91,6 +92,11 @@ try {
   wireAgentChat(); // FAB chat + onboard agent C2 — never block app boot
 } catch (err) {
   console.error('[HELIOS] agent chat failed to wire', err);
+}
+try {
+  wireFirebaseUi(); // Auth chip + cloud plans — offline if config missing / classroom / ?firebase=0
+} catch (err) {
+  console.error('[HELIOS] Firebase UI failed to wire', err);
 }
 loadStarField();
 updateViewBadge();

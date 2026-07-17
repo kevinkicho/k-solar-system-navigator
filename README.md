@@ -42,11 +42,18 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 - **Right rail tabs** — Inspect / Plan / Results; Advanced accordion for secondary knobs; map-first mobile chips
 - **Drag-and-drop or right-click route planning** — assign origin/destination from the sidebar or scene
 
+### Cloud (optional Firebase)
+- **Google sign-in** — top-bar ☁ chip (disabled in classroom mode and with `?firebase=0`)
+- **Cloud plans** — save/load/delete compact route summaries in Firestore (`users/{uid}/plans`)
+- **Hosting** — static SPA via Firebase Hosting (`public: "."`); Security Rules own all data access
+- Enable **Google** provider in Firebase Console → Authentication before first sign-in
+
 ## Tech stack
 
 - **Three.js r0.164** — 3D rendering with UnrealBloom post-processing
 - **CSS2DRenderer** — planet/moon/spacecraft labels
 - **Node.js** — static file server + Ollama chat proxy + agent C2 bus
+- **Firebase** (optional) — Auth + Firestore plans; modular SDK via import map (gstatic CDN)
 
 ## AI assistant (Ollama Cloud)
 

@@ -1,12 +1,15 @@
 rules_version = '2';
 
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
+// HELIOS Storage — owner-only under users/{uid}/**
+// Reserved for mission JSON blobs / exports; not used heavily yet.
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if false;
+    match /users/{userId}/{allPaths=**} {
+      allow read, delete: if request.auth != null
+        && request.auth.uid == userId;
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024;
     }
   }
 }

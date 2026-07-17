@@ -53,6 +53,7 @@ const SUITE = [
   'tests/lambert_multirev.mjs',
   'tests/adaptive_path.mjs',
   'tests/nbody_cowell_smoke.mjs',
+  'tests/firebase_plan_summary.mjs',
   'tests/perf_budgets.mjs',
 ];
 

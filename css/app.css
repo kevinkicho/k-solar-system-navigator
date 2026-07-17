@@ -759,3 +759,52 @@
 .recent-routes .recent-item:hover {
   border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,0.12);
 }
+
+/* Firebase Auth chip (top bar) + cloud plans list */
+.firebase-auth-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 8px;
+  cursor: pointer;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.firebase-auth-chip:hover {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: rgba(0, 212, 255, 0.08);
+}
+.cloud-plans {
+  max-height: 140px;
+}
+.cloud-plan-row {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+.cloud-plan-row .cloud-plan-open {
+  flex: 1;
+  min-width: 0;
+}
+.cloud-plan-row .cloud-plan-del {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.cloud-plan-row .cloud-plan-del:hover {
+  opacity: 1;
+  color: var(--red, #ff6b6b);
+  border-color: var(--red, #ff6b6b);
+}
+.classroom-mode .firebase-auth-chip,
+.classroom-mode #cloud-plans-row {
+  display: none !important;
+}

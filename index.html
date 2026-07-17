@@ -1187,6 +1187,12 @@ input[type="range"]::-webkit-slider-thumb {
             </div>
             <div id="recent-routes" class="recent-routes" aria-label="Recent routes"></div>
           </div>
+          <div class="route-field-row" id="cloud-plans-row">
+            <label>Cloud plans</label>
+            <div id="cloud-plans" class="cloud-plans recent-routes" aria-label="Cloud-saved plans" hidden>
+              <div class="recent-empty">Sign in to sync plans across devices</div>
+            </div>
+          </div>
         </div>
       </details>
 
@@ -1428,7 +1434,12 @@ input[type="range"]::-webkit-slider-thumb {
 {
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.164.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.0/examples/jsm/"
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.0/examples/jsm/",
+    "firebase/app": "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js",
+    "firebase/database": "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js",
+    "firebase/storage": "https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js"
   }
 }
 </script>

@@ -23,6 +23,7 @@
     "puppeteer": "^24.42.0"
   },
   "dependencies": {
+    "firebase": "^11.10.0",
     "three": "^0.164.0"
   }
 }

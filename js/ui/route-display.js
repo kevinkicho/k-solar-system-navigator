@@ -16,6 +16,7 @@ import { buildMeasurementCard } from './measurement-card.js';
 import { planStatusBannerHtml, buildPlanDossier } from './plan-dossier.js';
 import { bindPlanRecoveryButtons } from './plan-recovery.js';
 import { activateRailTab } from './rail-ui.js';
+import { wireSavePlanButton } from './firebase-ui.js';
 export { updateTransferOrbitVisual } from './route-orbit-visual.js';
 export { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 
@@ -64,6 +65,8 @@ function bindMissionControlButtons(td, { canLaunch }) {
   }
   const exp = document.getElementById('btn-export-plan');
   if (exp) exp.onclick = () => exportMissionPlan(td);
+
+  wireSavePlanButton(td);
 
   const winBtn = document.getElementById('btn-open-windows');
   if (winBtn) {
@@ -146,6 +149,7 @@ function actionsHtml(missionReady) {
       <button class="route-btn secondary" id="btn-open-windows">Windows</button>
       <button class="route-btn secondary" id="btn-goto-depart">Jump to Departure</button>
       <button class="route-btn secondary" id="btn-export-plan">Export</button>
+      <button class="route-btn secondary" id="btn-save-cloud" title="Save plan summary to Firebase (sign-in required)">Save to cloud</button>
       <button class="route-btn secondary" id="btn-share-link">Share</button>
     </div>`;
 }

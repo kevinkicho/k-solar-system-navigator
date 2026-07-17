@@ -68,6 +68,16 @@ export const state = {
   lastPathRebuildWallMs: 0,
 
   classroomMode: false,
+  /**
+   * Firebase Auth mirror (filled by js/firebase/auth.js).
+   * enabled=false in classroom / ?firebase=0 / missing config.
+   */
+  firebase: {
+    enabled: false,
+    uid: null,
+    email: null,
+    displayName: null,
+  },
   /** Reliability: Launch requires vehicle margin feasible (K6). */
   planStrictVehicle: true,
   /** Optional educational ascent loss (m/s), not mixed into Lambert Need. */
