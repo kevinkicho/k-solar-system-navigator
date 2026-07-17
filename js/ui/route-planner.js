@@ -265,7 +265,10 @@ export function snapFlybyDates() {
     const lastF = wps[wps.length - 2];
     const tail = hohmannTransfer(lastF.body, state.routeDestination, lastF.simTime);
     wps[wps.length - 1].simTime = tail.arrivalSimTime;
-    const td = solveMultiLegRoute(wps);
+    const td = solveMultiLegRoute(wps, {
+      surfaceOriginPoint: state.routeOriginPoint,
+      surfaceDestPoint: state.routeDestPoint,
+    });
     if (!td.allLegsOk) return Infinity;
     if (td.flybys.some(f => !f.achievable)) return Infinity;
     return td.dvTotalMultiLeg;
@@ -358,7 +361,11 @@ export function computeRoute() {
     const tailHohmann = hohmannTransfer(lastFlyby.body, state.routeDestination, lastFlyby.simTime);
     waypoints[waypoints.length - 1].simTime = tailHohmann.arrivalSimTime;
 
-    const planOpts = routePlanOpts();
+    const planOpts = {
+      ...routePlanOpts(),
+      surfaceOriginPoint: state.routeOriginPoint,
+      surfaceDestPoint: state.routeDestPoint,
+    };
     const originBody = state.routeOrigin;
     const destBody = state.routeDestination;
     let td = tagMultiLegBodies(solveMultiLegRoute(waypoints, planOpts));
@@ -408,7 +415,11 @@ export function computeRoute() {
           ...state.flybys.map(f => ({ body: resolveFlybyBody(f), simTime: f.simTime })),
           { body: destBody, simTime: win.arrivalSimTime },
         ];
-        td = tagMultiLegBodies(solveMultiLegRoute(wps, planOpts));
+        td = tagMultiLegBodies(solveMultiLegRoute(wps, {
+          ...planOpts,
+          surfaceOriginPoint: state.routeOriginPoint,
+          surfaceDestPoint: state.routeDestPoint,
+        }));
         const stillBad = !td.allLegsOk || (td.flybys || []).some(f => !f.achievable);
         finalizePlan(td, {
           dateAdjusted: true,

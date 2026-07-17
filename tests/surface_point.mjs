@@ -9,9 +9,9 @@ import {
   bodySurfaceKind, isFluidGiant, defaultParkingAlt_m, defaultSurfacePointForBody,
   resolveParkingAlt_m, referenceSphereLabel, COORD_SYSTEM_ID,
   coordinateSystemBadge, longitudeSystem, planetocentricRadius_m,
-  geographicEndpointPackage,
+  geographicEndpointPackage, IAU_CLASS_SPIN,
 } from '../js/physics/surface-point.js';
-import { solveTransferOrbit } from '../js/physics/routing.js';
+import { solveTransferOrbit, solveMultiLegRoute } from '../js/physics/routing.js';
 import { hohmannTransfer } from '../js/physics/kepler.js';
 import { v3mag } from '../js/physics/vec3.js';
 import { AU } from '../js/constants.js';
@@ -159,6 +159,33 @@ const dossier = buildPlanDossier(tdJ, {});
 check('dossier has coordinate_system', dossier?.inputs?.coordinate_system === COORD_SYSTEM_ID);
 check('dossier geographic origin active', dossier?.inputs?.geographic_origin?.active === true);
 check('dossier geometry has geographic', !!dossier?.geometry?.geographic_origin);
+
+// IAU-class spin table
+check('IAU table has Jupiter', !!IAU_CLASS_SPIN.Jupiter);
+const jSpin = getSpinModel(jupiter);
+check('Jupiter spin from IAU table', jSpin.iau_class_table === true);
+check('Jupiter W0 set', jSpin.W0_deg !== 0);
+
+// Multi-leg terminal geographic sites (PR-G4)
+const venus = BODIES.find((b) => b.name === 'Venus');
+const mid = departureSimTime + 100 * 86400;
+const arr = mid + 200 * 86400;
+const ml = solveMultiLegRoute(
+  [
+    { body: earth, simTime: departureSimTime },
+    { body: venus, simTime: mid },
+    { body: mars, simTime: arr },
+  ],
+  {
+    surfaceOriginPoint: pt,
+    surfaceDestPoint: normalizeSurfacePoint({
+      enabled: true, lat_deg: 18.4, lon_deg: 77.5, alt_m: 100e3,
+    }, mars),
+  },
+);
+check('multi-leg solves with terminal sites', !!ml && ml.legs?.length === 2);
+check('multi-leg origin meta', !!ml.surfaceOriginMeta?.label);
+check('multi-leg dest meta', !!ml.surfaceDestMeta?.label);
 
 if (failed) {
   console.error(`\n${failed} surface-point check(s) failed`);

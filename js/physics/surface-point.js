@@ -275,28 +275,48 @@ export function presetsForBody(body) {
 }
 
 /**
- * Spin / pole model. Values are concept-grade means (not full IAU series).
+ * Compact IAU-class mean spin table (educational).
+ * period_d: sidereal rotation (negative = retrograde). Prefer SSD phys_par when present.
+ * W0_deg: educational prime-meridian phase at J2000 (not full IAU polynomial).
+ * obliquity_deg: mean ecliptic obliquity of spin axis.
+ * Source class: Archinal et al. / SSD phys_par order-of-magnitude; not SPICE PCK.
+ */
+export const IAU_CLASS_SPIN = {
+  Mercury: { period_d: 58.6462, W0_deg: 329.5469, obliquity_deg: 0.034 },
+  Venus: { period_d: -243.018, W0_deg: 160.20, obliquity_deg: 177.36 },
+  Earth: { period_d: 0.99726968, W0_deg: 190.147, obliquity_deg: 23.439 },
+  Mars: { period_d: 1.02595676, W0_deg: 176.630, obliquity_deg: 25.19 },
+  Jupiter: { period_d: 0.41354, W0_deg: 284.95, obliquity_deg: 3.13 }, // System III class
+  Saturn: { period_d: 0.44401, W0_deg: 38.90, obliquity_deg: 26.73 },
+  Uranus: { period_d: -0.71833, W0_deg: 203.81, obliquity_deg: 97.77 },
+  Neptune: { period_d: 0.67125, W0_deg: 253.18, obliquity_deg: 28.32 },
+  Moon: { period_d: 27.321661, W0_deg: 38.3213, obliquity_deg: 6.68 },
+  Pluto: { period_d: -6.3872, W0_deg: 302.695, obliquity_deg: 119.6 },
+  Ceres: { period_d: 0.37809042, W0_deg: 0, obliquity_deg: 4 },
+  Eris: { period_d: 1.079, W0_deg: 0, obliquity_deg: 0 },
+  Haumea: { period_d: 0.1631, W0_deg: 0, obliquity_deg: 0 },
+  Makemake: { period_d: 0.937, W0_deg: 0, obliquity_deg: 0 },
+};
+
+/**
+ * Spin / pole model. Values are concept-grade means (not full IAU series / SPICE).
  * period_d from JPL SSD phys_par when available (negative = retrograde).
  */
 export function getSpinModel(body) {
-  const extra = PLANET_PHYS_EXTRA[body?.name];
+  const name = body?.name;
+  const table = (name && IAU_CLASS_SPIN[name]) || null;
+  const extra = PLANET_PHYS_EXTRA[name];
   const period_d = extra?.siderealRotation_d
-    ?? (body?.period ? body.period / DAY : 1); // moons: use orbital period as rough lock proxy only if no spin
-  // Approximate obliquities to the ecliptic (deg). Educational constants.
-  const OBLIQ = {
-    Mercury: 0.034, Venus: 177.4, Earth: 23.439, Mars: 25.19,
-    Jupiter: 3.13, Saturn: 26.73, Uranus: 97.77, Neptune: 28.32,
-    Moon: 6.68, Pluto: 119.6, Ceres: 4, Eris: 0, Haumea: 0, Makemake: 0,
-  };
-  const W0 = {
-    // Arbitrary educational zeros except Earth-ish
-    Earth: 280.0, Mars: 0, Moon: 0,
-  };
+    ?? table?.period_d
+    ?? (body?.period ? body.period / DAY : 1);
   return {
     period_d: period_d || 1,
-    obliquity_deg: OBLIQ[body?.name] ?? 0,
-    W0_deg: W0[body?.name] ?? 0,
-    source: 'concept-grade spin (SSD period + mean obliquity table)',
+    obliquity_deg: table?.obliquity_deg ?? 0,
+    W0_deg: table?.W0_deg ?? 0,
+    source: table
+      ? 'IAU-class mean spin table + SSD period when present (not full WGCCRE / not SPICE PCK)'
+      : 'concept-grade spin fallback',
+    iau_class_table: !!table,
   };
 }
 

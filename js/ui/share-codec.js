@@ -4,7 +4,7 @@ import { DAY } from '../constants.js';
 import { bodyId, findByIdOrName } from '../data/catalog.js';
 
 export const MAX_FLYS = 6;
-export const MAX_LEN = 1500;
+export const MAX_LEN = 1800; // slightly larger for optional geographic sites
 
 export function padDate(d) {
   const y = d.getUTCFullYear();
@@ -18,6 +18,43 @@ export function parseDateUTC(s) {
   const [Y, M, D] = s.split('-').map(Number);
   if (Y < 1800 || Y > 2050) return null;
   return new Date(Date.UTC(Y, M - 1, D, 12, 0, 0));
+}
+
+/**
+ * Compact geographic site for share hash: lat,lon,alt_km (3 decimals / 1 decimal).
+ * @param {{enabled?:boolean,lat_deg?:number,lon_deg?:number,alt_m?:number}|null} site
+ * @returns {string|null}
+ */
+export function encodeSiteParam(site) {
+  if (!site || !site.enabled) return null;
+  const lat = Number(site.lat_deg);
+  const lon = Number(site.lon_deg);
+  const altKm = Number(site.alt_m) / 1000;
+  if (!isFinite(lat) || !isFinite(lon) || !isFinite(altKm)) return null;
+  if (lat < -90 || lat > 90) return null;
+  return `${lat.toFixed(3)},${lon.toFixed(3)},${altKm.toFixed(1)}`;
+}
+
+/**
+ * @param {string|null} raw
+ * @returns {{enabled:true,lat_deg:number,lon_deg:number,alt_m:number}|null}
+ */
+export function parseSiteParam(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const parts = raw.split(',');
+  if (parts.length < 3) return null;
+  const lat = parseFloat(parts[0]);
+  const lon = parseFloat(parts[1]);
+  const altKm = parseFloat(parts[2]);
+  if (!isFinite(lat) || !isFinite(lon) || !isFinite(altKm)) return null;
+  if (lat < -90 || lat > 90) return null;
+  if (altKm < 0 || altKm > 1e5) return null;
+  return {
+    enabled: true,
+    lat_deg: lat,
+    lon_deg: lon,
+    alt_m: altKm * 1000,
+  };
 }
 
 /**
@@ -45,6 +82,11 @@ export function encodePlanRequestObject(plan) {
   if (plan.tankers != null && plan.arch === 'tanker-n') params.set('tankers', String(plan.tankers));
   if (plan.f9v && plan.veh === 'falcon9') params.set('f9v', plan.f9v);
   if (plan.eph === 'sample' || plan.eph === 'sample-de') params.set('eph', 'sample');
+  // Geographic sites (PR-G1): os / ds = lat,lon,alt_km when enabled
+  const os = encodeSiteParam(plan.os || plan.originSite);
+  const ds = encodeSiteParam(plan.ds || plan.destSite);
+  if (os) params.set('os', os);
+  if (ds) params.set('ds', ds);
   const encoded = params.toString();
   if (encoded.length > MAX_LEN) return null;
   return '#' + encoded;
@@ -120,6 +162,9 @@ export function parsePlanRequest(hash) {
   if (eph === 'sample-de' || eph === 'sample') eph = 'sample-de';
   else eph = 'approx';
 
+  const originSite = parseSiteParam(params.get('os'));
+  const destSite = parseSiteParam(params.get('ds'));
+
   return {
     originId: o.toLowerCase(),
     destId: d.toLowerCase(),
@@ -137,6 +182,8 @@ export function parsePlanRequest(hash) {
     tankerCount: tankers,
     falcon9Variant: f9v,
     ephemerisBackend: eph,
+    originSite,
+    destSite,
   };
 }
 

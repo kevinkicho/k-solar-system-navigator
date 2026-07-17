@@ -15,6 +15,10 @@ import { updateBodyList } from './body-list.js';
 import {
   encodePlanRequestObject, parsePlanRequest as parseHash, padDate, MAX_FLYS,
 } from './share-codec.js';
+import {
+  cloneSurfacePoint, isSurfacePointActive, normalizeSurfacePoint,
+} from '../physics/surface-point.js';
+import { refreshSurfacePointUi } from './surface-point-ui.js';
 
 export function parsePlanRequest(hash) { return parseHash(hash); }
 
@@ -51,6 +55,11 @@ export function encodePlanRequest(opts = {}) {
       return { id, date: padDate(simTimeToDate(f.simTime)) };
     });
   }
+  // Geographic sites from state or transferData
+  const os = td?.surfaceOriginPoint || state.routeOriginPoint;
+  const ds = td?.surfaceDestPoint || state.routeDestPoint;
+  if (isSurfacePointActive(os)) plan.originSite = cloneSurfacePoint(os, origin);
+  if (isSurfacePointActive(ds)) plan.destSite = cloneSurfacePoint(ds, dest);
   return encodePlanRequestObject(plan);
 }
 
@@ -102,6 +111,14 @@ export function applyPlanRequest(req) {
 
   setRouteOrigin(origin);
   setRouteDestination(dest);
+  // Apply geographic sites after body set (setRoute resets defaults)
+  if (req.originSite) {
+    state.routeOriginPoint = normalizeSurfacePoint(req.originSite, origin);
+  }
+  if (req.destSite) {
+    state.routeDestPoint = normalizeSurfacePoint(req.destSite, dest);
+  }
+  try { refreshSurfacePointUi(); } catch { /* */ }
 
   const depSim = dateToSimTime(req.depDate);
   timeState.simTime = depSim;
@@ -148,11 +165,18 @@ export function applyPlanRequest(req) {
     const h = hohmannTransfer(lastBody || origin, dest, lastFb.simTime);
     waypoints[waypoints.length - 1] = { body: dest, simTime: lastFb.simTime + h.transferTime };
 
-    state.transferData = solveMultiLegRoute(waypoints);
+    state.transferData = solveMultiLegRoute(waypoints, {
+      surfaceOriginPoint: state.routeOriginPoint,
+      surfaceDestPoint: state.routeDestPoint,
+    });
+    state.transferData.surfaceOriginPoint = cloneSurfacePoint(state.routeOriginPoint, origin);
+    state.transferData.surfaceDestPoint = cloneSurfacePoint(state.routeDestPoint, dest);
     state.showTransferOrbit = true;
     state.userTofDays = null;
   } else {
     state.transferData = hohmannTransfer(origin, dest, depSim);
+    state.transferData.surfaceOriginPoint = cloneSurfacePoint(state.routeOriginPoint, origin);
+    state.transferData.surfaceDestPoint = cloneSurfacePoint(state.routeDestPoint, dest);
     if (req.tofDays != null) {
       state.userTofDays = req.tofDays;
       state.transferData.transferTime = req.tofDays * DAY;
@@ -176,6 +200,8 @@ export function applyPlanRequest(req) {
           state.transferData.transferTime = best.transferTime;
           state.transferData.arrivalSimTime = best.arrivalSimTime;
           state.transferData.departureSimTime = best.departureSimTime;
+          state.transferData.surfaceOriginPoint = cloneSurfacePoint(state.routeOriginPoint, origin);
+          state.transferData.surfaceDestPoint = cloneSurfacePoint(state.routeDestPoint, dest);
           solveTransferOrbit(state.transferData);
           if (depInput) depInput.value = dateToInputValue(simTimeToDate(best.departureSimTime));
         }

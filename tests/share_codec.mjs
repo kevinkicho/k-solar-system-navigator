@@ -81,5 +81,29 @@ check('eph sample round-trip', backEph?.ephemerisBackend === 'sample-de');
 const bareEph = codec.parsePlanRequest('#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=abstract');
 check('omit eph => approx', bareEph?.ephemerisBackend === 'approx');
 
+// Geographic sites (PR-G1)
+const siteEnc = codec.encodeSiteParam({
+  enabled: true, lat_deg: 28.5, lon_deg: -80.6, alt_m: 200e3,
+});
+check('encode site compact', typeof siteEnc === 'string' && siteEnc.includes('28.5'));
+const siteDec = codec.parseSiteParam(siteEnc);
+check('parse site lat', siteDec && Math.abs(siteDec.lat_deg - 28.5) < 0.01);
+check('parse site alt', siteDec && Math.abs(siteDec.alt_m - 200e3) < 100);
+check('null site when disabled', codec.encodeSiteParam({ enabled: false, lat_deg: 0, lon_deg: 0, alt_m: 0 }) === null);
+
+const encSite = codec.encodePlanRequestObject({
+  o: 'earth', d: 'mars', dep: '2026-11-21', tof: 258,
+  veh: 'abstract', ab: 8000, basis: 'helio', view: 'cinematic',
+  originSite: { enabled: true, lat_deg: 28.5, lon_deg: -80.6, alt_m: 200e3 },
+  destSite: { enabled: true, lat_deg: 18.4, lon_deg: 77.5, alt_m: 100e3 },
+});
+check('hash includes os', encSite && encSite.includes('os='));
+check('hash includes ds', encSite && encSite.includes('ds='));
+const backSite = codec.parsePlanRequest(encSite);
+check('round-trip origin site', backSite?.originSite?.enabled
+  && Math.abs(backSite.originSite.lat_deg - 28.5) < 0.02);
+check('round-trip dest site', backSite?.destSite?.enabled
+  && Math.abs(backSite.destSite.lat_deg - 18.4) < 0.02);
+
 if (failed) { console.error(`\n${failed} failed`); process.exit(1); }
 console.log('\nAll share codec checks passed');

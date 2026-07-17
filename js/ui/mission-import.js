@@ -32,6 +32,8 @@ export function planJsonToRequest(obj) {
       archOmitted: (obj.veh === 'sh-starship' || !obj.veh) && obj.arch == null,
       tankerCount: obj.tankers != null ? Number(obj.tankers) : 0,
       falcon9Variant: obj.f9v === 'asds' ? 'asds' : 'expendable',
+      originSite: parseSiteObject(obj.originSite || obj.os),
+      destSite: parseSiteObject(obj.destSite || obj.ds),
     };
   }
 
@@ -83,6 +85,7 @@ export function planJsonToRequest(obj) {
   }
 
   const pr = obj.plan_request || {};
+  const geo = obj.geographic || {};
   return {
     originId: String(originId).toLowerCase(),
     destId: String(destId).toLowerCase(),
@@ -99,7 +102,49 @@ export function planJsonToRequest(obj) {
     archOmitted: pr.veh === 'sh-starship' && pr.arch == null,
     tankerCount: pr.tankers != null ? Number(pr.tankers) : 0,
     falcon9Variant: pr.f9v === 'asds' ? 'asds' : 'expendable',
+    originSite: parseSiteObject(pr.originSite)
+      || parseSiteFromGeo(geo.origin),
+    destSite: parseSiteObject(pr.destSite)
+      || parseSiteFromGeo(geo.destination),
   };
+}
+
+/** @param {object|string|null} s */
+function parseSiteObject(s) {
+  if (!s) return null;
+  if (typeof s === 'string') {
+    // lat,lon,alt_km compact
+    const parts = s.split(',');
+    if (parts.length < 3) return null;
+    const lat = parseFloat(parts[0]);
+    const lon = parseFloat(parts[1]);
+    const altKm = parseFloat(parts[2]);
+    if (!isFinite(lat) || !isFinite(lon) || !isFinite(altKm)) return null;
+    return { enabled: true, lat_deg: lat, lon_deg: lon, alt_m: altKm * 1000 };
+  }
+  if (typeof s === 'object' && (s.enabled || s.lat_deg != null)) {
+    const lat = Number(s.lat_deg);
+    const lon = Number(s.lon_deg);
+    const alt = Number(s.alt_m);
+    if (!isFinite(lat) || !isFinite(lon)) return null;
+    return {
+      enabled: s.enabled !== false,
+      lat_deg: lat,
+      lon_deg: lon,
+      alt_m: isFinite(alt) ? alt : 100e3,
+    };
+  }
+  return null;
+}
+
+function parseSiteFromGeo(g) {
+  if (!g || !g.active) return null;
+  return parseSiteObject({
+    enabled: true,
+    lat_deg: g.lat_deg,
+    lon_deg: g.lon_deg,
+    alt_m: g.alt_m,
+  });
 }
 
 function parseFbList(fb) {

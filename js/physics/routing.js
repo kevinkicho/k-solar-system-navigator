@@ -188,39 +188,33 @@ export function refreshVisualTransferGeometry(td) {
     solveTransferOrbit(td);
     return;
   }
-  const mu = G_CONST * SUN_DATA.mass;
-  const wps = td.waypoints || [];
-  for (let i = 0; i < (td.legs || []).length; i++) {
-    const L = td.legs[i];
-    if (!L || !L.ok) continue;
-    const a = wps[i], b = wps[i + 1];
-    if (!a?.body || !b?.body) continue;
-    const tof = L.tof;
-    const pAV = getBodyPosition3D(a.body, a.simTime, true);
-    const pBV = getBodyPosition3D(b.body, b.simTime, true);
-    L.dep3D = pAV;
-    L.arr3D = pBV;
-    const r1V = [pAV.x * AU, pAV.y * AU, pAV.z * AU];
-    const r2V = [pBV.x * AU, pBV.y * AU, pBV.z * AU];
-    const vA = getBodyVelocity3D(a.body, a.simTime, true);
-    const vB = getBodyVelocity3D(b.body, b.simTime, true);
-    const vis = tryBuildVisualOrbit(r1V, r2V, tof, mu, vA, vB, L.longWay);
-    L.orbit = vis.orbit;
-    L.visualFallback = vis.visualFallback;
+  // Re-solve visual with terminal geographic sites preserved
+  const rebuilt = solveMultiLegRoute(td.waypoints || [], {
+    ephemerisBackend: td.ephemerisBackend,
+    classroomMode: td.classroomMode,
+    surfaceOriginPoint: td.surfaceOriginPoint,
+    surfaceDestPoint: td.surfaceDestPoint,
+  });
+  if (rebuilt?.legs) {
+    td.legs = rebuilt.legs;
+    td.visualFallback = rebuilt.visualFallback;
+    td.surfaceOriginMeta = rebuilt.surfaceOriginMeta;
+    td.surfaceDestMeta = rebuilt.surfaceDestMeta;
   }
-  // Aggregate flag for UI
-  td.visualFallback = (td.legs || []).some((L) => L.ok && L.visualFallback === 'cosine')
-    ? 'cosine'
-    : null;
 }
 
 // waypoints: [{body, simTime}, …] with length ≥ 2. First is origin, last is
 // destination, everything in between is a flyby. Returns a structure similar
 // in spirit to single-leg transferData, plus per-leg orbits and per-flyby
 // feasibility info.
+// routeOpts.surfaceOriginPoint / surfaceDestPoint: geographic sites on
+// first/last terminals only (PR-G4); intermediate flybys stay body-center.
 export function solveMultiLegRoute(waypoints, routeOpts = {}) {
   const mu = G_CONST * SUN_DATA.mass;
   const pOpts = multiLegPlanOpts(waypoints, routeOpts);
+  const originPt = routeOpts.surfaceOriginPoint || null;
+  const destPt = routeOpts.surfaceDestPoint || null;
+  const nWp = waypoints.length;
   const legs = [];
   for (let i = 0; i < waypoints.length - 1; i++) {
     const a = waypoints[i], b = waypoints[i + 1];
@@ -228,16 +222,32 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
     if (tof <= 0) { legs.push({ ok: false, reason: 'non-positive TOF' }); continue; }
 
     // Multi-leg planning positions via provider; visual still Kepler exaggerated.
-    const pA = getPlanningPosition3D(a.body, a.simTime, pOpts);
-    const pB = getPlanningPosition3D(b.body, b.simTime, pOpts);
+    // Geographic offset only on terminal legs: depart from origin (i===0) and/or
+    // arrive at dest (i === n-2).
+    let pA = getPlanningPosition3D(a.body, a.simTime, pOpts);
+    let pB = getPlanningPosition3D(b.body, b.simTime, pOpts);
+    let vA = getPlanningVelocity3D(a.body, a.simTime, pOpts);
+    let vB = getPlanningVelocity3D(b.body, b.simTime, pOpts);
+    if (i === 0 && isSurfacePointActive(originPt)) {
+      const s = applySurfaceEndpoint(pA, vA, a.body, a.simTime, originPt);
+      pA = s.pos; vA = s.vel;
+    }
+    if (i === nWp - 2 && isSurfacePointActive(destPt)) {
+      const s = applySurfaceEndpoint(pB, vB, b.body, b.simTime, destPt);
+      pB = s.pos; vB = s.vel;
+    }
     const r1P = [pA.x*AU, pA.y*AU, pA.z*AU];
     const r2P = [pB.x*AU, pB.y*AU, pB.z*AU];
-    const vA = getPlanningVelocity3D(a.body, a.simTime, pOpts);
-    const vB = getPlanningVelocity3D(b.body, b.simTime, pOpts);
     const bestP = solveLambertBestBranch(r1P, r2P, tof, mu, vA, vB);
 
-    const pAV = getBodyPosition3D(a.body, a.simTime, true);
-    const pBV = getBodyPosition3D(b.body, b.simTime, true);
+    let pAV = getBodyPosition3D(a.body, a.simTime, true);
+    let pBV = getBodyPosition3D(b.body, b.simTime, true);
+    if (i === 0 && isSurfacePointActive(originPt)) {
+      pAV = applySurfaceEndpoint(pAV, [0, 0, 0], a.body, a.simTime, originPt).pos;
+    }
+    if (i === nWp - 2 && isSurfacePointActive(destPt)) {
+      pBV = applySurfaceEndpoint(pBV, [0, 0, 0], b.body, b.simTime, destPt).pos;
+    }
 
     let orbP = null, orbV = null, ok = false, v1 = null, v2 = null, visualFallback = null;
     if (bestP) {
@@ -245,8 +255,14 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
       v1 = bestP.sol.v1; v2 = bestP.sol.v2; ok = true;
       const r1V = [pAV.x*AU, pAV.y*AU, pAV.z*AU];
       const r2V = [pBV.x*AU, pBV.y*AU, pBV.z*AU];
-      const vAv = getBodyVelocity3D(a.body, a.simTime, true);
-      const vBv = getBodyVelocity3D(b.body, b.simTime, true);
+      let vAv = getBodyVelocity3D(a.body, a.simTime, true);
+      let vBv = getBodyVelocity3D(b.body, b.simTime, true);
+      if (i === 0 && isSurfacePointActive(originPt)) {
+        vAv = applySurfaceEndpoint(pAV, vAv, a.body, a.simTime, originPt).vel;
+      }
+      if (i === nWp - 2 && isSurfacePointActive(destPt)) {
+        vBv = applySurfaceEndpoint(pBV, vBv, b.body, b.simTime, destPt).vel;
+      }
       const vis = tryBuildVisualOrbit(r1V, r2V, tof, mu, vAv, vBv, bestP.longWay);
       orbV = vis.orbit;
       visualFallback = vis.visualFallback;
@@ -270,7 +286,15 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
   let dvTotal = 0;
   for (let i = 0; i < waypoints.length; i++) {
     const wp = waypoints[i];
-    const vPlanet = getPlanningVelocity3D(wp.body, wp.simTime, pOpts);
+    let vPlanet = getPlanningVelocity3D(wp.body, wp.simTime, pOpts);
+    // Terminal Δv vs surface-inertial velocity when geographic site active
+    if (i === 0 && isSurfacePointActive(originPt)) {
+      const p0 = getPlanningPosition3D(wp.body, wp.simTime, pOpts);
+      vPlanet = applySurfaceEndpoint(p0, vPlanet, wp.body, wp.simTime, originPt).vel;
+    } else if (i === waypoints.length - 1 && isSurfacePointActive(destPt)) {
+      const p0 = getPlanningPosition3D(wp.body, wp.simTime, pOpts);
+      vPlanet = applySurfaceEndpoint(p0, vPlanet, wp.body, wp.simTime, destPt).vel;
+    }
     if (i === 0) {
       const L = legs[0];
       if (L && L.ok) {
@@ -298,18 +322,24 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
     }
   }
 
+  const body1 = waypoints[0].body;
+  const body2 = waypoints[waypoints.length - 1].body;
   return {
     isMultiLeg: true,
     waypoints,
     legs, maneuvers, flybys,
     dvTotalMultiLeg: dvTotal,
-    body1: waypoints[0].body,
-    body2: waypoints[waypoints.length - 1].body,
+    body1,
+    body2,
     departureSimTime: waypoints[0].simTime,
     arrivalSimTime:   waypoints[waypoints.length - 1].simTime,
     transferTime:     waypoints[waypoints.length - 1].simTime - waypoints[0].simTime,
     allLegsOk: legs.every(l => l.ok),
     visualFallback: legs.some((l) => l.ok && l.visualFallback === 'cosine') ? 'cosine' : null,
+    surfaceOriginPoint: originPt,
+    surfaceDestPoint: destPt,
+    surfaceOriginMeta: surfacePointMeta(body1, originPt),
+    surfaceDestMeta: surfacePointMeta(body2, destPt),
   };
 }
 

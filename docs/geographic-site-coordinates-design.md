@@ -5,7 +5,7 @@
 | **Document title** | Geographic Site Coordinates & Body-Fixed Endpoints |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | **Implemented on `main`** (`176e370` surface points · `7cae589` gas/ice giants · `b7fb899` geographic branding & dossier stamp) |
+| **Status** | **Implemented on `main`** (v1 sites · gas/ice 1-bar · geographic branding · **PR-G1 share/import · PR-G4 multi-leg terminals · IAU-class spin table**) |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
 | **Branch policy** | **`main` only** — sequential green commits |
 | **Baseline** | Trip planner + dual Lambert visual/physics, Need/Capability/Margin, Plan Dossier, body picker / dossier modal, concept-grade vehicle stack |
@@ -491,16 +491,19 @@ Trust Card / About should continue to list body-fixed sites as concept-grade whe
 
 ## Implementation status (as-built on `main`)
 
-| Capability | Status | Primary commits |
+| Capability | Status | Notes |
 |---|---|---|
-| Surface point physics + Lambert offset | Done | `176e370` |
-| Gas/ice 1-bar defaults + parking | Done | `7cae589` |
-| Geographic branding, badge, *r* readout | Done | `b7fb899` |
-| System III labels | Done | `b7fb899` |
-| Dossier `coordinate_system` + packages | Done | `b7fb899` |
-| Share hash site tokens | Not done | — |
-| Oblate / full IAU W | Not done | — |
-| Multi-leg terminal sites | Not done | — |
+| Surface point physics + Lambert offset | Done | `surface-point.js` + `routing.js` |
+| Gas/ice 1-bar defaults + parking | Done | Auto-enable + high *h* |
+| Geographic branding, badge, *r* readout | Done | Plan rail UI |
+| System III labels | Done | Fluid giants |
+| Dossier `coordinate_system` + packages | Done | `plan-dossier.js` |
+| Share hash `os` / `ds` site tokens | **Done** | `share-codec.js` · PR-G1 |
+| Mission JSON export/import sites | **Done** | `mission-export.js` / `mission-import.js` |
+| Multi-leg first/last geographic sites | **Done** | `solveMultiLegRoute` · PR-G4 |
+| IAU-class mean spin table | **Done** | `IAU_CLASS_SPIN` (not full WGCCRE poly) |
+| Oblate planetographic | Not done | Residual PR-G2 |
+| Full IAU \(W(t)\) polynomials | Not done | Residual PR-G3 polish |
 
 ---
 

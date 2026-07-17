@@ -14,6 +14,10 @@ import { propagateOrbit } from '../physics/helio.js';
 import { v3dot, v3sub } from '../physics/vec3.js';
 import { computeMissionBudget } from '../physics/mission-budget.js';
 import { requiredDeltaV, transferBudgetNow, computeNeedNow } from './mission-budget-ui.js';
+import {
+  COORD_SYSTEM_ID, cloneSurfacePoint, isSurfacePointActive,
+  geographicEndpointPackage,
+} from '../physics/surface-point.js';
 
 export function exportMissionPlan(td) {
   const plan = buildPlanObject(td);
@@ -103,6 +107,17 @@ export function buildPlanObject(td) {
       tankers: state.starshipArch === 'tanker-n' ? (state.tankerCount || 0) : undefined,
       f9v: state.vehicleId === 'falcon9' ? (state.falcon9Variant || 'expendable') : undefined,
       eph: (state.ephemerisBackend === 'sample-de' && !state.classroomMode) ? 'sample' : undefined,
+      originSite: isSurfacePointActive(td.surfaceOriginPoint || state.routeOriginPoint)
+        ? cloneSurfacePoint(td.surfaceOriginPoint || state.routeOriginPoint, td.body1)
+        : undefined,
+      destSite: isSurfacePointActive(td.surfaceDestPoint || state.routeDestPoint)
+        ? cloneSurfacePoint(td.surfaceDestPoint || state.routeDestPoint, td.body2)
+        : undefined,
+    },
+    geographic: {
+      coordinate_system: COORD_SYSTEM_ID,
+      origin: geographicEndpointPackage(td.body1, td.surfaceOriginPoint || state.routeOriginPoint),
+      destination: geographicEndpointPackage(td.body2, td.surfaceDestPoint || state.routeDestPoint),
     },
     measurement: {
       need,
