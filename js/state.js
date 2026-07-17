@@ -6,8 +6,10 @@ export const state = {
   /** Optional planetocentric surface endpoints { enabled, lat_deg, lon_deg, alt_m }. */
   routeOriginPoint: null,
   routeDestPoint: null,
-  // flybys: [{ bodyId, bodyName?, simTime }]
+  // flybys: [{ bodyId, bodyName?, simTime, surfacePoint? }]
   flybys: [],
+  /** Multi-leg window density: 'coarse' (default) | 'thorough' (denser local seed, not global opt). */
+  multiLegSearchMode: 'coarse',
   transferData: null,
   showTransferOrbit: false,
   followMode: false,

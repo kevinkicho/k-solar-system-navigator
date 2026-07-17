@@ -1077,6 +1077,14 @@ input[type="range"]::-webkit-slider-thumb {
             </select>
           </div>
           <div class="route-field-row">
+            <label>Multi-leg window density</label>
+            <select id="ml-search-mode" title="Local seed density only — not a global mission optimizer">
+              <option value="coarse">Coarse local seed (default · faster)</option>
+              <option value="thorough">Thorough local seed (denser · slower)</option>
+            </select>
+            <p class="surface-hint" style="margin-top:4px">Still a local seed, not global multi-leg optimization.</p>
+          </div>
+          <div class="route-field-row">
             <label>Import / recent</label>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               <button class="btn-tiny" id="btn-import-plan" title="Import HELIOS mission JSON (v1/v2)">Import JSON</button>
@@ -1249,17 +1257,30 @@ input[type="range"]::-webkit-slider-thumb {
       <tr><td><span class="pill">L1</span> default</td><td>Offline JPL Approximate Positions for planning geometry. No network. Nominal error classes (λ, φ, ρ) from the JPL SSD table are shown on the Measurement Card — not formal covariances.</td></tr>
       <tr><td><span class="pill amber">L2-compare</span></td><td>After an explicit Horizons VECTOR compare only. Records that a Δr check was run; <strong>planning still uses L1 geometry</strong>. Not SPICE.</td></tr>
       <tr><td><span class="pill" style="color:var(--green);border-color:rgba(0,230,118,0.4)">L2-plan</span></td><td>Optional offline sample-table endpoints for Lambert Need (educational DE-class samples when enabled). Animation still uses Approximate Positions. Not SPICE navigation.</td></tr>
-      <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">L3</span> out of scope</td><td>SPICE kernels / covariance / navigation solutions — <strong>never a planning mode</strong> in HELIOS.</td></tr>
+      <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">L3</span> not a mode</td><td>SPICE kernels / formal covariance / navigation solutions are <strong>not a planning mode</strong>. Educational path toward DE-class checks: L2-plan samples + optional Horizons compare. No <code>.bsp</code> kernels shipped.</td></tr>
     </table>
     <p>JPL Approximate Positions accuracy table: <a href="https://ssd.jpl.nasa.gov/planets/approx_pos.html" target="_blank" style="color:var(--cyan)">ssd.jpl.nasa.gov/planets/approx_pos.html</a>. Export records <code>measurement.fidelity</code> and <code>methodology.ephemeris_backend</code>.</p>
 
-    <h3>Launch geometry (educational stub)</h3>
-    <p>Full site latitude / departure asymptote declination (DLA) integration is <strong>not</strong> modeled yet. Parking-orbit Need uses a simplified circular low orbit. Future work may add educational DLA vs launch-site sketches — not flight-design launch windows.</p>
+    <h3>Geographic sites (body-fixed endpoints)</h3>
+    <p>Origin, destination, and optional <strong>flyby</strong> waypoints may use a <strong>geographic site</strong>: planetocentric latitude / east longitude / altitude above a reference surface. Coordinate system id: <code>planetocentric+eastlon+h_above_ref</code>.</p>
+    <table>
+      <tr><td>Rocky bodies</td><td>Mean or oblate ellipsoid radius; dual planetographic lat readout; optional planetographic input mode</td></tr>
+      <tr><td>Gas / ice giants</td><td><strong>1-bar / cloud-deck</strong> reference (no solid surface); high default parking altitude; System III–class longitude label</td></tr>
+      <tr><td>Orientation</td><td>IAU-class <code>W(t)=W₀+Ẇd</code> (+ leading Moon/Mercury libration); ICRF pole α₀/δ₀ → ecliptic — concept-grade, not SPICE PCK</td></tr>
+      <tr><td>Share / export</td><td>Sites in hash <code>os</code>/<code>ds</code> and mission JSON; multi-leg terminals and flyby geo sites when enabled</td></tr>
+    </table>
+
+    <h3>Launch geometry (educational)</h3>
+    <p>Educational launch-site latitude bands (Cape / Vandenberg / Kourou class) gate asymptote |DLA| honesty. Parking-orbit Need uses circular parking at site altitude or body-kind default. <strong>Not range safety, not launch-window products, not flight design.</strong></p>
+
+    <h3>Multi-leg window search</h3>
+    <p>Nearest-feasible and multi-leg window searches are <strong>local coarse or thorough seeds</strong> (workerized), not global mission optimization. Prefer denser “thorough” mode in Plan → Advanced when exploring multi-leg routes.</p>
 
     <h3>Known limitations</h3>
-    <p>· 2-body Kepler propagation (no Jupiter/Saturn perturbations on the transfer orbit). Lambert solutions close to &lt;2 km in 2-body; under full N-body the actual miss could be tens of km. A Lambert+N-body shooter is the next planned upgrade.</p>
-    <p>· Single-revolution Lambert. Type-II (long-period) and multi-revolution solutions are in scope as a future enhancement.</p>
+    <p>· 2-body Kepler propagation (no Jupiter/Saturn perturbations on the transfer orbit). Lambert solutions close to &lt;2 km in 2-body; under full N-body the actual miss could be tens of km.</p>
+    <p>· Single-revolution Lambert. Type-II multi-revolution solutions are not yet a product mode.</p>
     <p>· Visual inclinations are exaggerated 8× for legibility. <strong>All physics computations use real inclinations.</strong></p>
+    <p>· Geographic body-fixed frames are concept-grade (IAU-class tables), not full SPICE kernels or survey geodesy.</p>
 
     <h3>Optional Horizons comparison (educational)</h3>
     <p><strong>Not SPICE. Not flight ops. Not required for planning.</strong> Trip planning always uses the offline JPL Approximate Positions model above. This stretch feature can optionally fetch a public NASA/JPL Horizons VECTOR table over the network and report distance error vs the approximate ephemeris for a selected major planet — for classroom curiosity only. No <code>.bsp</code> kernels, no covariance, no navigation solutions.</p>

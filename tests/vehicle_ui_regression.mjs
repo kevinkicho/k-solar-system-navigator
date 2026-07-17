@@ -38,8 +38,8 @@ check('Horizons re-renders route on L2-compare', rrAfterL2);
 check('approx error module exists', existsSync(resolve(ROOT, 'js/data/approx-ephemeris-errors.js')));
 check('ephemeris provider exists', existsSync(resolve(ROOT, 'js/physics/ephemeris-provider.js')));
 check('sample asset exists', existsSync(resolve(ROOT, 'assets/ephemeris-samples-v1.json')));
-check('About documents L1/L2/L3', /Ephemeris fidelity badges/.test(indexHtml) && /L3/.test(indexHtml) && /never a planning mode/i.test(indexHtml));
-check('About: L3 out of scope', /out of scope|never a planning mode/i.test(indexHtml));
+check('About documents L1/L2/L3', /Ephemeris fidelity badges/.test(indexHtml) && /L3/.test(indexHtml) && /not a planning mode|never a planning mode/i.test(indexHtml));
+check('About: L3 not a mode', /not a planning mode|out of scope|never a planning mode/i.test(indexHtml));
 
 // PR15+ porkchop cargo readout + heatmap
 check('pc-cargo element in HTML', /id=["']pc-cargo["']/.test(indexHtml));

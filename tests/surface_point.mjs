@@ -214,6 +214,21 @@ check('multi-leg solves with terminal sites', !!ml && ml.legs?.length === 2);
 check('multi-leg origin meta', !!ml.surfaceOriginMeta?.label);
 check('multi-leg dest meta', !!ml.surfaceDestMeta?.label);
 
+// Intermediate flyby geographic site
+const mlFly = solveMultiLegRoute(
+  [
+    { body: earth, simTime: departureSimTime },
+    {
+      body: venus, simTime: mid,
+      surfacePoint: normalizeSurfacePoint({ enabled: true, lat_deg: 10, lon_deg: -20, alt_m: 300e3 }, venus),
+    },
+    { body: mars, simTime: arr },
+  ],
+  { surfaceOriginPoint: pt },
+);
+check('multi-leg with flyby geo site', !!mlFly?.allLegsOk || (mlFly?.legs?.length === 2));
+check('flyby leg marks geoSite', mlFly?.legs?.[0]?.geoSiteTo === true || mlFly?.legs?.[1]?.geoSiteFrom === true);
+
 // ICRF pole α0/δ0
 const earthPole = poleRaDec_deg(earth, 0);
 check('Earth pole δ0 near 90', Math.abs(earthPole.delta0_deg - 90) < 1);

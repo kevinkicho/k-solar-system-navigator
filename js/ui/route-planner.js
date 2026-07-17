@@ -19,7 +19,7 @@ import { syncShareHash } from './share-sync.js';
 import { buildPlanDossier } from './plan-dossier.js';
 import {
   emptySurfacePoint, cloneSurfacePoint, isSurfacePointActive,
-  defaultSurfacePointForBody, formatSurfacePointShort,
+  defaultSurfacePointForBody, formatSurfacePointShort, normalizeSurfacePoint,
 } from '../physics/surface-point.js';
 import { refreshSurfacePointUi, syncSurfaceSlotLabels } from './surface-point-ui.js';
 
@@ -185,15 +185,28 @@ export function renderFlybyList() {
   if (state.flybys.length === 0) { list.innerHTML = ''; return; }
   const options = listFlybyEligible()
     .map(b => `<option value="${b.id}">${b.name}</option>`).join('');
-  list.innerHTML = state.flybys.map((f, i) => `
+  list.innerHTML = state.flybys.map((f, i) => {
+    const sp = f.surfacePoint;
+    const geoOn = !!(sp && sp.enabled);
+    return `
     <div class="flyby-row" data-index="${i}">
       <select class="flyby-body">${options}</select>
       <input type="datetime-local" class="flyby-date" step="1">
+      <button type="button" class="btn-tiny flyby-geo-btn ${geoOn ? 'active' : ''}" title="Optional geographic site at flyby (lat/lon/alt)">GEO</button>
       <button class="flyby-remove" title="Remove flyby">&times;</button>
     </div>
-  `).join('');
+    <div class="flyby-geo-fields" data-index="${i}" ${geoOn ? '' : 'hidden'}>
+      <label class="surface-check"><input type="checkbox" class="flyby-geo-en" ${geoOn ? 'checked' : ''}> Geographic site at flyby</label>
+      <div class="surface-ll-row">
+        <div class="route-field-row"><label>Lat °N</label><input type="number" class="flyby-lat" step="0.1" value="${sp?.lat_deg ?? 0}"></div>
+        <div class="route-field-row"><label>Lon °E</label><input type="number" class="flyby-lon" step="0.1" value="${sp?.lon_deg ?? 0}"></div>
+      </div>
+      <div class="route-field-row"><label>Alt km</label><input type="number" class="flyby-alt" step="10" value="${((sp?.alt_m ?? 100e3) / 1000)}"></div>
+    </div>`;
+  }).join('');
   state.flybys.forEach((f, i) => {
     const row = list.querySelector(`.flyby-row[data-index="${i}"]`);
+    const geoFields = list.querySelector(`.flyby-geo-fields[data-index="${i}"]`);
     const body = resolveFlybyBody(f);
     const sel = row.querySelector('.flyby-body');
     if (body) sel.value = body.id;
@@ -215,6 +228,33 @@ export function renderFlybyList() {
       state.flybys.splice(i, 1);
       renderFlybyList();
     });
+    const geoBtn = row.querySelector('.flyby-geo-btn');
+    geoBtn?.addEventListener('click', () => {
+      if (geoFields) geoFields.hidden = !geoFields.hidden;
+      if (!geoFields?.hidden && !state.flybys[i].surfacePoint) {
+        state.flybys[i].surfacePoint = emptySurfacePoint(resolveFlybyBody(state.flybys[i]));
+        const en = geoFields.querySelector('.flyby-geo-en');
+        if (en) en.checked = false;
+      }
+    });
+    const syncGeo = () => {
+      const en = geoFields?.querySelector('.flyby-geo-en');
+      const lat = geoFields?.querySelector('.flyby-lat');
+      const lon = geoFields?.querySelector('.flyby-lon');
+      const alt = geoFields?.querySelector('.flyby-alt');
+      if (!en) return;
+      state.flybys[i].surfacePoint = normalizeSurfacePoint({
+        enabled: en.checked,
+        lat_deg: parseFloat(lat?.value) || 0,
+        lon_deg: parseFloat(lon?.value) || 0,
+        alt_m: (parseFloat(alt?.value) || 100) * 1000,
+      }, resolveFlybyBody(state.flybys[i]));
+      geoBtn?.classList.toggle('active', en.checked);
+    };
+    geoFields?.querySelector('.flyby-geo-en')?.addEventListener('change', syncGeo);
+    geoFields?.querySelector('.flyby-lat')?.addEventListener('change', syncGeo);
+    geoFields?.querySelector('.flyby-lon')?.addEventListener('change', syncGeo);
+    geoFields?.querySelector('.flyby-alt')?.addEventListener('change', syncGeo);
   });
 }
 
@@ -254,12 +294,13 @@ export function snapFlybyDates() {
 
   const evalCost = (times) => {
     const wps = [
-      { body: state.routeOrigin, simTime: depSim },
+      { body: state.routeOrigin, simTime: depSim, surfacePoint: state.routeOriginPoint },
       ...state.flybys.map((f, i) => ({
         body: resolveFlybyBody(f),
         simTime: times[i],
+        surfacePoint: f.surfacePoint || null,
       })),
-      { body: state.routeDestination, simTime: 0 },
+      { body: state.routeDestination, simTime: 0, surfacePoint: state.routeDestPoint },
     ];
     if (wps.some(w => !w.body)) return Infinity;
     const lastF = wps[wps.length - 2];
@@ -347,12 +388,13 @@ export function computeRoute() {
     }
 
     let waypoints = [
-      { body: state.routeOrigin, simTime: departureSimTime },
+      { body: state.routeOrigin, simTime: departureSimTime, surfacePoint: state.routeOriginPoint },
       ...state.flybys.map(f => ({
         body: resolveFlybyBody(f),
         simTime: f.simTime,
+        surfacePoint: f.surfacePoint || null,
       })),
-      { body: state.routeDestination, simTime: 0 },
+      { body: state.routeDestination, simTime: 0, surfacePoint: state.routeDestPoint },
     ];
     if (waypoints.some(w => !w.body)) {
       notify('INVALID FLYBY BODY'); return;
@@ -365,6 +407,8 @@ export function computeRoute() {
       ...routePlanOpts(),
       surfaceOriginPoint: state.routeOriginPoint,
       surfaceDestPoint: state.routeDestPoint,
+      multiLegSearchMode: state.multiLegSearchMode || 'coarse',
+      thorough: state.multiLegSearchMode === 'thorough',
     };
     const originBody = state.routeOrigin;
     const destBody = state.routeDestination;

@@ -8,6 +8,9 @@ import { SUN_DATA } from '../data/bodies.js';
 
 export const ML_N_DEP = 36;
 export const ML_N_FB = 20;
+/** Thorough local seed (still not global optimum). */
+export const ML_N_DEP_THOROUGH = 72;
+export const ML_N_FB_THOROUGH = 36;
 
 /** @type {((waypoints: object[], routeOpts?: object) => object) | null} */
 let _solveMultiLegRoute = null;
@@ -73,8 +76,9 @@ export function findMultiLegWindow(origin, dest, flybyHints, depHint, routeOpts 
   if (!flybyHints || flybyHints.length === 0) return null;
   if (!origin || !dest || !isFinite(depHint)) return null;
 
-  const N_DEP = opts.nDep || ML_N_DEP;
-  const N_FB = opts.nFb || ML_N_FB;
+  const thorough = !!(opts.thorough || routeOpts.thorough || routeOpts.multiLegSearchMode === 'thorough');
+  const N_DEP = opts.nDep || (thorough ? ML_N_DEP_THOROUGH : ML_N_DEP);
+  const N_FB = opts.nFb || (thorough ? ML_N_FB_THOROUGH : ML_N_FB);
   const lookForward = 6 * 365.25 * DAY;
   const lookBack = 90 * DAY;
   let best = null;
@@ -111,8 +115,9 @@ export async function findMultiLegWindowChunked(
   if (!flybyHints || flybyHints.length === 0) return null;
   if (!origin || !dest || !isFinite(depHint)) return null;
 
-  const N_DEP = opts.nDep || ML_N_DEP;
-  const N_FB = opts.nFb || ML_N_FB;
+  const thorough = !!(opts.thorough || routeOpts.thorough || routeOpts.multiLegSearchMode === 'thorough');
+  const N_DEP = opts.nDep || (thorough ? ML_N_DEP_THOROUGH : ML_N_DEP);
+  const N_FB = opts.nFb || (thorough ? ML_N_FB_THOROUGH : ML_N_FB);
   const lookForward = 6 * 365.25 * DAY;
   const lookBack = 90 * DAY;
   let best = null;

@@ -297,6 +297,15 @@
 .surface-hint {
   font-size: 9px; color: var(--text-dim); line-height: 1.35; margin-top: 4px;
 }
+.flyby-geo-btn.active {
+  color: var(--cyan); border-color: var(--cyan);
+}
+.flyby-geo-fields {
+  margin: 0 0 8px; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: 3px;
+  background: rgba(0,0,0,0.2);
+}
+.flyby-geo-fields[hidden] { display: none !important; }
 .geo-cs-badge {
   display: inline-block; margin-bottom: 6px;
   font-family: var(--font-display); font-size: 7px; font-weight: 700;

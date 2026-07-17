@@ -33,19 +33,27 @@ HELIOS on `main` is a **concept-grade educational** interplanetary trip planner 
 
 ## Remaining items (honest backlog)
 
-These are **intentionally out of product scope** or large future upgrades—not unfinished v1 work:
+**v1 product residuals: none.** Polish landed (About, Trust Card, flyby GEO sites, thorough multi-leg seed).
 
-| Item | Why deferred |
+### Concept-grade incorporation of former non-goals
+
+| Former non-goal | How HELIOS incorporates it (honestly) |
 |---|---|
-| Full SPICE / DE kernels / OD covariance | Fidelity L3; ops-scale assets |
-| Complete lunar *W(t)* series (100+ terms) | Concept-grade keeps leading Archinal-class terms |
-| Oblate planetographic as sole global default | Planetocentric remains math primary |
-| Intermediate multi-leg flyby geographic sites | Terminals only by design |
-| Global multi-leg optimal search | Coarse local seed only; labeled honest |
-| Flight-certified vehicle / range-safety products | Concept-grade vow |
-| TypeScript / big rewrite | Evolutionary vanilla ESM by policy |
+| SPICE / DE / OD (L3) | **Not a mode.** Path: L2-plan samples + Horizons L2-compare; Trust Card “L3 path” note |
+| Full lunar *W(t)* | Leading Archinal-class libration (Moon/Mercury) — not 100+ terms |
+| Planetographic default | Optional **input mode** on oblate bodies; math stays planetocentric |
+| Intermediate flyby sites | **Done** — GEO toggle per flyby row |
+| Global multi-leg optimum | **Thorough local seed** (denser grid) still not global opt; labeled in UI/About |
+| Flight-certified vehicles / range safety | Illustrative vehicles + edu DLA site bands — never certified / never range safety |
+| TypeScript rewrite | Still non-goal (vanilla ESM) |
 
-Small polish (optional, not blocking): About modal may still under-mention geographic sites; trust-card copy can cite CS id; dual screenshots could be refreshed.
+### Still true ops out-of-scope
+
+| Item | Why |
+|---|---|
+| Ship SPICE `.bsp` / formal covariance | Ops-scale; fidelity L3 |
+| Range-safety products | Not flight ops |
+| Global multi-leg optimal design | Research-grade; not a browser product mode |
 
 ## Reading order for newcomers
 

@@ -252,6 +252,16 @@ export function wireControls() {
     state.costBasis = basisSel.value;
     rerenderIfRoute();
   };
+  const mlMode = document.getElementById('ml-search-mode');
+  if (mlMode) {
+    mlMode.value = state.multiLegSearchMode || 'coarse';
+    mlMode.onchange = () => {
+      state.multiLegSearchMode = mlMode.value === 'thorough' ? 'thorough' : 'coarse';
+      notify(state.multiLegSearchMode === 'thorough'
+        ? 'MULTI-LEG SEARCH: THOROUGH LOCAL SEED (not global opt)'
+        : 'MULTI-LEG SEARCH: COARSE LOCAL SEED');
+    };
+  }
   if (dispSel) dispSel.onchange = () => {
     setDisplayMode(dispSel.value);
     // Rebuild planet orbit lines with new inclination scale
