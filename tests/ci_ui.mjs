@@ -44,11 +44,22 @@ page.on('console', (msg) => {
 try {
   section('1. BOOT');
   await page.goto(appUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  // Playwright signature: waitForFunction(fn, arg, options) — pass null arg so timeout is honored.
   await page.waitForFunction(
-    () => window.__HELIOS?.scene && window.__HELIOS?.bodyPositions?.size >= 8,
-    { timeout: 45000 },
+    () => {
+      const h = window.__HELIOS;
+      if (!h) return false;
+      const n = h.bodyPositions?.size ?? h.state?.bodyPositions?.size ?? 0;
+      return !!(h.scene || h.state) && n >= 8;
+    },
+    null,
+    { timeout: 60000 },
   );
+  if (errors.length) {
+    console.log('  page errors during boot:', errors.slice(0, 5).join(' | '));
+  }
   check('__HELIOS hook + 8 planets', true);
+  check('no boot page errors', errors.length === 0, errors.slice(0, 3).join('; '));
 
   const canvas = await page.locator('#renderer-container canvas').count();
   check('WebGL canvas present', canvas >= 1);

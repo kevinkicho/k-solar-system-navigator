@@ -122,9 +122,7 @@ export function applyPlanRequest(req) {
   }
   renderFlybyList();
 
-  // Sync vehicle UI if present
-  const vehSel = document.getElementById('vehicle-select');
-  if (vehSel) vehSel.value = state.vehicleId;
+  // Sync remaining vehicle UI (vehSel/cargo/arch already set above)
   const basisSel = document.getElementById('cost-basis-select');
   if (basisSel) {
     basisSel.value = state.costBasis;
