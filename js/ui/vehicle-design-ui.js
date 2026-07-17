@@ -95,6 +95,9 @@ export function vehicleDesignReportHtml(design) {
 
   const gap = cmp?.gap_vs_unrefueled_m_s;
   const gapCls = gap != null && gap > 0 ? 'red-val' : 'green';
+  const vs = rec?.vs_sh_starship;
+  const mt = vs?.multiples_text || {};
+  const vsLines = (vs?.lines || []).map((l) => `<li>${l}</li>`).join('');
 
   return `
     <div class="vd-report" id="vehicle-design-report">
@@ -114,6 +117,21 @@ export function vehicleDesignReportHtml(design) {
         <div class="info-row"><span class="key">SH legacy (demo) cap</span><span class="val">${formatVelocity(cmp.superHeavy_legacy_dv_m_s)}</span></div>
         <div class="info-row"><span class="key">Tankers to close Need</span><span class="val">${cmp.tankers_needed_for_need != null ? cmp.tankers_needed_for_need : 'impossible @ cargo'}</span></div>
       ` : ''}
+
+      <div class="result-subtitle" style="margin-top:10px">VS SUPER HEAVY + STARSHIP (× MULTIPLES)</div>
+      <p class="vd-cap">Order-of-magnitude vs HELIOS SH+SS stack (wet ~full tanks). Thrust assumes same liftoff T/W as Super Heavy on the paper wet mass.</p>
+      ${vs?.ok ? `
+        <div class="vd-multiples">
+          <div class="vd-mul"><span class="vd-mul-x">${mt.propellant_mass || '—'}</span><span class="vd-mul-l">fuel load</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${mt.tank_volume || '—'}</span><span class="vd-mul-l">tank volume</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${mt.linear_tank_scale || '—'}</span><span class="vd-mul-l">tank linear size</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${mt.wet_mass || '—'}</span><span class="vd-mul-l">wet mass</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${mt.linear_wet_mass_scale || '—'}</span><span class="vd-mul-l">overall linear size</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${mt.thrust_same_twr || '—'}</span><span class="vd-mul-l">thrust vs SH liftoff</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${mt.dry_mass || '—'}</span><span class="vd-mul-l">dry structure</span></div>
+        </div>
+        <ul class="vd-sketch vd-vs-lines">${vsLines}</ul>
+      ` : '<p class="vd-cap">Multiples unavailable (incomplete mass solve).</p>'}
 
       <div class="result-subtitle" style="margin-top:10px">RECOMMENDED PAPER SKETCH</div>
       ${prop ? `<div class="info-row"><span class="key">Propulsion</span><span class="val" style="color:${prop.color}">${prop.name} · Isp ${prop.isp} s</span></div>` : ''}
@@ -192,8 +210,16 @@ export function applyAbstractBudgetFromDesign(design) {
   const arch = document.getElementById('starship-arch');
   if (arch) arch.disabled = true;
 
+  // Persist last design multiples for notify / re-open lab
+  state.lastVehicleDesign = design;
+
+  const mt = design?.recommendation?.vs_sh_starship?.multiples_text;
+  const feel = mt
+    ? ` · ~${mt.propellant_mass} fuel · ~${mt.tank_volume} tanks · ~${mt.thrust_same_twr} SH thrust (paper)`
+    : '';
+
   refreshPlanUi().then(() => {
-    notify(`ABSTRACT BUDGET SET TO ${(state.abstractBudget_m_s / 1000).toFixed(1)} KM/S · GATES REFRESHED`);
+    notify(`ABSTRACT ${(state.abstractBudget_m_s / 1000).toFixed(1)} KM/S${feel}`);
   });
   return true;
 }
@@ -223,8 +249,13 @@ export function applyTankerDesign(design) {
     tank.disabled = false;
     tank.value = String(n);
   }
+  state.lastVehicleDesign = design;
+  const tmt = design?.recommendation?.tanker_fleet_vs_sh_starship?.multiples_text;
+  const feel = tmt
+    ? ` · fleet ~${tmt.propellant_mass} fuel · ~${tmt.tank_volume} tanks vs SH+SS`
+    : '';
   refreshPlanUi().then(() => {
-    notify(`STARSHIP TANKER-N · N=${n} · GATES REFRESHED`);
+    notify(`STARSHIP TANKER-N · N=${n}${feel}`);
   });
   return true;
 }

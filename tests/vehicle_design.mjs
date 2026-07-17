@@ -35,6 +35,18 @@ check('has paper sketch lines', design.recommendation?.paper_sketch?.length >= 3
 check('abstract budget ≥ need', design.recommendation?.abstract_budget_m_s >= 22180);
 check('comparison gap positive', design.comparison?.gap_vs_unrefueled_m_s > 0);
 
+// SH+SS multiples
+const base = vd.shStarshipBaseline();
+check('baseline wet > 4000 t', base.wetMass_kg > 4e6);
+check('formatTimes 2.25', vd.formatTimes(2.25) === '2.25×');
+const vs = design.recommendation?.vs_sh_starship;
+check('vs SH+SS ok', vs?.ok === true);
+check('has fuel multiple text', !!vs?.multiples_text?.propellant_mass);
+check('has thrust multiple text', !!vs?.multiples_text?.thrust_same_twr);
+check('has tank volume multiple', !!vs?.multiples_text?.tank_volume);
+check('comparison lines mention Super Heavy', (vs?.lines || []).some((l) => /Super Heavy/i.test(l)));
+check('paper sketch includes multiples section', (design.recommendation?.paper_sketch || []).some((l) => /multiples|Super Heavy/i.test(l)));
+
 // Higher Isp needs less prop
 const mp330 = vd.propellantForNeed(10000, 330, 120000, 0);
 const mp450 = vd.propellantForNeed(10000, 450, 120000, 0);
