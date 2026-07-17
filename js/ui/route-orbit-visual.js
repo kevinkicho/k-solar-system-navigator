@@ -16,18 +16,97 @@ import {
 
 function propVis(orb, dt) {
   if (!orb) return null;
-  if (orb.hyperbolic) return propagateHelioOrbit(orb, dt);
-  return propagateOrbit(orb, dt);
+  try {
+    if (orb.hyperbolic) return propagateHelioOrbit(orb, dt);
+    return propagateOrbit(orb, dt);
+  } catch {
+    return null;
+  }
 }
 
 /** Orbit sample → heliocentric AU (handles parent-frame planet-relative arcs). */
 function orbitSampleHelioAU(td, orb, dt, depT) {
   const pos_m = propVis(orb, dt);
-  if (!pos_m) return null;
+  if (!pos_m || !isFinite(pos_m[0]) || !isFinite(pos_m[1]) || !isFinite(pos_m[2])) {
+    return null;
+  }
   if (td.planetRelative && td.centralBody) {
     return parentFrameToHelioAU(pos_m, td.centralBody, depT + dt, true);
   }
   return { x: pos_m[0] / AU, y: pos_m[1] / AU, z: pos_m[2] / AU };
+}
+
+/**
+ * Build a continuous Kepler polyline. Rejects orbits that produce multi-AU
+ * jumps between samples (high-e visual-branch numerical blowups).
+ * @returns {{ points: THREE.Vector3[], orbitUsed: object|null, fallback: null|'physical'|'cosine' }}
+ */
+function buildTransferPolyline(td, depT, arrOff) {
+  const dep = td.dep3D || getBodyPosition3D(td.body1, depT);
+  const arr = td.arr3D || getBodyPosition3D(td.body2, td.arrivalSimTime);
+  const transferDays = Math.floor(td.transferTime / DAY);
+  // Cap vertices ~800 for long TOFs; short hops use dense fixed N
+  const maxVerts = 800;
+  const stride = Math.max(1, Math.ceil(transferDays / maxVerts));
+
+  function sampleOrbit(orb) {
+    if (!orb) return null;
+    const pts = [];
+    let prev = null;
+    const pushHelio = (helio, off) => {
+      if (!helio || !isFinite(helio.x)) return false;
+      const v = new THREE.Vector3(helio.x + off.x, helio.y + off.y, helio.z + off.z);
+      if (prev) {
+        const jump = v.distanceTo(prev);
+        // Continuity guard: successive samples must not leap multiple AU
+        // (was the Mercury→Pluto spaghetti source with divergent solveKepler).
+        if (jump > 5) return false;
+      }
+      pts.push(v);
+      prev = v;
+      return true;
+    };
+
+    if (td.transferTime < 2 * DAY) {
+      const N = 64;
+      for (let i = 0; i <= N; i++) {
+        const dt = (i / N) * td.transferTime;
+        const helio = orbitSampleHelioAU(td, orb, dt, depT);
+        const off = getSunBarycentricOffset(depT + dt);
+        if (!pushHelio(helio, off)) return null;
+      }
+    } else {
+      for (let day = 0; day <= transferDays; day += stride) {
+        const dt = day * DAY;
+        const helio = orbitSampleHelioAU(td, orb, dt, depT);
+        const off = getSunBarycentricOffset(depT + dt);
+        if (!pushHelio(helio, off)) return null;
+      }
+      const helioArr = orbitSampleHelioAU(td, orb, td.transferTime, depT);
+      if (!pushHelio(helioArr, arrOff)) return null;
+    }
+    return pts.length >= 2 ? pts : null;
+  }
+
+  // Prefer visual orbit; fall back to physical (real inclinations) if unstable.
+  let pts = sampleOrbit(td.orbit);
+  if (pts) return { points: pts, orbitUsed: td.orbit, fallback: null };
+  pts = sampleOrbit(td.orbitPhysical);
+  if (pts) return { points: pts, orbitUsed: td.orbitPhysical, fallback: 'physical' };
+
+  // Cosine blend endpoints
+  const NF = 200;
+  const cosPts = [];
+  for (let i = 0; i <= NF; i++) {
+    const t = i / NF;
+    const blend = 0.5 - 0.5 * Math.cos(PI * t);
+    const off = getSunBarycentricOffset(depT + t * td.transferTime);
+    cosPts.push(new THREE.Vector3(
+      dep.x + (arr.x - dep.x) * blend + off.x,
+      dep.y + (arr.y - dep.y) * blend + off.y,
+      dep.z + (arr.z - dep.z) * blend + off.z));
+  }
+  return { points: cosPts, orbitUsed: null, fallback: 'cosine' };
 }
 
 export function updateTransferOrbitVisual() {
@@ -43,75 +122,32 @@ export function updateTransferOrbitVisual() {
   const td = state.transferData;
   if (td.isMultiLeg) { renderMultiLegVisual(); return; }
 
-  // The trajectory is a polyline of *one vertex per day*: vertex N is the
-  // spacecraft's position on day N of the transfer, computed by the same
-  // Kepler propagator the live ship animation uses (propagateOrbit).  So
-  // when the ship animation runs, it really does fly through these exact
-  // dots — they're not a smoothed spline, they're the day-by-day cartesian
-  // coordinates the propagator emits.
-  //
-  // Sun-barycentric wobble is applied per-vertex at that vertex's time, so
-  // the arc meets the wobbled planets at departure and arrival.
+  // Polyline samples the Kepler propagator (same as the ship). Sun-barycentric
+  // wobble is applied per-vertex so the arc meets wobbled planets at ends.
   const depT = td.departureSimTime;
   const arrT = td.arrivalSimTime;
   const dep = td.dep3D || getBodyPosition3D(td.body1, depT);
   const arr = td.arr3D || getBodyPosition3D(td.body2, arrT);
   const depOff = getSunBarycentricOffset(depT);
   const arrOff = getSunBarycentricOffset(arrT);
-  const points = [];
-  const transferDays = Math.floor(td.transferTime / DAY);
-  // Cap-and-stride: for very long transfers (Saturn, Neptune) we'd have
-  // thousands of vertices.  At >3000d, switch to one-per-2-days etc., but
-  // always keep the FIRST and LAST samples at exactly t=0 and t=transferTime.
-  // Short planet-relative arcs (<2 d) use fixed N samples instead of per-day.
-  const stride = Math.max(1, Math.ceil(transferDays / 3000));
-  if (td.orbit) {
-    if (td.transferTime < 2 * DAY) {
-      const N = 64;
-      for (let i = 0; i <= N; i++) {
-        const dt = (i / N) * td.transferTime;
-        const helio = orbitSampleHelioAU(td, td.orbit, dt, depT);
-        if (!helio) continue;
-        const off = getSunBarycentricOffset(depT + dt);
-        points.push(new THREE.Vector3(
-          helio.x + off.x, helio.y + off.y, helio.z + off.z));
-      }
-    } else {
-      // Integer-day samples first.
-      for (let day = 0; day <= transferDays; day += stride) {
-        const dt = day * DAY;
-        const helio = orbitSampleHelioAU(td, td.orbit, dt, depT);
-        if (!helio) continue;
-        const off = getSunBarycentricOffset(depT + dt);
-        points.push(new THREE.Vector3(
-          helio.x + off.x, helio.y + off.y, helio.z + off.z));
-      }
-      // Plus the exact arrival point — transferTime usually isn't an integer
-      // number of days, so the last integer-day sample falls a few hours short.
-      const helioArr = orbitSampleHelioAU(td, td.orbit, td.transferTime, depT);
-      if (helioArr) {
-        points.push(new THREE.Vector3(
-          helioArr.x + arrOff.x, helioArr.y + arrOff.y, helioArr.z + arrOff.z));
-      }
-    }
-  } else {
-    // Visual Lambert failed — cosine blend endpoints only (not Keplerian).
-    // UI surfaces td.visualFallback === 'cosine'.
-    const NF = 200;
-    for (let i = 0; i <= NF; i++) {
-      const t = i / NF;
-      const blend = 0.5 - 0.5 * Math.cos(PI * t);
-      const off = getSunBarycentricOffset(depT + t * td.transferTime);
-      points.push(new THREE.Vector3(
-        dep.x + (arr.x - dep.x) * blend + off.x,
-        dep.y + (arr.y - dep.y) * blend + off.y,
-        dep.z + (arr.z - dep.z) * blend + off.z));
-    }
+
+  const built = buildTransferPolyline(td, depT, arrOff);
+  const points = built.points;
+  // Surface scene fallback so measurement card / banner can mention it
+  if (built.fallback === 'physical' && !td.visualFallback) {
+    td.visualFallback = 'physical';
+  } else if (built.fallback === 'cosine') {
+    td.visualFallback = 'cosine';
   }
+  const drawOrbit = built.orbitUsed;
+  // Scale dash size with path length so multi-AU arcs don't look solid/messy
+  let pathLen = 0;
+  for (let i = 1; i < points.length; i++) pathLen += points[i].distanceTo(points[i - 1]);
+  const dash = Math.min(0.4, Math.max(0.08, pathLen / 80));
   const geo = new THREE.BufferGeometry().setFromPoints(points);
   const mat = new THREE.LineDashedMaterial({
-    color: 0xff9800, dashSize: 0.15, gapSize: 0.08,
-    transparent: true, opacity: 0.7,
+    color: 0xff9800, dashSize: dash, gapSize: dash * 0.55,
+    transparent: true, opacity: 0.75,
   });
   const line = new THREE.Line(geo, mat);
   line.computeLineDistances();
@@ -125,22 +161,20 @@ export function updateTransferOrbitVisual() {
   // viewer who hasn't pressed Launch yet.
   setDepartureGhost({
     x: dep.x + depOff.x, y: dep.y + depOff.y, z: dep.z + depOff.z,
-    radius: td.body1.displayRadius * 1.6,
-    color: parseInt(td.body1.color.replace('#', ''), 16),
+    radius: (td.body1.displayRadius || 0.02) * 1.6,
+    color: parseInt(String(td.body1.color || '#00e676').replace('#', ''), 16),
     label: 'AT DEPARTURE',
   });
   setArrivalGhost({
     x: arr.x + arrOff.x, y: arr.y + arrOff.y, z: arr.z + arrOff.z,
-    radius: td.body2.displayRadius * 1.6,
-    color: parseInt(td.body2.color.replace('#', ''), 16),
+    radius: (td.body2.displayRadius || 0.02) * 1.6,
+    color: parseInt(String(td.body2.color || '#ff9800').replace('#', ''), 16),
     label: 'AT ARRIVAL',
   });
-  // Date markers — fixed-time samples along the trajectory.  Their visual
-  // density (clustered near perihelion, spread near apoapsis) makes the
-  // Keplerian variable-speed nature of the orbit obvious; without these the
-  // dashed line's uniform arc-length spacing hides what's actually a Kepler
-  // ellipse and looks like a smooth spline.
-  if (td.orbit) addDateMarkersAlongOrbit(td, td.orbit, depT, td.transferTime, 0xffd54f);
+  // Date markers along the stable orbit only (skip dense ticks on multi-year TOFs)
+  if (drawOrbit && td.transferTime / DAY < 4000) {
+    addDateMarkersAlongOrbit(td, drawOrbit, depT, td.transferTime, 0xffd54f);
+  }
 }
 
 // Choose tick cadence so a transfer gets ~10–14 minor ticks plus a few

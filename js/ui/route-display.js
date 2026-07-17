@@ -130,9 +130,14 @@ function surfaceNoteHtml(td) {
 }
 
 function actionsHtml(missionReady) {
+  const launchLabel = missionReady ? 'Launch' : 'Launch (blocked)';
+  const launchTitle = missionReady
+    ? 'Launch animated mission along the transfer'
+    : 'Plan not mission-ready — open Plan status for gates (often vehicle margin)';
   return `
     <div class="results-actions" id="mission-controls">
-      <button class="route-btn launch" id="btn-launch"${missionReady ? '' : ' disabled'}>Launch</button>
+      <button class="route-btn launch" id="btn-launch"${missionReady ? '' : ' disabled'}
+        title="${launchTitle}">${launchLabel}</button>
       <button class="route-btn secondary" id="btn-open-windows">Windows</button>
       <button class="route-btn secondary" id="btn-goto-depart">Jump to Departure</button>
       <button class="route-btn secondary" id="btn-export-plan">Export</button>
@@ -151,6 +156,9 @@ function detailsBlock(id, title, open, inner) {
 function visualWarnHtml(td) {
   if (td.visualFallback === 'cosine' || (td.legs || []).some((L) => L.ok && L.visualFallback === 'cosine')) {
     return `<div class="visual-fallback-warn" role="status">⚠ Scene path uses a non-Keplerian visual fallback (cosine). Numbers still use physical Lambert. Try Schematic view or recompute.</div>`;
+  }
+  if (td.visualFallback === 'physical') {
+    return `<div class="visual-fallback-warn" role="status">ℹ Scene path uses physical (non-exaggerated) geometry — high-e visual branch was unstable. Δv numbers unchanged.</div>`;
   }
   return '';
 }
@@ -267,10 +275,13 @@ function renderSingleLegRouteUI(td) {
   // Prefer not to open vehicle eng by default — measurement-card may include it; leave as-is but under details
 
   const res = document.getElementById('transfer-results');
+  const heroTitle = !lambertOk
+    ? 'Estimate only'
+    : (missionReady ? 'Transfer ready' : 'Transfer solved · launch blocked');
   res.innerHTML = `
     <div class="transfer-results">
       ${heroCardHtml({
-        title: lambertOk ? 'Transfer ready' : 'Estimate only',
+        title: heroTitle,
         b1: td.body1?.name || 'Origin',
         b2: td.body2?.name || 'Dest',
         transitLabel: `${(td.transferTime / DAY).toFixed(0)} d`,

@@ -307,7 +307,13 @@ html, body {
 .route-btn.abort:hover { background: rgba(255,45,85,0.15); border-color: var(--red); }
 .route-btn.clear { color: var(--red); background: rgba(255,45,85,0.06); border-color: rgba(255,45,85,0.2); font-size: 9px; padding: 7px; margin-top: 4px; }
 .route-btn.clear:hover { background: rgba(255,45,85,0.15); border-color: var(--red); }
-.route-btn:disabled { opacity: 0.3; pointer-events: none; }
+.route-btn:disabled {
+  opacity: 0.55; cursor: not-allowed; filter: grayscale(0.35);
+}
+.route-btn.launch:disabled {
+  opacity: 0.7; border-color: rgba(255,152,0,0.45); color: var(--amber);
+  background: rgba(255,152,0,0.06);
+}
 .transfer-results { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .transfer-results .result-title { font-family: var(--font-display); font-size: 9px; letter-spacing: 2px; color: var(--cyan); margin-bottom: 8px; }
 .transfer-results .result-subtitle {

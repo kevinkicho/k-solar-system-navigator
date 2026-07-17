@@ -8,13 +8,58 @@ import {
   isPlanetRelativeRoute, planetRelativeTransferSeed,
 } from './planet-relative.js';
 
-export function solveKepler(M, e, tol = 1e-10) {
+/**
+ * Solve Kepler's equation M = E − e sin E for elliptical orbits (0 ≤ e < 1).
+ * High-e transfers (Mercury→outer, e ≳ 0.99) need damped Newton + bisection
+ * fallback — plain Newton can diverge and produce multi-AU visual spaghetti.
+ */
+export function solveKepler(M, e, tol = 1e-12) {
   M = ((M % TWO_PI) + TWO_PI) % TWO_PI;
-  let E = M + e * Math.sin(M);
-  for (let i = 0; i < 50; i++) {
-    const dE = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+  if (!(e > 0) || e < 1e-14) return M;
+  // Near-parabolic: clamp slightly below 1 for numerical safety
+  if (e >= 1) e = 1 - 1e-15;
+
+  // Starter: better for high e than E = M
+  let E = e < 0.8
+    ? M + e * Math.sin(M)
+    : M + e * Math.sin(M) * (1 + e * Math.cos(M));
+  if (E < 0) E = 0;
+  if (E > TWO_PI) E = TWO_PI;
+
+  let ok = false;
+  for (let i = 0; i < 60; i++) {
+    const se = Math.sin(E);
+    const ce = Math.cos(E);
+    const f = E - e * se - M;
+    const df = 1 - e * ce;
+    if (Math.abs(df) < 1e-14) break;
+    let dE = f / df;
+    // Damp Newton steps — unbounded steps are what blew high-e visuals
+    if (dE > 0.5) dE = 0.5;
+    if (dE < -0.5) dE = -0.5;
     E -= dE;
-    if (Math.abs(dE) < tol) break;
+    if (E < 0) E = 0;
+    if (E > TWO_PI) E = TWO_PI;
+    if (Math.abs(dE) < tol && Math.abs(f) < 1e-10) {
+      ok = true;
+      break;
+    }
+  }
+
+  // Residual check / bisection fallback (monotonic on [0, 2π] for e < 1)
+  const residual = (x) => x - e * Math.sin(x) - M;
+  if (!ok || Math.abs(residual(E)) > 1e-8) {
+    let lo = 0;
+    let hi = TWO_PI;
+    for (let i = 0; i < 80; i++) {
+      const mid = 0.5 * (lo + hi);
+      if (residual(mid) > 0) hi = mid;
+      else lo = mid;
+      if (hi - lo < tol) {
+        E = 0.5 * (lo + hi);
+        break;
+      }
+    }
   }
   return E;
 }
