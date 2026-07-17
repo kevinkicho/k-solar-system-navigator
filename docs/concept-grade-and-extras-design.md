@@ -5,12 +5,14 @@
 | **Document title** | Concept-Grade Boundaries & Extras Roadmap |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | Implemented on `main` (X0–X7 extras landing) |
+| **Status** | **Implemented on `main`** (X0–X8 extras: Trust Card, dual DLA, Vehicle Lab, scenario audit, ascent, site DLA, …) |
+| **Last verified** | 2026-07-17 |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
-| **Branch policy** | **`main` only** — sequential green commits |
-| **Baseline** | `main` @ reliability dossier (`plan-quality`, `plan-dossier`), fidelity L1/L2-plan, vehicle engineering sheets, cargo triad |
-| **Audience** | Engineers implementing remaining concept-grade honesty + completeness extras |
-| **Prior designs** | `docs/trip-plan-reliability-completeness-design.md`, `docs/ephemeris-fidelity-platform-design.md`, `docs/cargo-vehicle-platform-design.md`, `docs/trip-planner-design.md` |
+| **Branch policy** | **`main` only** |
+| **Baseline** | `main` |
+| **Audience** | Engineers reading concept-grade boundary + extras rationale |
+| **Prior designs** | Reliability, fidelity, cargo, trip-planner |
+| **Follow-ons landed** | `docs/post-landing-hardening-design.md`, `docs/geographic-site-coordinates-design.md` |
 
 ---
 
@@ -21,18 +23,18 @@ HELIOS is an **educational / concept-grade** interplanetary trip planner: real L
 This design does two jobs:
 
 1. **Freeze the concept-grade boundary** — what must stay labeled educational forever, and what may be upgraded without crossing into flight-ops claims.  
-2. **Specify concrete extras** still open after reliability + fidelity landings, each with files, acceptance criteria, and a main-only PR plan:
+2. **Specify concrete extras** (all **landed** on `main`; table kept for rationale):
 
-| Extra | Why |
+| Extra | Status |
 |---|---|
-| **E1 — Earth-equatorial DLA / RLA** | Handbook-compatible launch asymptote language (today: ecliptic-class only) |
-| **E2 — Scenario gate audit** | Reliability K12: every scenario pass or `demo_unsafe` |
-| **E3 — Ascent loss budget v2** | Stronger UX + optional “required vs stack” framing (not silent mix into Lambert) |
-| **E4 — Vehicle Lab panel** | Critical vehicle metrics without requiring a route first |
-| **E5 — Educational gravity/drag loss model** | Order-of-magnitude ascent losses with explicit assumptions |
-| **E6 — Launch-site latitude vs DLA gate** | Completeness: “can this DLA fly from Cape-class latitude?” |
-| **E7 — Residual multi-leg parking note + optional stub** | Clarify non-goal; optional single-assist budget sketch |
-| **E8 — Concept-grade Trust Card** | One UI surface listing what is / is not certified |
+| **E1 — Earth-equatorial DLA / RLA** | Done (`departure-asymptote.js` dual frames) |
+| **E2 — Scenario gate audit** | Done (`tests/scenario_gate_audit.mjs` Mode A + B) |
+| **E3 — Ascent loss budget v2** | Done (edu select + Vehicle Lab apply) |
+| **E4 — Vehicle Lab panel** | Done (`vehicle-lab.js`) |
+| **E5 — Educational gravity/drag loss model** | Done (`ascent-loss-model.js`) |
+| **E6 — Launch-site latitude vs DLA gate** | Done (`launch-sites-edu.js` + gates) |
+| **E7 — Multi-leg parking note** | Done (dossier / banner honesty) |
+| **E8 — Concept-grade Trust Card** | Done (`trust-card.js`) |
 
 **Product vow (extends reliability design):** Users always know **how conceptual** a number is, and never confuse ecliptic asymptotes, ideal rocket-eq, or illustrative C₃ tables with flight design.
 

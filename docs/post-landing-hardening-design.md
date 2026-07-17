@@ -5,14 +5,16 @@
 | **Document title** | Post-Landing Hardening Platform |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-17 |
-| **Status** | **Implemented on `main`** (PR1–PR13 + dual audit + workerized nearest-feasible; optional multi-leg worker still open) |
+| **Status** | **Implemented on `main`** (security T0–T2, C2 claim/lease, fidelity/Need consistency, Launch hard-block, dual scenario audit, workerized nearest-feasible **and** multi-leg window, streaming FAB chat) |
+| **Last verified** | 2026-07-17 |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
-| **Branch policy** | **`main` only** — sequential green commits; no side-branch stacks |
-| **Baseline** | `main` @ `de00413` (Ollama FAB + agent CLI + C2) after reliability dossier, fidelity L1/L2-plan, cargo triad, concept-grade extras |
-| **Audience** | Engineers implementing security, agent C2, plan honesty, fidelity consistency, reliability gates, tests/CI, product surfaces |
-| **Prior designs** | `docs/trip-planner-design.md`, `docs/cargo-vehicle-platform-design.md`, `docs/ephemeris-fidelity-platform-design.md`, `docs/trip-plan-reliability-completeness-design.md`, `docs/concept-grade-and-extras-design.md` |
-| **Product vow** | **Loopback-safe tools; agent honesty; fidelity-consistent Need; Launch never bypasses dossier; CI covers the whole product surface** |
-| **Revision** | rev 2 — closed review Issues 1–18 (browser token contract, multi-leg L2-plan, pure test seams, early CI fold, C4 interfaces) |
+| **Branch policy** | **`main` only** |
+| **Baseline** | `main` after Ollama FAB + agent CLI + C2, reliability, fidelity, cargo, concept-grade |
+| **Audience** | Engineers reading security / agent / CI hardening rationale |
+| **Prior designs** | Trip planner, cargo, fidelity, reliability, concept-grade |
+| **Follow-ons** | UI declutter + geographic sites (separate designs / commits) |
+| **Product vow** | **Loopback-safe tools; agent honesty; fidelity-consistent Need; Launch never bypasses dossier; CI covers the product surface** |
+| **Revision** | rev 3 — as-built status: multi-leg worker + stream chat landed (`53922d2` et al.) |
 
 ---
 
@@ -30,7 +32,7 @@ A full codebase scan after that landing found **residual hardening debt** across
 | **D** | Reliability gate hardening (`launchMission`, `mission_ready`, workerize later) | **P1** |
 | **E** | Tests, CI, product surfaces (README, debug hooks, scenario audit realism) | **P1–P2** |
 
-This design **formalizes verified findings with file paths**, specifies interfaces and acceptance criteria, and delivers an ordered **main-only PR plan**. It does **not** implement code. It must not contradict prior designs; it extends them where residual gaps remain after the reliability / fidelity / cargo / concept-grade landings.
+This design formalized verified findings with file paths and a main-only PR plan. **Code has since landed on `main`.** Body sections that say “does not implement code” or “still open” are **historical**; header status above is authoritative.
 
 **Success sentence:** A developer runs `npm start` on loopback with browser FAB + onboard C2 working under recommended defaults (no token required on loopback Host); agents report true `td.dossier` state and await plan completion; single-leg **and** multi-leg planning share the ephemeris provider under L2-plan; Need/C3/mission-budget use planning velocity; Launch is hard-blocked by `launch_enabled ?? mission_ready`; `npm test` covers physics + server + agent from the first security landings onward; README and dual scenario audits match product-default vehicles and concept-grade language.
 

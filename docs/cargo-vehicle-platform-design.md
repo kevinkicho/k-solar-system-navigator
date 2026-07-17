@@ -5,12 +5,13 @@
 | **Document title** | HELIOS Cargo-Aware Vehicle Platform |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | Approved for implementation (rev 3 — design review consensus; K25 arch-default freeze) |
+| **Status** | **Implemented on `main`** (Need/Capability/Margin, F9/SS arches, K25 product default unrefueled) |
+| **Last verified** | 2026-07-17 |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
-| **Branch baseline** | `main` (tip includes trip planner, `vehicles.js` SH-only model, mission-budget, porkchop, share codec, catalog) |
-| **Audience** | Senior engineers implementing evolutionary PRs |
-| **Prior design** | `docs/trip-planner-design.md` (evolutionary trip planner — largely implemented) |
-| **Supersedes (product framing)** | SH-only transfer feasibility as the **primary** product story; keeps it as an explicitly labeled **legacy demo** preset |
+| **Branch baseline** | `main` |
+| **Audience** | Engineers reading measurement-triad rationale |
+| **Prior design** | `docs/trip-planner-design.md` |
+| **Supersedes (product framing)** | SH-only transfer feasibility as the **primary** product story; keeps **legacy-demo** as explicit arch |
 
 ---
 

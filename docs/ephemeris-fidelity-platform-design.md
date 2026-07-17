@@ -5,14 +5,16 @@
 | **Document title** | HELIOS Ephemeris Fidelity & Measurement Trust Platform |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | In implementation on `main` (rev 1 design; PRs 1–7 landing as sequential commits) |
+| **Status** | **Implemented on `main`** (L1 / L2-compare / L2-plan provider + samples + fixtures) |
+| **Last verified** | 2026-07-17 |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
-| **Branch policy** | **`main` only** — sequential commits on `main`; no feature-branch / Graphite stack required |
-| **Branch baseline** | `main` (cargo platform, Measurement Card, L1/L2 badge, Horizons compare, porkchop cargo heatmap) |
-| **Audience** | Engineers implementing evolutionary commits on `main` |
+| **Branch policy** | **`main` only** |
+| **Branch baseline** | `main` |
+| **Audience** | Engineers reading fidelity semantics |
 | **Prior designs** | `docs/trip-planner-design.md`, `docs/cargo-vehicle-platform-design.md` |
-| **Companion** | `docs/trip-plan-reliability-completeness-design.md` (no silent plan failures); `docs/concept-grade-and-extras-design.md` (DLA equatorial, Vehicle Lab, scenario audit) |
+| **Companion** | `docs/trip-plan-reliability-completeness-design.md`; `docs/concept-grade-and-extras-design.md` |
 | **Related research** | DE440/DE441, NAIF SPK, JPL Approximate Positions accuracy table, Horizons VECTOR API |
+| **As-built note** | Overview “thin fidelity UX” below is **historical** (design-time). Current app stamps L1/L2-compare/L2-plan on Card, export, and share `eph`. |
 
 ---
 

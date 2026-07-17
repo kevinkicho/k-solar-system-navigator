@@ -5,13 +5,15 @@
 | **Document title** | Geographic Site Coordinates & Body-Fixed Endpoints |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | **Implemented on `main`** (full geographic stack: sites · 1-bar giants · share · multi-leg terminals · oblate · **ICRF pole · W(t) libration · planetographic input**) |
+| **Status** | **Implemented on `main`** (full stack including ICRF pole, Moon/Mercury libration, planetographic input mode) |
+| **Last verified** | 2026-07-17 |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
-| **Branch policy** | **`main` only** — sequential green commits |
-| **Baseline** | Trip planner + dual Lambert visual/physics, Need/Capability/Margin, Plan Dossier, body picker / dossier modal, concept-grade vehicle stack |
+| **Branch policy** | **`main` only** |
+| **Baseline** | Trip planner + dual Lambert, triad, dossier, body picker, concept-grade vehicles |
 | **Audience** | Engineers extending body-fixed sites, parking Δv, or share/export of geographic endpoints |
-| **Prior designs** | `docs/trip-planner-design.md`, `docs/trip-plan-reliability-completeness-design.md`, `docs/concept-grade-and-extras-design.md`, `docs/ephemeris-fidelity-platform-design.md` |
-| **Related standards** | IAU WGCCRE cartographic coordinates & rotational elements; JPL SSD phys_par (1-bar radii); SPICE body-fixed frames (`IAU_*`); PDS/ODE planetocentric products |
+| **Prior designs** | Trip planner, reliability, concept-grade, fidelity |
+| **Related standards** | IAU WGCCRE; JPL SSD phys_par; SPICE body-fixed (`IAU_*`); PDS planetocentric |
+| **Index** | See `docs/README.md` for catalog + honest backlog |
 
 ---
 
@@ -532,19 +534,25 @@ Work landed as sequential main commits (no open PRs required for v1). Residual u
 - **Files:** `route-planner.js`, `routing.js` multi-leg path  
 - **Status:** Landed earlier  
 
-### Residual (optional future) — **landed**
+### Geographic residuals — all landed
 
 | Item | Status |
 |---|---|
-| Full IAU pole α₀/δ₀ ICRF → ecliptic | **Done** — `Rz(α0+90°) Rx(90°−δ0) Rz(W)` then `Rx(ε)` |
-| Periodic libration in \(W(t)\) Moon/Mercury | **Done** — leading Archinal-class sin terms (+ Moon d²) |
-| Planetographic lat as primary UI input | **Done** — lat mode select; storage remains planetocentric |
+| Share `os`/`ds` + JSON import/export | **Done** |
+| Multi-leg first/last sites | **Done** |
+| Oblate *R*(φ) + planetographic display | **Done** |
+| IAU-class \(W=W_0+\dot{W}d\) | **Done** |
+| ICRF pole α₀/δ₀ → ecliptic | **Done** — `Rz(α0+90°) Rx(90°−δ0) Rz(W)` then `Rx(ε)` |
+| Moon/Mercury leading libration sins | **Done** |
+| Planetographic lat as primary UI input | **Done** — mode select; storage planetocentric |
 
-### Still out of scope (true SPICE)
+### Still out of scope (true SPICE / ops)
 
 - Full 100+ lunar physical libration / forced libration series  
 - High-order T polynomials for every body  
 - Nutation / EOP / true-of-date frames  
+- Intermediate multi-leg flyby geographic sites (terminals only)  
+- Global multi-leg optimal search  
 
 ---
 

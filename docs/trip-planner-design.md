@@ -5,10 +5,12 @@
 | **Document title** | HELIOS Trip Planner Product & Architecture Redesign |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | Approved for implementation (revision 3 — design review consensus) |
+| **Status** | **Implemented on `main`** (as-built; body text is historical design snapshot) |
+| **Last verified** | 2026-07-17 |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
-| **Branch baseline** | `agent/solar-navigatior` @ `aaa080c` (branch name typo is upstream) |
-| **Audience** | Senior engineers implementing evolutionary PRs |
+| **Branch baseline** | `main` only (original design targeted a side branch that was retired) |
+| **Audience** | Engineers reading product history / rationale |
+| **Follow-ons** | Cargo, fidelity, reliability, concept-grade, post-landing, geographic-site designs |
 
 ---
 

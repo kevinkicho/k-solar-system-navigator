@@ -29,14 +29,17 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 - **Plan Dossier quality gates** — every compute produces pass / warn / fail gates, confidence (completeness, not OD covariance), and Launch enablement only when `mission_ready` / `launch_enabled`.
 - **Need / Capability / Margin triad** — educational vehicle stacks: Falcon 9 (illustrative C₃ payload table), Starship + Super Heavy (**product default: unrefueled Starship injection** arch; optional legacy-demo SH-only or N-tanker). **Not SpaceX-certified, not flight ops.**
 - **Ephemeris fidelity** — default **L1** offline JPL Approximate Positions; optional L2-compare (Horizons Δr check only); optional L2-plan offline sample table endpoints (**not DE/SPICE kernels**). Classroom mode forces offline L1.
-- **Porkchop-plot launch-window finder** — sweep a grid of (departure date × transit duration) and heat-map Δv or SS injection-class cargo. Click a cell or use the auto-selected minimum to drive dates.
-- **Gravity-assist / multi-leg routing** — patched-conic flybys; infeasible swingbys flagged **TOO SHARP**. Multi-leg search is a **coarse local seed**, not a global mission-design optimum.
+- **Geographic sites** — optional origin/dest **lat / lon / altitude** (planetocentric east-lon; height above reference). Gas/ice giants use a **1-bar cloud-deck** sphere with high default parking; oblate bodies use local ellipsoid *R*(φ) and dual planetographic readout; body-fixed orientation uses IAU-class *W(t)* (+ leading Moon/Mercury libration) and ICRF pole α₀/δ₀ → ecliptic. Sites round-trip in share hash (`os`/`ds`) and mission JSON; multi-leg applies sites on **terminals only**.
+- **Porkchop-plot launch-window finder** — sweep a grid of (departure date × transit duration) and heat-map Δv or SS injection-class cargo (workerized). Click a cell or use the auto-selected minimum to drive dates.
+- **Gravity-assist / multi-leg routing** — patched-conic flybys; infeasible swingbys flagged **TOO SHARP**. Multi-leg / nearest-feasible window search is a **coarse local seed** (workerized), not a global mission-design optimum.
 
-### Simulation
+### Simulation & chrome
 - **Date picker** — jump to any instant with presets (Apollo 11, Voyager 1 launch, J2000, etc.)
 - **Time controls** — pause / play / fast-forward / reverse from 1 day/s to 100 years/s
 - **Ship flight simulation** — launch a computed transfer, watch the ship trace its trajectory, jump straight to the departure date, abort a mission mid-flight
-- **Drag-and-drop or right-click route planning** — assign origin/destination from the sidebar
+- **Body picker + dossier** — click Origin/Dest for a searchable catalog; click any body for a full info modal (registries, physical params)
+- **Right rail tabs** — Inspect / Plan / Results; Advanced accordion for secondary knobs; map-first mobile chips
+- **Drag-and-drop or right-click route planning** — assign origin/destination from the sidebar or scene
 
 ## Tech stack
 
@@ -79,9 +82,10 @@ Keep a browser tab on HELIOS so the **onboard agent** can execute C2 commands (`
 | Optional Horizons compare | Stretch educational overlay (`js/physics/ephemeris-horizons.js`): on explicit UI opt-in only, fetch a public Horizons VECTOR table and report distance error vs the approximate model. **Not SPICE** (no `.bsp` kernels), **not flight ops**, **not required for planning**. CI uses mocked fetch only. |
 | Transfer orbit | Lambert's problem via universal-variable formulation, bracketed-bisection solver |
 | Trajectory propagation | Kepler in perifocal frame (p̂, q̂, ŵ) |
-| Δv | Vector difference `|v_transfer − v_planet|` (both from physical-inclination state) |
+| Δv | Vector difference `|v_transfer − v_point|` (body center or geographic site with spin) |
+| Geographic sites | Planetocentric lat/lon + *h*; ellipsoid *R*(φ); IAU-class *W(t)* / ICRF pole (concept-grade) |
 | Gravity assist | Patched-conic: `e = 1 + r_p·V∞² / μ`, turning angle `δ = 2·asin(1/e)` |
-| Launch windows | Lambert sweep over departure time × transit time, min Δv at each cell |
+| Launch windows | Lambert sweep over departure time × transit time, min Δv at each cell (workers) |
 
 ## Tests
 
@@ -97,13 +101,15 @@ Useful individual suites:
 node tests/trip_planning_test.mjs     # Lambert / Hohmann / planet positions vs references
 node tests/plan_quality.mjs           # Plan Dossier gates
 node tests/scenario_gate_audit.mjs    # Mode A abstract + Mode B product-default vehicles
+node tests/surface_point.mjs          # geographic sites, oblate, W(t), multi-leg terminals
+node tests/share_codec.mjs            # share hash including os/ds sites
 node tests/agent_api.mjs              # chat proxy + C2 claim/lease + auth tiers
 node tests/onboard_snapshot_contract.mjs
 node tests/ephemeris_check.mjs
 node tests/horizons_mock.mjs          # Horizons adapter (mocked fetch only)
 ```
 
-Design docs: `docs/trip-planner-design.md`, cargo / fidelity / reliability / concept-grade / post-landing-hardening / **geographic-site-coordinates**.
+Design docs (index): **`docs/README.md`** — trip-planner, cargo, fidelity, reliability, concept-grade, post-landing-hardening, geographic-site-coordinates.
 
 ## Performance baselines
 
@@ -219,6 +225,7 @@ server.js                 — path-jailed local-dev static server (ESM)
 hyg_v42.csv               — full HYG source (optional; not on critical path)
 tests/                    — offline physics + soft perf_budgets + server + Playwright
 LICENSE                   — MIT
-docs/trip-planner-design.md — product redesign + PR plan
-docs/geographic-site-coordinates-design.md — body-fixed geographic sites (lat/lon/h, 1-bar giants)
+docs/README.md — design-doc index + as-built snapshot + honest backlog
+docs/trip-planner-design.md — product redesign (as-built)
+docs/geographic-site-coordinates-design.md — body-fixed geographic sites (full stack)
 ```

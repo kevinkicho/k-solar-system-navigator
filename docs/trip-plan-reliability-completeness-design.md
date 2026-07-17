@@ -5,12 +5,13 @@
 | **Document title** | Trip Plan Reliability & Completeness Platform |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | Implemented on `main` (PRs 1–9 core). Residual PR10 + concept-grade extras → `docs/concept-grade-and-extras-design.md` |
+| **Status** | **Implemented on `main`** (Plan Dossier, gates, recovery, Launch block). Follow-ons in concept-grade + post-landing designs also landed. |
+| **Last verified** | 2026-07-17 |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
-| **Branch policy** | **`main` only** — sequential green commits; no side-branch stacks |
-| **Baseline** | `main` after cargo platform, fidelity L1/L2-plan, vehicle engineering sheets |
+| **Branch policy** | **`main` only** |
+| **Baseline** | `main` |
 | **Prior designs** | `docs/trip-planner-design.md`, `docs/cargo-vehicle-platform-design.md`, `docs/ephemeris-fidelity-platform-design.md` |
-| **Audience** | Engineers implementing reliability gates + complete plan dossiers |
+| **Audience** | Engineers reading dossier / gate rationale |
 | **Product vow** | **No “oops, it didn’t work out” without diagnosis, metrics, and a concrete next action** |
 
 ---
