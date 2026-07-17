@@ -4,9 +4,10 @@ import { bodyId, findByIdOrName, listFlybyEligible, resolveFlybyBody } from '../
 import { state } from '../state.js';
 import { hohmannTransfer } from '../physics/kepler.js';
 import {
-  MIN_PERIHELION_AU, findNearestFeasibleTransfer, findMultiLegWindow,
+  MIN_PERIHELION_AU, findMultiLegWindow,
   solveMultiLegRoute, solveTransferOrbit,
 } from '../physics/routing.js';
+import { findNearestFeasibleTransferAsync } from './nearest-feasible-async.js';
 import { effectiveBackend } from '../physics/ephemeris-provider.js';
 import { dateToInputValue, dateToSimTime, inputValueToDate, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
@@ -385,32 +386,56 @@ export function computeRoute() {
   // Single-leg path.
   state.userTofDays = null;
   const prevDepSingle = departureSimTime;
+  const originBody = state.routeOrigin;
+  const destBody = state.routeDestination;
   state.transferData = stampPlanningEphemeris(
-    hohmannTransfer(state.routeOrigin, state.routeDestination, departureSimTime),
+    hohmannTransfer(originBody, destBody, departureSimTime),
   );
   solveTransferOrbit(state.transferData);
 
-  let adjusted = false;
-  let unrecovered = false;
   const orb = state.transferData.orbitPhysical;
   const periAU = orb ? (orb.a * (1 - orb.e)) / AU : Infinity;
   const totalDv = state.transferData.dvTotal_lambert ?? state.transferData.dvTotal;
   const pathological = !isFinite(periAU) || periAU < MIN_PERIHELION_AU || totalDv > 30000;
 
-  if (pathological) {
-    const fix = findNearestFeasibleTransfer(
-      state.routeOrigin, state.routeDestination,
-      departureSimTime, state.transferData.transferTime,
-      {
-        backend: state.transferData.ephemerisBackend,
-        classroomMode: state.classroomMode,
-      },
-    );
+  if (!pathological) {
+    finalizePlan(state.transferData, {
+      dateAdjusted: false,
+      sampleFallback: detectSampleFallback(state.transferData),
+    }, 'TRANSFER ORBIT COMPUTED');
+    return;
+  }
+
+  // Pathological: search nearest feasible window off the main thread when possible.
+  const tofHint = state.transferData.transferTime;
+  const backend = state.transferData.ephemerisBackend;
+  const classroomMode = state.classroomMode;
+  notify('SEARCHING NEAREST FEASIBLE WINDOW…');
+
+  // Capture generation so a second Compute supersedes this search.
+  const searchGen = (state._nearestSearchGen = (state._nearestSearchGen || 0) + 1);
+
+  findNearestFeasibleTransferAsync(originBody, destBody, departureSimTime, tofHint, {
+    backend,
+    classroomMode,
+    onProgress: ({ i, n }) => {
+      if (state._nearestSearchGen !== searchGen) return;
+      if (i === 1 || i === n || i % 10 === 0) {
+        notify(`SEARCHING WINDOW… ${i}/${n}`);
+      }
+    },
+  }).then((fix) => {
+    if (state._nearestSearchGen !== searchGen) return;
+    // Origin/dest may have changed during search
+    if (state.routeOrigin !== originBody || state.routeDestination !== destBody) return;
+
+    let adjusted = false;
+    let unrecovered = false;
     if (fix) {
       state.transferData = stampPlanningEphemeris(
-        hohmannTransfer(state.routeOrigin, state.routeDestination, fix.departureSimTime),
+        hohmannTransfer(originBody, destBody, fix.departureSimTime),
       );
-      state.transferData.transferTime  = fix.transferTime;
+      state.transferData.transferTime = fix.transferTime;
       state.transferData.arrivalSimTime = fix.arrivalSimTime;
       solveTransferOrbit(state.transferData);
       dateInput.value = dateToInputValue(simTimeToDate(fix.departureSimTime));
@@ -421,17 +446,24 @@ export function computeRoute() {
     } else {
       unrecovered = true;
     }
-  }
 
-  const newDate = simTimeToDate(state.transferData.departureSimTime).toISOString().slice(0, 10);
-  finalizePlan(state.transferData, {
-    dateAdjusted: adjusted,
-    prevDepartureSimTime: adjusted ? prevDepSingle : null,
-    pathologicalUnrecovered: unrecovered,
-    sampleFallback: detectSampleFallback(state.transferData),
-  }, unrecovered
-    ? 'PLAN FAILED — NO FEASIBLE WINDOW (see Plan Status)'
-    : adjusted
-      ? `LAUNCH ADJUSTED TO ${newDate} (NEAREST FEASIBLE WINDOW)`
-      : 'TRANSFER ORBIT COMPUTED');
+    const newDate = simTimeToDate(state.transferData.departureSimTime).toISOString().slice(0, 10);
+    finalizePlan(state.transferData, {
+      dateAdjusted: adjusted,
+      prevDepartureSimTime: adjusted ? prevDepSingle : null,
+      pathologicalUnrecovered: unrecovered,
+      sampleFallback: detectSampleFallback(state.transferData),
+    }, unrecovered
+      ? 'PLAN FAILED — NO FEASIBLE WINDOW (see Plan Status)'
+      : adjusted
+        ? `LAUNCH ADJUSTED TO ${newDate} (NEAREST FEASIBLE WINDOW)`
+        : 'TRANSFER ORBIT COMPUTED');
+  }).catch((err) => {
+    if (state._nearestSearchGen !== searchGen) return;
+    console.error(err);
+    finalizePlan(state.transferData, {
+      pathologicalUnrecovered: true,
+      sampleFallback: detectSampleFallback(state.transferData),
+    }, 'PLAN FAILED — WINDOW SEARCH ERROR (see Plan Status)');
+  });
 }

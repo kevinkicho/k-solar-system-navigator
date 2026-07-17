@@ -12,6 +12,7 @@
     "test:server": "node tests/server_path_jail.mjs",
     "test:agent": "node tests/agent_api.mjs",
     "test:agent-contract": "node tests/onboard_snapshot_contract.mjs",
+    "test:nearest": "node tests/nearest_feasible.mjs",
     "test:ui": "node tests/ui_smoke.mjs",
     "test:ui:ci": "node tests/ci_ui.mjs",
     "build:stars": "node scripts/build-stars.mjs",

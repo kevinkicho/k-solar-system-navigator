@@ -5,7 +5,7 @@
 | **Document title** | Post-Landing Hardening Platform |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-17 |
-| **Status** | **Draft / Ready for implementation** (rev 2 — review issues addressed) |
+| **Status** | **Implemented on `main`** (PR1–PR13 + dual audit + workerized nearest-feasible; optional multi-leg worker still open) |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
 | **Branch policy** | **`main` only** — sequential green commits; no side-branch stacks |
 | **Baseline** | `main` @ `de00413` (Ollama FAB + agent CLI + C2) after reliability dossier, fidelity L1/L2-plan, cargo triad, concept-grade extras |
