@@ -878,13 +878,15 @@ input[type="range"]::-webkit-slider-thumb {
         </select>
         <div id="scenario-summary"></div>
       </div>
-      <div class="route-slot origin" id="route-origin">
+      <div class="route-slot origin" id="route-origin" title="Click to pick origin · drag a body · right-click scene/list" role="button" tabindex="0">
         <span class="slot-label">Origin</span>
-        <span class="slot-value empty" id="origin-name">Drag or right-click</span>
+        <span class="slot-value empty" id="origin-name">Click, drag or right-click</span>
+        <span class="slot-chevron" aria-hidden="true">▾</span>
       </div>
-      <div class="route-slot dest" id="route-dest">
+      <div class="route-slot dest" id="route-dest" title="Click to pick destination · drag a body · right-click scene/list" role="button" tabindex="0">
         <span class="slot-label">Dest</span>
-        <span class="slot-value empty" id="dest-name">Drag or right-click</span>
+        <span class="slot-value empty" id="dest-name">Click, drag or right-click</span>
+        <span class="slot-chevron" aria-hidden="true">▾</span>
       </div>
       <div class="date-group">
         <label>Departure Date/Time (UTC)</label>

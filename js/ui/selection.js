@@ -6,8 +6,13 @@ import { moonLabels, moonOrbitLines } from '../scene/moons.js';
 import { orbitLines, planetLabels } from '../scene/planets.js';
 import { selectionRing } from '../scene/selection-ring.js';
 import { updateInfoPanel } from './info-panel.js';
+import { openBodyDossier } from './body-dossier-modal.js';
 
-export function selectBody(body) {
+/**
+ * @param {object|null} body
+ * @param {{ openDossier?: boolean }} [opts] — openDossier defaults true when body set
+ */
+export function selectBody(body, opts = {}) {
   state.selectedBody = body;
   updateInfoPanel();
   for (const [name, div] of planetLabels) div.classList.toggle('selected', body && body.name === name);
@@ -31,6 +36,8 @@ export function selectBody(body) {
       const container = document.getElementById(`moons-${body.parent}`);
       if (container) container.style.display = 'block';
     }
+    const openDossier = opts.openDossier !== false;
+    if (openDossier) openBodyDossier(body);
   } else {
     selectionRing.visible = false;
     if (state.followMode) state.followMode = false;

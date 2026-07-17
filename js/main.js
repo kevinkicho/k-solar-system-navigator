@@ -43,6 +43,8 @@ import { buildMeasurementCard } from './ui/measurement-card.js';
 import { wireVehicleLab } from './ui/vehicle-lab.js';
 import { wireAgentChat } from './ui/agent-chat.js';
 import { wireRailUi } from './ui/rail-ui.js';
+import { wireBodyPicker } from './ui/body-picker.js';
+import { wireBodyDossier } from './ui/body-dossier-modal.js';
 
 // Mission + animation.
 import { abortMission, launchMission } from './mission.js';
@@ -80,6 +82,8 @@ wireMissionImport();
 wireRecentRoutes();
 wireVehicleLab();
 wireRailUi();
+wireBodyPicker();
+wireBodyDossier();
 try {
   wireAgentChat(); // FAB chat + onboard agent C2 — never block app boot
 } catch (err) {

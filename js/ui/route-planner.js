@@ -108,7 +108,7 @@ export function setRouteOrigin(body) {
   state.transferData = null;
   state.showTransferOrbit = false;
   updateTransferOrbitVisual();   // tear down dashed line + ghost target
-  document.getElementById('origin-name').textContent = body ? body.name : 'Drag or right-click';
+  document.getElementById('origin-name').textContent = body ? body.name : 'Click, drag or right-click';
   document.getElementById('origin-name').classList.toggle('empty', !body);
   if (body) notify(`ORIGIN: ${body.name.toUpperCase()}`);
   document.getElementById('transfer-results').innerHTML = '';
@@ -125,7 +125,7 @@ export function setRouteDestination(body) {
   state.transferData = null;
   state.showTransferOrbit = false;
   updateTransferOrbitVisual();
-  document.getElementById('dest-name').textContent = body ? body.name : 'Drag or right-click';
+  document.getElementById('dest-name').textContent = body ? body.name : 'Click, drag or right-click';
   document.getElementById('dest-name').classList.toggle('empty', !body);
   if (body) notify(`DESTINATION: ${body.name.toUpperCase()}`);
   document.getElementById('transfer-results').innerHTML = '';
