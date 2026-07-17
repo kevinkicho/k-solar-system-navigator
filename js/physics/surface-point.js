@@ -99,30 +99,35 @@ export function longitudeSystem(body) {
 export function coordinateSystemBadge(body) {
   const kind = bodySurfaceKind(body);
   const lon = longitudeSystem(body);
+  const obl = isOblateBody(body);
+  const shapeNote = obl ? ' · oblate R(φ)' : '';
   if (kind === 'gas-giant' || kind === 'ice-giant') {
     return {
-      short: 'Planetocentric · east lon · 1-bar · h',
-      full: `Planetocentric geographic (lat/lon east-positive) · height above 1-bar cloud deck · ${lon.label} · concept-grade (not SPICE)`,
+      short: `Planetocentric · east lon · 1-bar · h${obl ? ' · oblate' : ''}`,
+      full: `Planetocentric geographic (lat/lon east-positive) · height above 1-bar cloud deck${shapeNote} · ${lon.label} · IAU-class W(t) · concept-grade (not SPICE)`,
       id: COORD_SYSTEM_ID,
       longitudeSystem: lon.id,
       reference: '1-bar',
+      oblate: obl,
     };
   }
   if (kind === 'thick-atmosphere') {
     return {
       short: 'Planetocentric · east lon · mean R · h',
-      full: 'Planetocentric geographic · height above mean radius (thick atmosphere) · concept-grade',
+      full: 'Planetocentric geographic · height above mean radius (thick atmosphere) · IAU-class W(t) · concept-grade',
       id: COORD_SYSTEM_ID,
       longitudeSystem: lon.id,
       reference: 'mean-radius',
+      oblate: obl,
     };
   }
   return {
-    short: 'Planetocentric · east lon · mean R · h',
-    full: 'Planetocentric geographic (lat/lon east-positive) · height above mean spherical radius · concept-grade (not SPICE / not WGS84 ops)',
+    short: `Planetocentric · east lon · ${obl ? 'ellipsoid' : 'mean R'} · h`,
+    full: `Planetocentric geographic (lat/lon east-positive) · height above ${obl ? 'local ellipsoid radius R(φ)' : 'mean spherical radius'}${shapeNote} · IAU-class W(t) · concept-grade (not SPICE / not WGS84 ops)`,
     id: COORD_SYSTEM_ID,
     longitudeSystem: lon.id,
-    reference: 'mean-radius',
+    reference: obl ? 'oblate-ellipsoid' : 'mean-radius',
+    oblate: obl,
   };
 }
 
@@ -133,8 +138,13 @@ export function referenceSphereLabel(body) {
 }
 
 export function altitudeFieldLabel(body) {
-  return isFluidGiant(body)
-    ? 'Altitude (km above 1-bar reference)'
+  if (isFluidGiant(body)) {
+    return isOblateBody(body)
+      ? 'Altitude (km above 1-bar ellipsoid)'
+      : 'Altitude (km above 1-bar reference)';
+  }
+  return isOblateBody(body)
+    ? 'Altitude (km above local ellipsoid)'
     : 'Altitude (km above mean radius)';
 }
 
@@ -146,21 +156,114 @@ export function surfacePanelTitle(body, role = 'origin') {
   return `${who} geographic site · lat / lon / alt`;
 }
 
-/** Reference sphere radius (m) used for h → r conversion. */
-export function referenceRadius_m(body) {
-  return body?.radius || 0;
+/**
+ * Reference ellipsoid (equatorial / polar radii, km) from JPL SSD phys_par
+ * equatorial + mean radii (polar derived when needed). Concept-grade.
+ * Polar radius: Rp ≈ 3*Rmean − 2*Re when only mean+eq published.
+ */
+export const BODY_SHAPE = {
+  // SSD phys_par equatorial / mean → polar derived
+  Mercury: { Re_km: 2440.53, Rp_km: 2439.7, mean_km: 2439.4 },
+  Venus: { Re_km: 6051.8, Rp_km: 6051.8, mean_km: 6051.8 },
+  Earth: { Re_km: 6378.1366, Rp_km: 6356.752, mean_km: 6371.0084 },
+  Mars: { Re_km: 3396.19, Rp_km: 3376.2, mean_km: 3389.50 },
+  Jupiter: { Re_km: 71492, Rp_km: 66854, mean_km: 69911 },
+  Saturn: { Re_km: 60268, Rp_km: 54364, mean_km: 58232 },
+  Uranus: { Re_km: 25559, Rp_km: 24973, mean_km: 25362 },
+  Neptune: { Re_km: 24764, Rp_km: 24341, mean_km: 24622 },
+  Moon: { Re_km: 1737.4, Rp_km: 1737.4, mean_km: 1737.4 },
+  Pluto: { Re_km: 1188.3, Rp_km: 1188.3, mean_km: 1188.3 },
+  Ceres: { Re_km: 482.1, Rp_km: 445.0, mean_km: 469.7 },
+};
+
+/**
+ * @returns {{ Re_m, Rp_m, mean_m, flattening, isOblate }}
+ */
+export function bodyShape(body) {
+  const name = body?.name;
+  const row = name && BODY_SHAPE[name];
+  const mean_m = body?.radius || (row ? row.mean_km * 1000 : 0);
+  if (!row) {
+    return {
+      Re_m: mean_m, Rp_m: mean_m, mean_m,
+      flattening: 0, isOblate: false,
+    };
+  }
+  const Re_m = row.Re_km * 1000;
+  const Rp_m = row.Rp_km * 1000;
+  const f = Re_m > 0 ? 1 - Rp_m / Re_m : 0;
+  return {
+    Re_m, Rp_m, mean_m: row.mean_km * 1000,
+    flattening: f,
+    isOblate: f > 0.001, // ~0.1% threshold
+  };
+}
+
+/** True when planetographic lat meaningfully differs from planetocentric. */
+export function isOblateBody(body) {
+  return bodyShape(body).isOblate;
 }
 
 /**
- * Planetocentric radius from center (m): r = R_ref + h.
- * Primary physics third coordinate; altitude h is the practical UI field.
+ * Geocentric (planetocentric) radius of the reference ellipsoid at planetocentric lat φ.
+ * r(φ) = Re·Rp / sqrt((Rp cos φ)² + (Re sin φ)²)
  */
-export function planetocentricRadius_m(body, alt_m = 0) {
-  return referenceRadius_m(body) + (Number(alt_m) || 0);
+export function ellipsoidRadius_m(body, lat_planetocentric_deg) {
+  const { Re_m, Rp_m, mean_m, isOblate } = bodyShape(body);
+  if (!isOblate || !(Re_m > 0) || !(Rp_m > 0)) return mean_m || body?.radius || 0;
+  const lat = (Number(lat_planetocentric_deg) || 0) * DEG;
+  const c = Math.cos(lat);
+  const s = Math.sin(lat);
+  const den = Math.sqrt((Rp_m * c) ** 2 + (Re_m * s) ** 2);
+  if (!(den > 0)) return mean_m;
+  return (Re_m * Rp_m) / den;
 }
 
-export function formatRadiusFromCenter(body, alt_m) {
-  const r = planetocentricRadius_m(body, alt_m);
+/**
+ * Planetographic latitude from planetocentric (degrees).
+ * tan(φ_g) = (Re/Rp)² tan(φ_c)
+ */
+export function planetocentricToPlanetographic_deg(body, lat_c_deg) {
+  const { Re_m, Rp_m, isOblate } = bodyShape(body);
+  if (!isOblate || !(Rp_m > 0)) return Number(lat_c_deg) || 0;
+  const lat_c = (Number(lat_c_deg) || 0) * DEG;
+  // Clamp near poles for numerical stability
+  if (Math.abs(Math.cos(lat_c)) < 1e-12) return lat_c_deg >= 0 ? 90 : -90;
+  const ratio = (Re_m / Rp_m) ** 2;
+  const lat_g = Math.atan(ratio * Math.tan(lat_c));
+  return lat_g / DEG;
+}
+
+/**
+ * Planetocentric latitude from planetographic (degrees).
+ * tan(φ_c) = (Rp/Re)² tan(φ_g)
+ */
+export function planetographicToPlanetocentric_deg(body, lat_g_deg) {
+  const { Re_m, Rp_m, isOblate } = bodyShape(body);
+  if (!isOblate || !(Re_m > 0)) return Number(lat_g_deg) || 0;
+  const lat_g = (Number(lat_g_deg) || 0) * DEG;
+  if (Math.abs(Math.cos(lat_g)) < 1e-12) return lat_g_deg >= 0 ? 90 : -90;
+  const ratio = (Rp_m / Re_m) ** 2;
+  const lat_c = Math.atan(ratio * Math.tan(lat_g));
+  return lat_c / DEG;
+}
+
+/** Mean / equatorial reference (legacy API — mean sphere for non-lat-aware callers). */
+export function referenceRadius_m(body) {
+  return bodyShape(body).mean_m || body?.radius || 0;
+}
+
+/**
+ * Local reference radius at planetocentric lat + altitude h (m).
+ * r = R_ellipsoid(φ_c) + h
+ */
+export function planetocentricRadius_m(body, alt_m = 0, lat_planetocentric_deg = 0) {
+  const R = ellipsoidRadius_m(body, lat_planetocentric_deg);
+  return R + (Number(alt_m) || 0);
+}
+
+export function formatRadiusFromCenter(body, alt_m, lat_deg = 0) {
+  const r = planetocentricRadius_m(body, alt_m, lat_deg);
   if (!(r > 0)) return '—';
   if (r >= 1e6) return `${(r / 1000).toFixed(0)} km from center`;
   return `${(r / 1000).toFixed(1)} km from center`;
@@ -275,32 +378,57 @@ export function presetsForBody(body) {
 }
 
 /**
- * Compact IAU-class mean spin table (educational).
- * period_d: sidereal rotation (negative = retrograde). Prefer SSD phys_par when present.
- * W0_deg: educational prime-meridian phase at J2000 (not full IAU polynomial).
- * obliquity_deg: mean ecliptic obliquity of spin axis.
- * Source class: Archinal et al. / SSD phys_par order-of-magnitude; not SPICE PCK.
+ * IAU-class rotational elements (educational linear W(t)).
+ *
+ * W(d) = W0 + Wdot·d   (degrees; d = Julian days from J2000.0 TT ≈ HELIOS sim days)
+ * Wdot in deg/day. Negative Wdot ⇒ retrograde prime meridian advance.
+ *
+ * Values aligned with Archinal et al. WGCCRE reports (2011/2015 class) + SSD
+ * sidereal periods for ω. Linear term only — no libration / nutation harmonics.
+ * Not SPICE PCK kernels.
+ *
+ * period_d: 360/|Wdot| with sign of Wdot (for ω magnitude).
+ * obliquity_deg: mean ecliptic obliquity of spin axis (HELIOS ecliptic frame).
  */
 export const IAU_CLASS_SPIN = {
-  Mercury: { period_d: 58.6462, W0_deg: 329.5469, obliquity_deg: 0.034 },
-  Venus: { period_d: -243.018, W0_deg: 160.20, obliquity_deg: 177.36 },
-  Earth: { period_d: 0.99726968, W0_deg: 190.147, obliquity_deg: 23.439 },
-  Mars: { period_d: 1.02595676, W0_deg: 176.630, obliquity_deg: 25.19 },
-  Jupiter: { period_d: 0.41354, W0_deg: 284.95, obliquity_deg: 3.13 }, // System III class
-  Saturn: { period_d: 0.44401, W0_deg: 38.90, obliquity_deg: 26.73 },
-  Uranus: { period_d: -0.71833, W0_deg: 203.81, obliquity_deg: 97.77 },
-  Neptune: { period_d: 0.67125, W0_deg: 253.18, obliquity_deg: 28.32 },
-  Moon: { period_d: 27.321661, W0_deg: 38.3213, obliquity_deg: 6.68 },
-  Pluto: { period_d: -6.3872, W0_deg: 302.695, obliquity_deg: 119.6 },
-  Ceres: { period_d: 0.37809042, W0_deg: 0, obliquity_deg: 4 },
-  Eris: { period_d: 1.079, W0_deg: 0, obliquity_deg: 0 },
-  Haumea: { period_d: 0.1631, W0_deg: 0, obliquity_deg: 0 },
-  Makemake: { period_d: 0.937, W0_deg: 0, obliquity_deg: 0 },
+  // W0, Wdot from Archinal et al. 2011 Table 1 (representative); period from SSD
+  Mercury: { W0_deg: 329.5469, Wdot_deg_per_d: 6.1385025, period_d: 58.6462, obliquity_deg: 0.034 },
+  Venus: { W0_deg: 160.20, Wdot_deg_per_d: -1.4813688, period_d: -243.018, obliquity_deg: 177.36 },
+  Earth: { W0_deg: 190.147, Wdot_deg_per_d: 360.9856235, period_d: 0.99726968, obliquity_deg: 23.4392911 },
+  Mars: { W0_deg: 176.630, Wdot_deg_per_d: 350.89198226, period_d: 1.02595676, obliquity_deg: 25.19 },
+  Jupiter: { W0_deg: 284.95, Wdot_deg_per_d: 870.5360000, period_d: 0.41354, obliquity_deg: 3.13 }, // Sys.III
+  Saturn: { W0_deg: 38.90, Wdot_deg_per_d: 810.7939024, period_d: 0.44401, obliquity_deg: 26.73 },
+  Uranus: { W0_deg: 203.81, Wdot_deg_per_d: -501.1600928, period_d: -0.71833, obliquity_deg: 97.77 },
+  Neptune: { W0_deg: 253.18, Wdot_deg_per_d: 536.3128492, period_d: 0.67125, obliquity_deg: 28.32 },
+  Moon: { W0_deg: 38.3213, Wdot_deg_per_d: 13.17635815, period_d: 27.321661, obliquity_deg: 6.68 },
+  Pluto: { W0_deg: 302.695, Wdot_deg_per_d: -56.3623195, period_d: -6.3872, obliquity_deg: 119.61 },
+  Ceres: { W0_deg: 291.4, Wdot_deg_per_d: 952.1532, period_d: 0.37809042, obliquity_deg: 4 },
+  Eris: { W0_deg: 0, Wdot_deg_per_d: 333.6, period_d: 1.079, obliquity_deg: 0 },
+  Haumea: { W0_deg: 0, Wdot_deg_per_d: 2206.1, period_d: 0.1631, obliquity_deg: 0 },
+  Makemake: { W0_deg: 0, Wdot_deg_per_d: 384.2, period_d: 0.937, obliquity_deg: 0 },
 };
 
 /**
- * Spin / pole model. Values are concept-grade means (not full IAU series / SPICE).
- * period_d from JPL SSD phys_par when available (negative = retrograde).
+ * Prime meridian angle W (deg) at HELIOS sim time (seconds from J2000).
+ * W = W0 + Wdot·d  (linear IAU-class polynomial).
+ */
+export function primeMeridianW_deg(body, timeSec) {
+  const spin = getSpinModel(body);
+  const d = timeSec / DAY;
+  let W;
+  if (spin.Wdot_deg_per_d != null && isFinite(spin.Wdot_deg_per_d)) {
+    W = spin.W0_deg + spin.Wdot_deg_per_d * d;
+  } else {
+    // Fallback: 360/P · d
+    const period = spin.period_d || 1;
+    W = spin.W0_deg + (360 / period) * d;
+  }
+  W = ((W % 360) + 360) % 360;
+  return W;
+}
+
+/**
+ * Spin / pole model. IAU-class W0+Wdot when tabulated; SSD period preferred for ω.
  */
 export function getSpinModel(body) {
   const name = body?.name;
@@ -309,20 +437,27 @@ export function getSpinModel(body) {
   const period_d = extra?.siderealRotation_d
     ?? table?.period_d
     ?? (body?.period ? body.period / DAY : 1);
+  // Prefer published Wdot; else derive from period
+  let Wdot = table?.Wdot_deg_per_d;
+  if (Wdot == null && period_d) {
+    Wdot = 360 / period_d;
+  }
   return {
     period_d: period_d || 1,
     obliquity_deg: table?.obliquity_deg ?? 0,
     W0_deg: table?.W0_deg ?? 0,
+    Wdot_deg_per_d: Wdot ?? 360,
     source: table
-      ? 'IAU-class mean spin table + SSD period when present (not full WGCCRE / not SPICE PCK)'
+      ? 'IAU-class W(t)=W0+Wdot·d (Archinal/WGCCRE class) + SSD period when present — not full PCK / not SPICE'
       : 'concept-grade spin fallback',
     iau_class_table: !!table,
+    has_W_polynomial: !!(table && table.Wdot_deg_per_d != null),
   };
 }
 
-/** Body-fixed cartesian meters: x→(0,0), z→north. */
+/** Body-fixed cartesian meters at planetocentric lat/lon; uses ellipsoid radius when oblate. */
 export function surfaceBodyFixedMeters(body, lat_deg, lon_deg, alt_m = 0) {
-  const R = (body.radius || 0) + (alt_m || 0);
+  const R = planetocentricRadius_m(body, alt_m, lat_deg);
   const lat = lat_deg * DEG;
   const lon = lon_deg * DEG;
   const cl = Math.cos(lat);
@@ -361,16 +496,11 @@ function matMul(A, B) {
 
 /**
  * Rotation matrix body-fixed → standard ecliptic (X,Y,Z).
- * R = Rx(obliquity) · Rz(W)
+ * R = Rx(obliquity) · Rz(W(t)) with IAU-class linear W(t).
  */
 export function bodyToEclipticMatrix(body, timeSec) {
   const spin = getSpinModel(body);
-  const days = timeSec / DAY;
-  const period = spin.period_d || 1;
-  // Signed period: negative → retrograde spin (W decreases)
-  const rate_deg_per_d = 360 / period;
-  let W = spin.W0_deg + rate_deg_per_d * days;
-  W = ((W % 360) + 360) % 360;
+  const W = primeMeridianW_deg(body, timeSec);
   const Wrad = W * DEG;
   const obl = spin.obliquity_deg * DEG;
   return matMul(Rx(obl), Rz(Wrad));
@@ -409,17 +539,21 @@ export function surfaceOffsetSceneAU(body, timeSec, point) {
 export function surfaceVelocitySceneMps(body, timeSec, point) {
   if (!isSurfacePointActive(point) || !body?.radius) return [0, 0, 0];
   const spin = getSpinModel(body);
-  const period_s = Math.abs(spin.period_d) * DAY;
-  if (!(period_s > 0)) return [0, 0, 0];
-  const omegaMag = (TWO_PI / period_s) * Math.sign(spin.period_d || 1);
-  // body-fixed z-hat → ecliptic
+  // ω from IAU Wdot (rad/s): Wdot deg/day → rad/s
+  let omegaMag;
+  if (spin.Wdot_deg_per_d != null && isFinite(spin.Wdot_deg_per_d)) {
+    omegaMag = (spin.Wdot_deg_per_d * DEG) / DAY; // rad/s (signed)
+  } else {
+    const period_s = Math.abs(spin.period_d) * DAY;
+    if (!(period_s > 0)) return [0, 0, 0];
+    omegaMag = (TWO_PI / period_s) * Math.sign(spin.period_d || 1);
+  }
   const R = bodyToEclipticMatrix(body, timeSec);
-  const poleEcl = matMulVec(R, [0, 0, 1]); // ecliptic XYZ
+  const poleEcl = matMulVec(R, [0, 0, 1]);
   const omegaEcl = v3scale(poleEcl, omegaMag);
   const bf = surfaceBodyFixedMeters(body, point.lat_deg, point.lon_deg, point.alt_m);
   const rEcl = matMulVec(R, bf);
-  const vEcl = v3cross(omegaEcl, rEcl); // m/s in ecliptic XYZ
-  // Convert to scene m/s: scene [vx,vy,vz] with y=ecl Z, z=ecl Y
+  const vEcl = v3cross(omegaEcl, rEcl);
   return [vEcl[0], vEcl[2], vEcl[1]];
 }
 
@@ -458,29 +592,50 @@ export function surfacePointMeta(body, point) {
   const kind = bodySurfaceKind(body);
   const badge = coordinateSystemBadge(body);
   const lonSys = longitudeSystem(body);
-  const r_m = planetocentricRadius_m(body, point.alt_m);
+  const shape = bodyShape(body);
+  const lat_c = point.lat_deg;
+  const lat_g = planetocentricToPlanetographic_deg(body, lat_c);
+  const r_m = planetocentricRadius_m(body, point.alt_m, lat_c);
+  const R_ell = ellipsoidRadius_m(body, lat_c);
+  const spin = getSpinModel(body);
   return {
     body: body.name,
     bodyId: body.id || null,
-    lat_deg: point.lat_deg,
+    lat_deg: lat_c,
+    lat_planetocentric_deg: lat_c,
+    lat_planetographic_deg: lat_g,
     lon_deg: point.lon_deg,
     lon_east_0_360: lonEast_0_360(point.lon_deg),
     alt_m: point.alt_m,
     radius_from_center_m: r_m,
     radius_from_center_km: r_m / 1000,
-    reference_radius_m: referenceRadius_m(body),
+    reference_radius_m: R_ell,
+    mean_radius_m: shape.mean_m,
+    equatorial_radius_m: shape.Re_m,
+    polar_radius_m: shape.Rp_m,
+    flattening: shape.flattening,
+    is_oblate: shape.isOblate,
     label: formatSurfacePointShort(point, body),
     surfaceKind: kind,
     referenceSphere: badge.reference,
+    referenceShape: shape.isOblate ? 'oblate-ellipsoid' : 'sphere',
     coordinateSystem: badge.id,
     coordinateSystemLabel: badge.short,
     longitudeSystem: lonSys.id,
     longitudeSystemLabel: lonSys.label,
     latitudeConvention: 'planetocentric',
     longitudeConvention: 'east-positive',
+    spin: {
+      W0_deg: spin.W0_deg,
+      Wdot_deg_per_d: spin.Wdot_deg_per_d,
+      has_W_polynomial: spin.has_W_polynomial,
+      source: spin.source,
+    },
     model: isFluidGiant(body)
-      ? 'Geographic (planetocentric lat/lon + h above 1-bar) · concept-grade spin · no solid surface · not SPICE'
-      : 'Geographic (planetocentric lat/lon + h above mean radius) · concept-grade spin · not SPICE / not WGS84 ops',
+      ? 'Geographic (planetocentric lat/lon + h above 1-bar ellipsoid) · IAU-class W(t) · no solid surface · not SPICE'
+      : shape.isOblate
+        ? 'Geographic (planetocentric lat + dual planetographic display) · oblate R(φ) · IAU-class W(t) · not SPICE / not WGS84 ops'
+        : 'Geographic (planetocentric lat/lon + h) · IAU-class W(t) · not SPICE / not WGS84 ops',
   };
 }
 

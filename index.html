@@ -916,8 +916,9 @@ input[type="range"]::-webkit-slider-thumb {
               <input type="number" id="origin-alt" min="0" max="100000" step="1" value="100">
             </div>
             <div class="geo-radius-readout" id="origin-radius-readout" aria-live="polite">Radius from center: —</div>
+            <div class="geo-pg-readout" id="origin-pg-readout" hidden aria-live="polite"></div>
             <div class="geo-lon-system" id="origin-lon-system"></div>
-            <p class="surface-hint" id="origin-surface-hint">Geographic site: planetocentric lat/lon + height above reference. Derived r = R_ref + h. Concept-grade · not SPICE.</p>
+            <p class="surface-hint" id="origin-surface-hint">Geographic site: planetocentric lat/lon + height above reference. Derived r = R_ell(φ) + h. IAU-class W(t) · concept-grade · not SPICE.</p>
           </div>
         </div>
       </details>
@@ -948,8 +949,9 @@ input[type="range"]::-webkit-slider-thumb {
               <input type="number" id="dest-alt" min="0" max="100000" step="1" value="100">
             </div>
             <div class="geo-radius-readout" id="dest-radius-readout" aria-live="polite">Radius from center: —</div>
+            <div class="geo-pg-readout" id="dest-pg-readout" hidden aria-live="polite"></div>
             <div class="geo-lon-system" id="dest-lon-system"></div>
-            <p class="surface-hint" id="dest-surface-hint">Geographic site: planetocentric lat/lon + height above reference. Derived r = R_ref + h. Concept-grade · not SPICE.</p>
+            <p class="surface-hint" id="dest-surface-hint">Geographic site: planetocentric lat/lon + height above reference. Derived r = R_ell(φ) + h. IAU-class W(t) · concept-grade · not SPICE.</p>
           </div>
         </div>
       </details>

@@ -502,8 +502,8 @@ Trust Card / About should continue to list body-fixed sites as concept-grade whe
 | Mission JSON export/import sites | **Done** | `mission-export.js` / `mission-import.js` |
 | Multi-leg first/last geographic sites | **Done** | `solveMultiLegRoute` · PR-G4 |
 | IAU-class mean spin table | **Done** | `IAU_CLASS_SPIN` (not full WGCCRE poly) |
-| Oblate planetographic | Not done | Residual PR-G2 |
-| Full IAU \(W(t)\) polynomials | Not done | Residual PR-G3 polish |
+| Oblate planetographic | **Done** | `BODY_SHAPE` · dual lat readout · R_ell(φ) |
+| IAU-class \(W(t)=W_0+\dot{W}d\) | **Done** | Linear poly; not full libration harmonics / SPICE PCK |
 
 ---
 
@@ -517,23 +517,26 @@ Work landed as sequential main commits (no open PRs required for v1). Residual u
 - **Depends on:** none (sites already on `td`)  
 - **Desc:** Encode enabled origin/dest sites in share hash + JSON v3; round-trip CI  
 
-### PR-G2 — Oblate reference + planetographic display *(optional residual)*
+### PR-G2 — Oblate reference + planetographic display ✅
 
-- **Files:** `surface-point.js`, body phys extras (Re/Rp), UI dual lat display  
-- **Depends on:** none  
-- **Desc:** Optional ellipsoid; show planetocentric vs planetographic when \(R_e \neq R_p\)  
+- **Files:** `surface-point.js` (`BODY_SHAPE`, dual lat), UI `geo-pg-readout`  
+- **Status:** Landed — ellipsoid \(R(\phi)\); planetographic lat derived from planetocentric input  
 
-### PR-G3 — IAU mean \(W(t)\) table asset *(optional residual)*
+### PR-G3 — IAU-class \(W(t)\) polynomials ✅
 
-- **Files:** `assets/iau-rotation-v1.json` (or embed), `getSpinModel`  
-- **Depends on:** none  
-- **Desc:** Replace toy \(W_0\) with published mean rates; still offline  
+- **Files:** `IAU_CLASS_SPIN` with `W0` + `Wdot` (deg/d); `primeMeridianW_deg`  
+- **Status:** Landed — linear Archinal/WGCCRE-class \(W=W_0+\dot{W}d\); no libration harmonics / not SPICE PCK  
 
-### PR-G4 — Multi-leg first/last geographic sites *(optional residual)*
+### PR-G4 — Multi-leg first/last geographic sites ✅
 
 - **Files:** `route-planner.js`, `routing.js` multi-leg path  
-- **Depends on:** PR-G1 if share needed  
-- **Desc:** Apply `surfaceOriginPoint` / `surfaceDestPoint` only on terminal legs  
+- **Status:** Landed earlier  
+
+### Residual (optional future)
+
+- Full IAU pole α₀/δ₀ ICRF → ecliptic matrix (beyond mean obliquity tip)  
+- Periodic libration terms in \(W(t)\) for Moon / Mercury  
+- User toggle: enter planetographic lat as primary (convert to planetocentric for math)  
 
 ---
 

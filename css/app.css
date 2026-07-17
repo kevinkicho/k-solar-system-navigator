@@ -316,6 +316,13 @@
   border: 1px solid rgba(0,230,118,0.2); border-radius: 3px;
   font-family: var(--font-mono); letter-spacing: 0.3px;
 }
+.geo-pg-readout {
+  font-size: 9px; color: var(--amber); margin: 2px 0 4px;
+  padding: 4px 6px; background: rgba(255,152,0,0.06);
+  border: 1px solid rgba(255,152,0,0.25); border-radius: 3px;
+  font-family: var(--font-mono); line-height: 1.35;
+}
+.geo-pg-readout[hidden] { display: none !important; }
 .geo-lon-system {
   font-size: 9px; color: var(--text-dim); margin: 2px 0 4px; line-height: 1.3;
 }

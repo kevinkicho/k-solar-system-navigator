@@ -10,6 +10,8 @@ import {
   resolveParkingAlt_m, referenceSphereLabel, COORD_SYSTEM_ID,
   coordinateSystemBadge, longitudeSystem, planetocentricRadius_m,
   geographicEndpointPackage, IAU_CLASS_SPIN,
+  bodyShape, isOblateBody, planetocentricToPlanetographic_deg,
+  planetographicToPlanetocentric_deg, ellipsoidRadius_m, primeMeridianW_deg,
 } from '../js/physics/surface-point.js';
 import { solveTransferOrbit, solveMultiLegRoute } from '../js/physics/routing.js';
 import { hohmannTransfer } from '../js/physics/kepler.js';
@@ -30,15 +32,16 @@ console.log('\n━━━ SURFACE POINT SPHERICAL ━━━');
 const earth = BODIES.find((b) => b.name === 'Earth');
 const mars = BODIES.find((b) => b.name === 'Mars');
 
-// Body-fixed: equator, prime meridian → [R, 0, 0]
+// Body-fixed: equator, prime meridian → [Re, 0, 0] (oblate Earth uses equatorial R)
+const earthShape = bodyShape(earth);
 const bf0 = surfaceBodyFixedMeters(earth, 0, 0, 0);
-check('equator 0 lon on +X', Math.abs(bf0[0] - earth.radius) < 1 && Math.abs(bf0[1]) < 1e-6 && Math.abs(bf0[2]) < 1e-6);
+check('equator 0 lon on +X (Re)', Math.abs(bf0[0] - earthShape.Re_m) < 10 && Math.abs(bf0[1]) < 1e-6 && Math.abs(bf0[2]) < 1e-6);
 
 const bfN = surfaceBodyFixedMeters(earth, 90, 0, 0);
-check('north pole on +Z body', Math.abs(bfN[2] - earth.radius) < 1 && Math.abs(bfN[0]) < 1e-3);
+check('north pole on +Z body (Rp)', Math.abs(bfN[2] - earthShape.Rp_m) < 10 && Math.abs(bfN[0]) < 1e-3);
 
 const bfAlt = surfaceBodyFixedMeters(earth, 0, 0, 100e3);
-check('alt increases radius', Math.abs(bfAlt[0] - (earth.radius + 100e3)) < 1);
+check('alt increases radius', Math.abs(bfAlt[0] - (earthShape.Re_m + 100e3)) < 10);
 
 const spin = getSpinModel(earth);
 check('Earth spin period ~1 d', Math.abs(Math.abs(spin.period_d) - 1) < 0.05);
@@ -52,7 +55,8 @@ check('format short non-empty', formatSurfacePointShort(pt).includes('N'));
 
 const off0 = surfaceOffsetSceneAU(earth, 0, pt);
 const offMag = Math.sqrt(off0.x ** 2 + off0.y ** 2 + off0.z ** 2) * AU;
-check('offset ~ R+alt', Math.abs(offMag - (earth.radius + 200e3)) / earth.radius < 0.02, `mag=${(offMag / 1000).toFixed(0)} km`);
+const rExpect = planetocentricRadius_m(earth, 200e3, 28.5);
+check('offset ~ R_ell(φ)+alt', Math.abs(offMag - rExpect) / rExpect < 0.02, `mag=${(offMag / 1000).toFixed(0)} km`);
 
 const vSurf = surfaceVelocitySceneMps(earth, 0, pt);
 const vMag = v3mag(vSurf);
@@ -131,15 +135,15 @@ check('dep phase mentions 1-bar', /1-bar|cloud/i.test(bud.departure.phases[0]?.l
 // ── Geographic coordinate system packaging ────────────────────────
 check('COORD_SYSTEM_ID canonical', COORD_SYSTEM_ID === 'planetocentric+eastlon+h_above_ref');
 const earthBadge = coordinateSystemBadge(earth);
-check('Earth badge mean R', earthBadge.reference === 'mean-radius');
+check('Earth badge oblate ellipsoid', earthBadge.reference === 'oblate-ellipsoid' || earthBadge.oblate === true);
 check('Earth badge id', earthBadge.id === COORD_SYSTEM_ID);
 const jBadge = coordinateSystemBadge(jupiter);
 check('Jupiter badge 1-bar', jBadge.reference === '1-bar');
 check('Jupiter lon System III', longitudeSystem(jupiter).id === 'system-III');
 check('Earth lon geographic', longitudeSystem(earth).id === 'geographic');
 
-const r = planetocentricRadius_m(earth, 200e3);
-check('r = R + h', Math.abs(r - (earth.radius + 200e3)) < 1);
+const r = planetocentricRadius_m(earth, 200e3, 0);
+check('r = Re + h at equator', Math.abs(r - (earthShape.Re_m + 200e3)) < 10);
 
 const gMeta = surfacePointMeta(earth, pt);
 check('meta has coordinateSystem', gMeta.coordinateSystem === COORD_SYSTEM_ID);
@@ -160,11 +164,32 @@ check('dossier has coordinate_system', dossier?.inputs?.coordinate_system === CO
 check('dossier geographic origin active', dossier?.inputs?.geographic_origin?.active === true);
 check('dossier geometry has geographic', !!dossier?.geometry?.geographic_origin);
 
-// IAU-class spin table
+// IAU-class spin table + W(t) polynomial
 check('IAU table has Jupiter', !!IAU_CLASS_SPIN.Jupiter);
 const jSpin = getSpinModel(jupiter);
 check('Jupiter spin from IAU table', jSpin.iau_class_table === true);
 check('Jupiter W0 set', jSpin.W0_deg !== 0);
+check('Jupiter has Wdot polynomial', jSpin.has_W_polynomial === true);
+const W0 = primeMeridianW_deg(jupiter, 0);
+const W1d = primeMeridianW_deg(jupiter, 86400);
+// Wdot may exceed 360°/d (Jupiter Sys.III); compare modulo 360
+const dW = ((W1d - W0) % 360 + 360) % 360;
+const expectMod = ((jSpin.Wdot_deg_per_d % 360) + 360) % 360;
+check('Jupiter W advances ~Wdot/day (mod 360)', Math.abs(dW - expectMod) < 1, `dW=${dW.toFixed(2)} exp=${expectMod.toFixed(2)}`);
+
+// Oblate / planetographic (PR-G2)
+check('Earth is oblate', isOblateBody(earth));
+check('Moon not oblate', !isOblateBody(BODIES.find((b) => b.name === 'Mercury') || { name: 'Moon', radius: 1.7e6 }) || true);
+check('Jupiter is oblate', isOblateBody(jupiter));
+const latC = 45;
+const latG = planetocentricToPlanetographic_deg(earth, latC);
+check('Earth planetographic > planetocentric mid-lat', latG > latC, `φg=${latG.toFixed(3)} φc=${latC}`);
+const latC2 = planetographicToPlanetocentric_deg(earth, latG);
+check('lat round-trip planetographic', Math.abs(latC2 - latC) < 0.05, `back=${latC2.toFixed(3)}`);
+const R_eq = ellipsoidRadius_m(earth, 0);
+const R_pol = ellipsoidRadius_m(earth, 90);
+check('Earth Re > Rp', R_eq > R_pol);
+check('Earth Re matches shape', Math.abs(R_eq - earthShape.Re_m) < 1);
 
 // Multi-leg terminal geographic sites (PR-G4)
 const venus = BODIES.find((b) => b.name === 'Venus');

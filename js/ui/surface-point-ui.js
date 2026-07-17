@@ -9,7 +9,9 @@ import {
   normalizeSurfacePoint, presetsForBody, isFluidGiant,
   referenceSphereLabel, altitudeFieldLabel, surfacePanelTitle,
   defaultParkingAlt_m, coordinateSystemBadge, longitudeSystem,
-  formatRadiusFromCenter, planetocentricRadius_m,
+  formatRadiusFromCenter, planetocentricRadius_m, isOblateBody,
+  bodyShape, planetocentricToPlanetographic_deg, ellipsoidRadius_m,
+  getSpinModel,
 } from '../physics/surface-point.js';
 
 function ensureState() {
@@ -47,19 +49,38 @@ function fillPresets(selectEl, body) {
     + presets.map((p) => `<option value="${p.id}">${p.label}</option>`).join('');
 }
 
-function updateRadiusReadout(prefix, body, altKm) {
+function updateRadiusReadout(prefix, body, altKm, latDeg) {
   const readout = el(`${prefix}-radius-readout`);
+  const pg = el(`${prefix}-pg-readout`);
   if (!readout) return;
   if (!body) {
     readout.textContent = 'Radius from center: —';
+    if (pg) { pg.hidden = true; pg.textContent = ''; }
     return;
   }
   const alt_m = (parseFloat(altKm) || 0) * 1000;
-  const rLabel = formatRadiusFromCenter(body, alt_m);
-  const r_m = planetocentricRadius_m(body, alt_m);
-  const R = body.radius || 0;
-  readout.textContent = `Radius from center: ${rLabel}  ·  R_ref ${(R / 1000).toFixed(0)} km + h`;
-  readout.title = `r = R_ref + h = ${(r_m / 1000).toFixed(3)} km (planetocentric)`;
+  const lat = parseFloat(latDeg) || 0;
+  const rLabel = formatRadiusFromCenter(body, alt_m, lat);
+  const r_m = planetocentricRadius_m(body, alt_m, lat);
+  const R_ell = ellipsoidRadius_m(body, lat);
+  const shape = bodyShape(body);
+  readout.textContent = shape.isOblate
+    ? `Radius from center: ${rLabel}  ·  R_ell(φ)=${(R_ell / 1000).toFixed(0)} km + h`
+    : `Radius from center: ${rLabel}  ·  R_ref ${(shape.mean_m / 1000).toFixed(0)} km + h`;
+  readout.title = `r = R_ref(φ) + h = ${(r_m / 1000).toFixed(3)} km (planetocentric)`;
+
+  if (pg) {
+    if (shape.isOblate) {
+      const lat_g = planetocentricToPlanetographic_deg(body, lat);
+      const f = (shape.flattening * 100).toFixed(2);
+      pg.hidden = false;
+      pg.textContent = `Planetographic lat: ${lat_g.toFixed(3)}°  ·  f=${f}%  ·  Re=${(shape.Re_m / 1000).toFixed(0)} km · Rp=${(shape.Rp_m / 1000).toFixed(0)} km`;
+      pg.title = 'Input lat is planetocentric; planetographic is the map/surface-normal latitude (IAU).';
+    } else {
+      pg.hidden = true;
+      pg.textContent = '';
+    }
+  }
 }
 
 function updatePanelChrome(prefix, body) {
@@ -84,11 +105,17 @@ function updatePanelChrome(prefix, body) {
   }
 
   const lonSys = longitudeSystem(body);
+  const spin = body ? getSpinModel(body) : null;
   if (lonEl) {
-    lonEl.textContent = isFluidGiant(body)
+    let line = isFluidGiant(body)
       ? `Longitude system: ${lonSys.label}`
       : `Longitude: ${lonSys.label}`;
-    lonEl.title = lonSys.note || lonSys.label;
+    if (spin?.has_W_polynomial) {
+      line += ` · Ẇ=${Number(spin.Wdot_deg_per_d).toFixed(4)}°/d`;
+    }
+    lonEl.textContent = line;
+    lonEl.title = (lonSys.note || lonSys.label)
+      + (spin?.source ? ` · ${spin.source}` : '');
   }
 
   if (enableLabel) {
@@ -124,7 +151,7 @@ function bindEndpoint(prefix, getPoint, setPoint, getBody) {
     }, body);
     setPoint(p);
     if (wrap) wrap.hidden = !p.enabled;
-    updateRadiusReadout(prefix, body, alt.value);
+    updateRadiusReadout(prefix, body, alt.value, lat.value);
     syncSlotLabels();
   };
 
@@ -139,7 +166,7 @@ function bindEndpoint(prefix, getPoint, setPoint, getBody) {
     alt.value = String(altM / 1000);
     if (wrap) wrap.hidden = !p.enabled;
     fillPresets(preset, body);
-    updateRadiusReadout(prefix, body, alt.value);
+    updateRadiusReadout(prefix, body, alt.value, lat.value);
     syncSlotLabels();
   };
 
@@ -147,7 +174,8 @@ function bindEndpoint(prefix, getPoint, setPoint, getBody) {
   lat.addEventListener('change', readToState);
   lon.addEventListener('change', readToState);
   alt.addEventListener('change', readToState);
-  alt.addEventListener('input', () => updateRadiusReadout(prefix, getBody(), alt.value));
+  lat.addEventListener('input', () => updateRadiusReadout(prefix, getBody(), alt.value, lat.value));
+  alt.addEventListener('input', () => updateRadiusReadout(prefix, getBody(), alt.value, lat.value));
   if (preset) {
     preset.addEventListener('change', () => {
       const id = preset.value;
