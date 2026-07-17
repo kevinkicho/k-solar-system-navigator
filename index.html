@@ -898,7 +898,7 @@ input[type="range"]::-webkit-slider-thumb {
           <div id="origin-surface-fields" hidden>
             <div class="route-field-row">
               <label>Preset</label>
-              <select id="origin-surface-preset"><option value="">Site preset…</option></select>
+              <select id="origin-surface-preset"><option value="">Site / cloud-deck preset…</option></select>
             </div>
             <div class="surface-ll-row">
               <div class="route-field-row">
@@ -911,10 +911,10 @@ input[type="range"]::-webkit-slider-thumb {
               </div>
             </div>
             <div class="route-field-row">
-              <label>Altitude (km above radius)</label>
-              <input type="number" id="origin-alt" min="0" max="50000" step="1" value="100">
+              <label for="origin-alt">Altitude (km above radius)</label>
+              <input type="number" id="origin-alt" min="0" max="100000" step="1" value="100">
             </div>
-            <p class="surface-hint">Planetocentric spherical · concept-grade spin model · not SPICE / not range safety</p>
+            <p class="surface-hint" id="origin-surface-hint">Planetocentric spherical · concept-grade spin · not SPICE. Gas giants use 1-bar cloud-deck reference (no solid surface).</p>
           </div>
         </div>
       </details>
@@ -927,7 +927,7 @@ input[type="range"]::-webkit-slider-thumb {
           <div id="dest-surface-fields" hidden>
             <div class="route-field-row">
               <label>Preset</label>
-              <select id="dest-surface-preset"><option value="">Site preset…</option></select>
+              <select id="dest-surface-preset"><option value="">Site / cloud-deck preset…</option></select>
             </div>
             <div class="surface-ll-row">
               <div class="route-field-row">
@@ -940,10 +940,10 @@ input[type="range"]::-webkit-slider-thumb {
               </div>
             </div>
             <div class="route-field-row">
-              <label>Altitude (km above radius)</label>
-              <input type="number" id="dest-alt" min="0" max="50000" step="1" value="100">
+              <label for="dest-alt">Altitude (km above radius)</label>
+              <input type="number" id="dest-alt" min="0" max="100000" step="1" value="100">
             </div>
-            <p class="surface-hint">Planetocentric spherical · concept-grade spin model · not SPICE / not range safety</p>
+            <p class="surface-hint" id="dest-surface-hint">Planetocentric spherical · concept-grade spin · not SPICE. Gas giants use 1-bar cloud-deck reference (no solid surface).</p>
           </div>
         </div>
       </details>

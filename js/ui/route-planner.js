@@ -17,7 +17,10 @@ import { timeState } from './time-system.js';
 import { updateBodyList } from './body-list.js';
 import { syncShareHash } from './share-sync.js';
 import { buildPlanDossier } from './plan-dossier.js';
-import { emptySurfacePoint, cloneSurfacePoint, isSurfacePointActive } from '../physics/surface-point.js';
+import {
+  emptySurfacePoint, cloneSurfacePoint, isSurfacePointActive,
+  defaultSurfacePointForBody, formatSurfacePointShort,
+} from '../physics/surface-point.js';
 import { refreshSurfacePointUi, syncSurfaceSlotLabels } from './surface-point-ui.js';
 
 // Mission abort handler — injected by main.js so route-planner can cancel an
@@ -107,11 +110,11 @@ export function setRouteOrigin(body) {
   if (state.mission.active) _abortMission();
   const prev = state.routeOrigin;
   state.routeOrigin = body;
-  // Reset surface point when body changes; keep when re-selecting same body
+  // Reset surface point when body changes; fluid giants auto-enable 1-bar sphere
   if (!body || !prev || prev.name !== body.name) {
-    state.routeOriginPoint = emptySurfacePoint();
+    state.routeOriginPoint = defaultSurfacePointForBody(body);
   } else if (!state.routeOriginPoint) {
-    state.routeOriginPoint = emptySurfacePoint();
+    state.routeOriginPoint = defaultSurfacePointForBody(body);
   }
   state.flybys = [];
   state.transferData = null;
@@ -121,7 +124,7 @@ export function setRouteOrigin(body) {
   document.getElementById('origin-name').classList.toggle('empty', !body);
   if (body) {
     const s = isSurfacePointActive(state.routeOriginPoint)
-      ? ` @ surface` : '';
+      ? ` · ${formatSurfacePointShort(state.routeOriginPoint, body)}` : '';
     notify(`ORIGIN: ${body.name.toUpperCase()}${s}`);
   }
   document.getElementById('transfer-results').innerHTML = '';
@@ -138,9 +141,9 @@ export function setRouteDestination(body) {
   const prev = state.routeDestination;
   state.routeDestination = body;
   if (!body || !prev || prev.name !== body.name) {
-    state.routeDestPoint = emptySurfacePoint();
+    state.routeDestPoint = defaultSurfacePointForBody(body);
   } else if (!state.routeDestPoint) {
-    state.routeDestPoint = emptySurfacePoint();
+    state.routeDestPoint = defaultSurfacePointForBody(body);
   }
   state.flybys = [];
   state.transferData = null;
@@ -148,7 +151,11 @@ export function setRouteDestination(body) {
   updateTransferOrbitVisual();
   document.getElementById('dest-name').textContent = body ? body.name : 'Click, drag or right-click';
   document.getElementById('dest-name').classList.toggle('empty', !body);
-  if (body) notify(`DESTINATION: ${body.name.toUpperCase()}`);
+  if (body) {
+    const s = isSurfacePointActive(state.routeDestPoint)
+      ? ` · ${formatSurfacePointShort(state.routeDestPoint, body)}` : '';
+    notify(`DESTINATION: ${body.name.toUpperCase()}${s}`);
+  }
   document.getElementById('transfer-results').innerHTML = '';
   document.getElementById('mission-controls').innerHTML = '';
   renderFlybyList();

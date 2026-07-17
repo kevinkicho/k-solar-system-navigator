@@ -29,16 +29,24 @@ import { G_CONST } from '../constants.js';
 import { BODIES } from '../data/bodies.js';
 import { v3mag, v3sub } from './vec3.js';
 import { getPlanningVelocity3D } from './ephemeris-provider.js';
-import { isSurfacePointActive } from './surface-point.js';
+import {
+  isSurfacePointActive, isFluidGiant, resolveParkingAlt_m, bodySurfaceKind,
+} from './surface-point.js';
 
 const PARKING_ALT_M = 100e3;
 
 function parkingAltFor(td, end /* 'origin'|'dest' */) {
+  const body = end === 'origin' ? td.body1 : td.body2;
   const pt = end === 'origin' ? td.surfaceOriginPoint : td.surfaceDestPoint;
-  if (isSurfacePointActive(pt) && Number.isFinite(pt.alt_m) && pt.alt_m >= 0) {
-    return pt.alt_m;
+  return resolveParkingAlt_m(body, pt);
+}
+
+function parkingPhrase(body, alt_m) {
+  const km = (alt_m / 1000).toFixed(0);
+  if (isFluidGiant(body)) {
+    return `${km} km above 1-bar (cloud-deck ref, no solid surface)`;
   }
-  return PARKING_ALT_M;
+  return `${km} km parking`;
 }
 
 /**
@@ -51,16 +59,18 @@ export function escapeFromLowOrbitDV(mu, radius_m, vInf_mps, alt = PARKING_ALT_M
 }
 
 /** Injection-class departure Δv from C3 (m²/s²) at origin parking orbit. */
-export function injectionDepartureDvFromC3(originBody, c3_m2_s2) {
+export function injectionDepartureDvFromC3(originBody, c3_m2_s2, parkingAlt_m = null) {
   if (!originBody || !isFinite(c3_m2_s2) || c3_m2_s2 < 0) return null;
   const vInf = Math.sqrt(c3_m2_s2);
-  return escapeFromLowOrbitDV(G_CONST * originBody.mass, originBody.radius, vInf);
+  const alt = parkingAlt_m != null ? parkingAlt_m : resolveParkingAlt_m(originBody, null);
+  return escapeFromLowOrbitDV(G_CONST * originBody.mass, originBody.radius, vInf, alt);
 }
 
 /** Injection-class departure Δv from V∞ magnitude. */
-export function injectionDepartureDvFromVinf(originBody, vInf_m_s) {
+export function injectionDepartureDvFromVinf(originBody, vInf_m_s, parkingAlt_m = null) {
   if (!originBody || !isFinite(vInf_m_s) || vInf_m_s < 0) return null;
-  return escapeFromLowOrbitDV(G_CONST * originBody.mass, originBody.radius, vInf_m_s);
+  const alt = parkingAlt_m != null ? parkingAlt_m : resolveParkingAlt_m(originBody, null);
+  return escapeFromLowOrbitDV(G_CONST * originBody.mass, originBody.radius, vInf_m_s, alt);
 }
 
 function getSOIParent(body) {
@@ -123,14 +133,14 @@ export function computeMissionBudget(td) {
     dep.phases.push({ label: `Escape ${parent.name} from ${origin.name} orbit (V∞ = ${(vInfDep/1000).toFixed(2)} km/s)`, dv: dvParentEscape });
     dep.total = dvLift + dvParentEscape;
   } else {
-    // From parking orbit at surface-point altitude (or default 100 km).
+    // Parking above reference sphere (1-bar for gas giants; solid mean radius otherwise).
     const altDep = parkingAltFor(td, 'origin');
     const dv = escapeFromLowOrbitDV(G_CONST * origin.mass, origin.radius, vInfDep, altDep);
     const site = isSurfacePointActive(td.surfaceOriginPoint)
       ? ` @ ${td.surfaceOriginPoint.lat_deg.toFixed(1)}°,${td.surfaceOriginPoint.lon_deg.toFixed(1)}°`
       : '';
     dep.phases.push({
-      label: `Escape ${origin.name}${site} from ${(altDep / 1000).toFixed(0)} km parking (V∞ = ${(vInfDep / 1000).toFixed(2)} km/s)`,
+      label: `Escape ${origin.name}${site} from ${parkingPhrase(origin, altDep)} (V∞ = ${(vInfDep / 1000).toFixed(2)} km/s)`,
       dv,
     });
     dep.total = dv;
@@ -152,7 +162,7 @@ export function computeMissionBudget(td) {
       ? ` @ ${td.surfaceDestPoint.lat_deg.toFixed(1)}°,${td.surfaceDestPoint.lon_deg.toFixed(1)}°`
       : '';
     arr.phases.push({
-      label: `Capture into ${dest.name}${site} ${(altArr / 1000).toFixed(0)} km parking (V∞ = ${(vInfArr / 1000).toFixed(2)} km/s)`,
+      label: `Capture into ${dest.name}${site} ${parkingPhrase(dest, altArr)} (V∞ = ${(vInfArr / 1000).toFixed(2)} km/s)`,
       dv,
     });
     arr.total = dv;
@@ -164,6 +174,8 @@ export function computeMissionBudget(td) {
     parkingAlt_m: parkDep,
     parkingAltDep_m: parkDep,
     parkingAltArr_m: parkArr,
+    originSurfaceKind: bodySurfaceKind(origin),
+    destSurfaceKind: bodySurfaceKind(dest),
     departure: dep,
     arrival: arr,
     totalMission: dep.total + arr.total,

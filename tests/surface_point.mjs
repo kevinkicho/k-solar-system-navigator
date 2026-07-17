@@ -82,6 +82,51 @@ check('origin offset near Earth R', td.surfaceOriginOffset_m > earth.radius * 0.
 const meta = surfacePointMeta(earth, pt);
 check('meta body Earth', meta?.body === 'Earth');
 
+// ── Gas / ice giant 1-bar spherical model ──────────────────────────
+import {
+  bodySurfaceKind, isFluidGiant, defaultParkingAlt_m, defaultSurfacePointForBody,
+  resolveParkingAlt_m, referenceSphereLabel,
+} from '../js/physics/surface-point.js';
+
+const jupiter = BODIES.find((b) => b.name === 'Jupiter');
+const saturn = BODIES.find((b) => b.name === 'Saturn');
+const neptune = BODIES.find((b) => b.name === 'Neptune');
+
+check('Jupiter is gas-giant', bodySurfaceKind(jupiter) === 'gas-giant');
+check('Neptune is ice-giant', bodySurfaceKind(neptune) === 'ice-giant');
+check('Earth is solid', bodySurfaceKind(earth) === 'solid');
+check('isFluidGiant Jupiter', isFluidGiant(jupiter));
+check('not fluid Earth', !isFluidGiant(earth));
+check('Jupiter default parking >> 100 km', defaultParkingAlt_m(jupiter) >= 1000e3);
+check('Earth default parking 100 km', defaultParkingAlt_m(earth) === 100e3);
+
+const jDef = defaultSurfacePointForBody(jupiter);
+check('Jupiter default surface enabled', jDef.enabled === true);
+check('Jupiter default alt high', jDef.alt_m >= 1000e3);
+check('ref label mentions 1-bar', /1-bar/i.test(referenceSphereLabel(jupiter)));
+
+// Parking without surface point uses giant default (not 100 km)
+check('resolveParking Jupiter no pt high', resolveParkingAlt_m(jupiter, null) >= 1000e3);
+
+// Jupiter → Earth Lambert with 1-bar spherical endpoint
+const jPt = normalizeSurfacePoint({
+  enabled: true, lat_deg: -22, lon_deg: 0, alt_m: 4000e3,
+}, jupiter);
+const tdJ = hohmannTransfer(jupiter, earth, departureSimTime);
+tdJ.surfaceOriginPoint = jPt;
+tdJ.surfaceDestPoint = emptySurfacePoint(earth);
+solveTransferOrbit(tdJ);
+check('Jupiter→Earth Lambert ok with cloud-deck point', !!tdJ.lambertOk);
+check('Jupiter surface meta 1-bar', tdJ.surfaceOriginMeta?.referenceSphere === '1-bar');
+check('Jupiter spin speed large (fast rotator)', v3mag(surfaceVelocitySceneMps(jupiter, 0, jPt)) > 1000);
+
+// Mission budget parking phrase path
+import { computeMissionBudget } from '../js/physics/mission-budget.js';
+const bud = computeMissionBudget(tdJ);
+check('mission budget from Jupiter', !!bud && bud.totalMission > 0);
+check('originSurfaceKind gas-giant', bud.originSurfaceKind === 'gas-giant');
+check('dep phase mentions 1-bar', /1-bar|cloud/i.test(bud.departure.phases[0]?.label || ''));
+
 if (failed) {
   console.error(`\n${failed} surface-point check(s) failed`);
   process.exit(1);

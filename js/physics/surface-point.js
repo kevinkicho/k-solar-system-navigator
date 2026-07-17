@@ -1,46 +1,142 @@
 /**
- * Surface points in planetocentric spherical coordinates → HELIOS heliocentric
- * positions for concept-grade trip planning.
+ * Surface / atmospheric reference points in planetocentric spherical coords →
+ * HELIOS heliocentric positions for concept-grade trip planning.
+ *
+ * Works for rocky bodies AND gas/ice giants:
+ *   - Rocky: mean spherical radius ≈ solid surface.
+ *   - Gas/ice giants: body.radius is the educational 1-bar / cloud-deck
+ *     reference sphere (no solid surface). Lat/lon pick a cloud-deck
+ *     longitude band; alt is height above that 1-bar sphere (parking /
+ *     probe class), not "ground level".
  *
  * Convention (planetocentric):
  *   lat ∈ [-90, 90] deg  (north positive)
  *   lon ∈ [-180, 180] deg (east positive; 0 = prime meridian)
- *   alt ≥ 0 m above mean spherical radius body.radius
+ *   alt ≥ 0 m above reference sphere body.radius
  *
  * Orientation model (educational, not IAU WGPSN full / SPICE):
  *   body-fixed → ecliptic via Rz(W) · Rx(obliquity)
  *   W = W0 + 360°/P · t  (sidereal; t from J2000)
- *   Pole is tipped from ecliptic north by `obliquity` about +X.
  *
- * HELIOS scene axes (from kepler.js): x = ecliptic X, y = ecliptic Z (out of
- * plane), z = ecliptic Y.
- *
- * Not flight ops. Surface offset is ~R_body (thousands of km) on AU-scale
- * transfers — mainly refines V∞-relative surface velocity and documents the
- * intended site for Need / parking altitude.
+ * Not flight ops. Not atmospheric entry guidance.
  */
 
 import { AU, DAY, DEG, TWO_PI } from '../constants.js';
 import { PLANET_PHYS_EXTRA } from '../data/body-phys-registry.js';
 import { v3add, v3cross, v3mag, v3scale } from './vec3.js';
 
-/** Default empty surface point (disabled). */
-export function emptySurfacePoint() {
+/**
+ * Reference-sphere kind for a body.
+ * @returns {'solid'|'gas-giant'|'ice-giant'|'thick-atmosphere'|'unknown'}
+ */
+export function bodySurfaceKind(body) {
+  if (!body) return 'unknown';
+  if (body.parent) return 'solid'; // moons treated as solid for parking sketches
+  switch (body.name) {
+    case 'Jupiter':
+    case 'Saturn':
+      return 'gas-giant';
+    case 'Uranus':
+    case 'Neptune':
+      return 'ice-giant';
+    case 'Venus':
+      return 'thick-atmosphere';
+    default:
+      return 'solid';
+  }
+}
+
+export function isFluidGiant(body) {
+  const k = bodySurfaceKind(body);
+  return k === 'gas-giant' || k === 'ice-giant';
+}
+
+/**
+ * Default parking / probe altitude above the reference sphere (m).
+ * Gas giants: stay well above 1-bar (cloud tops / radiation-aware educational band).
+ */
+export function defaultParkingAlt_m(body) {
+  const kind = bodySurfaceKind(body);
+  if (kind === 'gas-giant') {
+    // Jupiter/Saturn: educational high probe parking ~2000–5000 km above 1-bar
+    if (body?.name === 'Jupiter') return 4000e3;
+    if (body?.name === 'Saturn') return 3000e3;
+    return 2500e3;
+  }
+  if (kind === 'ice-giant') return 1500e3;
+  if (kind === 'thick-atmosphere') return 300e3; // above dense Venus cloud deck class
+  if (body?.parent) return 50e3;
+  return 100e3;
+}
+
+/** Human-readable reference sphere note for UI. */
+export function referenceSphereLabel(body) {
+  const kind = bodySurfaceKind(body);
+  if (kind === 'gas-giant') {
+    return '1-bar / cloud-deck reference (no solid surface) · lat/lon on spinning sphere · alt above 1-bar';
+  }
+  if (kind === 'ice-giant') {
+    return '1-bar reference sphere (ice giant, no solid surface) · lat/lon + alt above 1-bar';
+  }
+  if (kind === 'thick-atmosphere') {
+    return 'Mean radius / atmosphere reference · lat/lon + alt above mean radius';
+  }
+  return 'Mean spherical radius · lat/lon on surface · alt above radius';
+}
+
+export function altitudeFieldLabel(body) {
+  return isFluidGiant(body)
+    ? 'Altitude (km above 1-bar reference)'
+    : 'Altitude (km above radius)';
+}
+
+export function surfacePanelTitle(body, role = 'origin') {
+  const who = role === 'dest' ? 'Destination' : 'Origin';
+  if (isFluidGiant(body)) {
+    return `${who} cloud-deck point · lat / lon / alt (1-bar)`;
+  }
+  return `${who} exact point · lat / lon / alt`;
+}
+
+/** Default empty surface point (disabled). Body-aware parking default. */
+export function emptySurfacePoint(body = null) {
   return {
     enabled: false,
     lat_deg: 0,
     lon_deg: 0,
-    alt_m: 100e3, // default 100 km parking-class altitude
+    alt_m: defaultParkingAlt_m(body),
   };
 }
 
-export function cloneSurfacePoint(p) {
-  if (!p) return emptySurfacePoint();
+/**
+ * Body-aware default point — for fluid giants, enabled at equator with
+ * high parking so trip planning has an explicit spherical endpoint.
+ * Rocky bodies stay opt-in (enabled: false).
+ */
+export function defaultSurfacePointForBody(body) {
+  const base = emptySurfacePoint(body);
+  if (!body) return base;
+  if (isFluidGiant(body)) {
+    return {
+      ...base,
+      enabled: true,
+      lat_deg: 0,
+      lon_deg: 0,
+      alt_m: defaultParkingAlt_m(body),
+    };
+  }
+  return base;
+}
+
+export function cloneSurfacePoint(p, body = null) {
+  if (!p) return emptySurfacePoint(body);
   return {
     enabled: !!p.enabled,
     lat_deg: Number(p.lat_deg) || 0,
     lon_deg: Number(p.lon_deg) || 0,
-    alt_m: Number.isFinite(Number(p.alt_m)) ? Number(p.alt_m) : 100e3,
+    alt_m: Number.isFinite(Number(p.alt_m))
+      ? Number(p.alt_m)
+      : defaultParkingAlt_m(body),
   };
 }
 
@@ -48,17 +144,18 @@ export function isSurfacePointActive(p) {
   return !!(p && p.enabled && Number.isFinite(p.lat_deg) && Number.isFinite(p.lon_deg));
 }
 
-export function formatSurfacePointShort(p) {
+export function formatSurfacePointShort(p, body = null) {
   if (!isSurfacePointActive(p)) return '';
   const ns = p.lat_deg >= 0 ? 'N' : 'S';
   const ew = p.lon_deg >= 0 ? 'E' : 'W';
   const altKm = (p.alt_m / 1000).toFixed(p.alt_m >= 1000 ? 0 : 1);
-  return `${Math.abs(p.lat_deg).toFixed(2)}°${ns} ${Math.abs(p.lon_deg).toFixed(2)}°${ew} · h=${altKm} km`;
+  const ref = isFluidGiant(body) ? '1-bar+' : 'h';
+  return `${Math.abs(p.lat_deg).toFixed(2)}°${ns} ${Math.abs(p.lon_deg).toFixed(2)}°${ew} · ${ref}${altKm} km`;
 }
 
 /**
  * Famous educational site presets (not certified coordinates).
- * lat/lon approx; alt is parking-class for launch / entry sketches.
+ * Fluid-giant alts are above the 1-bar reference sphere.
  */
 export const SURFACE_PRESETS = [
   { id: 'cape', body: 'Earth', label: 'Cape Canaveral class', lat_deg: 28.5, lon_deg: -80.6, alt_m: 200e3 },
@@ -70,15 +167,36 @@ export const SURFACE_PRESETS = [
   { id: 'valles', body: 'Mars', label: 'Valles Marineris', lat_deg: -14, lon_deg: -59, alt_m: 100e3 },
   { id: 'apollo11', body: 'Moon', label: 'Apollo 11 (Mare Tranquillitatis)', lat_deg: 0.67, lon_deg: 23.47, alt_m: 50e3 },
   { id: 'shackleton', body: 'Moon', label: 'Shackleton (S. pole)', lat_deg: -89.9, lon_deg: 0, alt_m: 50e3 },
-  { id: 'equator0', body: '*', label: 'Equator / prime meridian', lat_deg: 0, lon_deg: 0, alt_m: 100e3 },
-  { id: 'northpole', body: '*', label: 'North pole', lat_deg: 90, lon_deg: 0, alt_m: 100e3 },
-  { id: 'southpole', body: '*', label: 'South pole', lat_deg: -90, lon_deg: 0, alt_m: 100e3 },
+  // Gas / ice giants — cloud-deck longitude bands (educational)
+  { id: 'jup-eq', body: 'Jupiter', label: 'Jupiter equator · high probe parking', lat_deg: 0, lon_deg: 0, alt_m: 4000e3 },
+  { id: 'jup-grs', body: 'Jupiter', label: 'Great Red Spot latitude band', lat_deg: -22, lon_deg: 0, alt_m: 4000e3 },
+  { id: 'jup-n', body: 'Jupiter', label: 'Jupiter north temperate', lat_deg: 30, lon_deg: 0, alt_m: 4000e3 },
+  { id: 'sat-eq', body: 'Saturn', label: 'Saturn equator · high probe parking', lat_deg: 0, lon_deg: 0, alt_m: 3000e3 },
+  { id: 'sat-hex', body: 'Saturn', label: 'Saturn N. polar hexagon band', lat_deg: 78, lon_deg: 0, alt_m: 3000e3 },
+  { id: 'ura-eq', body: 'Uranus', label: 'Uranus equator (extreme tilt)', lat_deg: 0, lon_deg: 0, alt_m: 1500e3 },
+  { id: 'nep-eq', body: 'Neptune', label: 'Neptune equator · high probe parking', lat_deg: 0, lon_deg: 0, alt_m: 1500e3 },
+  { id: 'nep-ds2', body: 'Neptune', label: 'Great Dark Spot latitude class', lat_deg: -20, lon_deg: 0, alt_m: 1500e3 },
+  // Generic — alt filled dynamically via presetsForBody
+  { id: 'equator0', body: '*', label: 'Equator / prime meridian', lat_deg: 0, lon_deg: 0, alt_m: null },
+  { id: 'northpole', body: '*', label: 'North pole', lat_deg: 90, lon_deg: 0, alt_m: null },
+  { id: 'southpole', body: '*', label: 'South pole', lat_deg: -90, lon_deg: 0, alt_m: null },
 ];
 
 export function presetsForBody(body) {
-  if (!body) return SURFACE_PRESETS.filter((p) => p.body === '*');
+  if (!body) {
+    return SURFACE_PRESETS.filter((p) => p.body === '*').map((p) => ({
+      ...p,
+      alt_m: p.alt_m ?? 100e3,
+    }));
+  }
   const name = body.name;
-  return SURFACE_PRESETS.filter((p) => p.body === name || p.body === '*');
+  const defAlt = defaultParkingAlt_m(body);
+  return SURFACE_PRESETS
+    .filter((p) => p.body === name || p.body === '*')
+    .map((p) => ({
+      ...p,
+      alt_m: p.alt_m != null ? p.alt_m : defAlt,
+    }));
 }
 
 /**
@@ -242,25 +360,43 @@ export function applySurfaceEndpoint(posAU, velMps, body, timeSec, point) {
 
 export function surfacePointMeta(body, point) {
   if (!isSurfacePointActive(point) || !body) return null;
+  const kind = bodySurfaceKind(body);
   return {
     body: body.name,
     bodyId: body.id || null,
     lat_deg: point.lat_deg,
     lon_deg: point.lon_deg,
     alt_m: point.alt_m,
-    label: formatSurfacePointShort(point),
-    model: 'planetocentric spherical + concept-grade spin (not SPICE)',
+    label: formatSurfacePointShort(point, body),
+    surfaceKind: kind,
+    referenceSphere: isFluidGiant(body) ? '1-bar' : 'mean-radius',
+    model: isFluidGiant(body)
+      ? 'planetocentric spherical on 1-bar reference + concept-grade spin (no solid surface; not SPICE)'
+      : 'planetocentric spherical + concept-grade spin (not SPICE)',
   };
 }
 
 /** Clamp user inputs to valid spherical ranges. */
-export function normalizeSurfacePoint(p) {
-  const out = cloneSurfacePoint(p);
+export function normalizeSurfacePoint(p, body = null) {
+  const out = cloneSurfacePoint(p, body);
   out.lat_deg = Math.max(-90, Math.min(90, out.lat_deg));
   // wrap lon to [-180, 180]
   let lon = out.lon_deg;
   lon = ((lon + 180) % 360 + 360) % 360 - 180;
   out.lon_deg = lon;
-  out.alt_m = Math.max(0, Math.min(5e7, out.alt_m)); // 0 … 50,000 km
+  // Allow higher alts for gas giants (up to ~0.5 R_J educational)
+  const maxAlt = isFluidGiant(body) ? 1e8 : 5e7;
+  out.alt_m = Math.max(0, Math.min(maxAlt, out.alt_m));
   return out;
+}
+
+/**
+ * Parking altitude for mission budget: surface point alt if active,
+ * else body-kind default (high for gas giants — never 100 km inside clouds).
+ */
+export function resolveParkingAlt_m(body, point) {
+  if (isSurfacePointActive(point) && Number.isFinite(point.alt_m) && point.alt_m >= 0) {
+    return point.alt_m;
+  }
+  return defaultParkingAlt_m(body);
 }
