@@ -30,10 +30,11 @@ HELIOS on `main` is a **concept-grade educational** interplanetary trip planner 
 | [concept-grade-and-extras-design.md](./concept-grade-and-extras-design.md) | **Implemented** (X0–X8 extras) | Trust Card, DLA eq, Vehicle Lab, scenario audit, ascent |
 | [post-landing-hardening-design.md](./post-landing-hardening-design.md) | **Implemented** | Server security, C2 honesty, workers, dual audit, streaming FAB |
 | [geographic-site-coordinates-design.md](./geographic-site-coordinates-design.md) | **Implemented** (full residual stack) | Body-fixed geographic sites, spin, share, multi-leg terminals |
+| [trajectory-accuracy-design.md](./trajectory-accuracy-design.md) | **Draft** | Trajectory render/propagation accuracy (Phases 1–4): frames, sampling, multi-rev, n-body overlay |
 
 ## Remaining items (honest backlog)
 
-**v1 product residuals: none.** Polish landed (About, Trust Card, flyby GEO sites, thorough multi-leg seed).
+**v1 product residuals:** trajectory ship–line frame consistency and related accuracy work — see [trajectory-accuracy-design.md](./trajectory-accuracy-design.md) (design only; not implemented). Prior polish (About, Trust Card, flyby GEO sites, thorough multi-leg seed) landed.
 
 ### Concept-grade incorporation of former non-goals
 
