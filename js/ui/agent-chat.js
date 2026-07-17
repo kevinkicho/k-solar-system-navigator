@@ -298,6 +298,7 @@ export function wireAgentChat() {
 
   fab.addEventListener('click', () => setOpen(!open));
 
+  /** Non-streaming chat (tools + agent loop). */
   async function chatApi(body) {
     const res = await heliosFetch('/api/chat', {
       method: 'POST',
@@ -311,6 +312,78 @@ export function wireAgentChat() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Chat failed (${res.status})`);
     return data;
+  }
+
+  /**
+   * Stream NDJSON chat from /api/chat (Ollama cloud via proxy).
+   * @param {object} body
+   * @param {(full: string, delta: string) => void} onDelta
+   * @returns {Promise<string>} full assistant text
+   */
+  async function chatApiStream(body, onDelta) {
+    const res = await heliosFetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        stream: true,
+        ...body,
+        tools: undefined, // force no tools on stream path
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Chat failed (${res.status})`);
+    }
+    if (!res.body || !res.body.getReader) {
+      // Fallback if proxy returned JSON somehow
+      const data = await res.json().catch(() => ({}));
+      const text = data?.message?.content || data?.response || '';
+      onDelta?.(text, text);
+      return text;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    let full = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t) continue;
+        let j;
+        try {
+          j = JSON.parse(t);
+        } catch {
+          continue;
+        }
+        if (j.error) throw new Error(j.error);
+        const delta = j.message?.content || j.response || '';
+        if (delta) {
+          full += delta;
+          onDelta?.(full, delta);
+        }
+      }
+    }
+    // trailing buffer
+    if (buf.trim()) {
+      try {
+        const j = JSON.parse(buf.trim());
+        const delta = j.message?.content || '';
+        if (delta) {
+          full += delta;
+          onDelta?.(full, delta);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    return full || '(empty model response)';
   }
 
   form.addEventListener('submit', async (e) => {
@@ -351,19 +424,20 @@ export function wireAgentChat() {
             thinking.textContent = `tool → ${name}(${JSON.stringify(args).slice(0, 80)})…`;
           },
         });
+        thinking.textContent = reply;
       } else {
         const messages = [
           { role: 'system', content: SYSTEM_PROMPT + contextNote },
           ...history.slice(-16),
         ];
-        const data = await chatApi({ messages });
-        reply =
-          data?.message?.content ||
-          data?.response ||
-          '(empty model response)';
+        thinking.textContent = '';
+        reply = await chatApiStream({ messages }, (full) => {
+          thinking.textContent = full || '…';
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        });
+        if (!thinking.textContent) thinking.textContent = reply;
       }
 
-      thinking.textContent = reply;
       history.push({ role: 'assistant', content: reply });
     } catch (err) {
       thinking.classList.add('error');

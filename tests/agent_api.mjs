@@ -75,6 +75,17 @@ check('health.tokenConfigured false', health.json?.tokenConfigured === false);
 const badChat = await request(port, 'POST', '/api/chat', { messages: [] });
 check('POST /api/chat empty messages → 400', badChat.status === 400);
 
+// Streaming path without key still 503 (same as non-stream)
+const savedKeyStream = process.env.OLLAMA_API_KEY;
+delete process.env.OLLAMA_API_KEY;
+const streamNoKey = await request(port, 'POST', '/api/chat', {
+  messages: [{ role: 'user', content: 'hi' }],
+  stream: true,
+});
+check('POST /api/chat stream without key → 503', streamNoKey.status === 503);
+if (savedKeyStream !== undefined) process.env.OLLAMA_API_KEY = savedKeyStream;
+else delete process.env.OLLAMA_API_KEY;
+
 const savedKey = process.env.OLLAMA_API_KEY;
 delete process.env.OLLAMA_API_KEY;
 const noKey = await request(port, 'POST', '/api/chat', {

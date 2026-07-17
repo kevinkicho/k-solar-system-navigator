@@ -39,6 +39,7 @@ const SUITE = [
   'tests/ascent_loss_model.mjs',
   'tests/scenario_gate_audit.mjs',
   'tests/nearest_feasible.mjs',
+  'tests/multi_leg_window.mjs',
   // Soft / informational only (always exits 0) — PR 18 perf budgets.
   'tests/porkchop_refine.mjs',
   'tests/ui_split_static.mjs',

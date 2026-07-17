@@ -286,7 +286,21 @@ function defaultModel() {
   return process.env.OLLAMA_MODEL || DEFAULT_MODEL;
 }
 
-async function proxyOllamaChat(body) {
+function buildOllamaChatPayload(body, { stream }) {
+  const payload = {
+    model: body.model || defaultModel(),
+    messages: body.messages || [],
+    stream: !!stream,
+  };
+  if (body.tools) payload.tools = body.tools;
+  if (body.options) payload.options = body.options;
+  if (body.format !== undefined) payload.format = body.format;
+  if (body.think !== undefined) payload.think = body.think;
+  if (body.keep_alive !== undefined) payload.keep_alive = body.keep_alive;
+  return payload;
+}
+
+function requireOllamaKey() {
   const key = process.env.OLLAMA_API_KEY;
   if (!key) {
     const err = new Error(
@@ -295,17 +309,12 @@ async function proxyOllamaChat(body) {
     err.statusCode = 503;
     throw err;
   }
+  return key;
+}
 
-  const payload = {
-    model: body.model || defaultModel(),
-    messages: body.messages || [],
-    stream: body.stream === true,
-  };
-  if (body.tools) payload.tools = body.tools;
-  if (body.options) payload.options = body.options;
-  if (body.format !== undefined) payload.format = body.format;
-  if (body.think !== undefined) payload.think = body.think;
-  if (body.keep_alive !== undefined) payload.keep_alive = body.keep_alive;
+async function proxyOllamaChat(body) {
+  const key = requireOllamaKey();
+  const payload = buildOllamaChatPayload(body, { stream: false });
 
   const upstream = await fetch(OLLAMA_CHAT_URL, {
     method: 'POST',
@@ -333,6 +342,67 @@ async function proxyOllamaChat(body) {
     throw err;
   }
   return data;
+}
+
+/**
+ * Stream Ollama NDJSON chat response through the Node response (SSE-friendly NDJSON).
+ * @returns {Promise<void>}
+ */
+async function proxyOllamaChatStream(body, res) {
+  const key = requireOllamaKey();
+  const payload = buildOllamaChatPayload(body, { stream: true });
+
+  const upstream = await fetch(OLLAMA_CHAT_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!upstream.ok) {
+    const text = await upstream.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { error: text };
+    }
+    sendJson(res, upstream.status, {
+      error: data.error || data.message || `Ollama HTTP ${upstream.status}`,
+    });
+    return;
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'application/x-ndjson; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'X-Helios-Stream': '1',
+  });
+
+  if (!upstream.body) {
+    res.end();
+    return;
+  }
+
+  // Node 18+ fetch body is a web ReadableStream
+  const reader = upstream.body.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) res.write(Buffer.from(value));
+    }
+  } catch (e) {
+    try {
+      res.write(`${JSON.stringify({ error: e.message || 'stream error', done: true })}\n`);
+    } catch {
+      /* */
+    }
+  } finally {
+    res.end();
+  }
 }
 
 function requireAuth(req, res) {
@@ -400,19 +470,24 @@ async function handleApi(req, res, pathname) {
         sendJson(res, 400, { error: 'messages content too large' });
         return true;
       }
-      // Never allow client to force streaming through this non-stream proxy.
-      body.stream = false;
-      // Only allow configured default model unless explicitly same as env
+      // Only allow configured default model
       if (body.model && body.model !== defaultModel()) {
-        // Allow override only if matches OLLAMA_MODEL (already defaultModel)
         body.model = defaultModel();
       }
+      // Streaming NDJSON when client requests stream:true (tools stay non-stream)
+      if (body.stream === true && !body.tools) {
+        await proxyOllamaChatStream(body, res);
+        return true;
+      }
+      body.stream = false;
       const data = await proxyOllamaChat(body);
       sendJson(res, 200, data);
     } catch (e) {
-      sendJson(res, e.statusCode || 502, {
-        error: e.message || 'chat failed',
-      });
+      if (!res.headersSent) {
+        sendJson(res, e.statusCode || 502, {
+          error: e.message || 'chat failed',
+        });
+      }
     }
     return true;
   }

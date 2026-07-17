@@ -4,10 +4,11 @@ import { bodyId, findByIdOrName, listFlybyEligible, resolveFlybyBody } from '../
 import { state } from '../state.js';
 import { hohmannTransfer } from '../physics/kepler.js';
 import {
-  MIN_PERIHELION_AU, findMultiLegWindow,
+  MIN_PERIHELION_AU,
   solveMultiLegRoute, solveTransferOrbit,
 } from '../physics/routing.js';
 import { findNearestFeasibleTransferAsync } from './nearest-feasible-async.js';
+import { findMultiLegWindowAsync } from './multi-leg-window-async.js';
 import { effectiveBackend } from '../physics/ephemeris-provider.js';
 import { dateToInputValue, dateToSimTime, inputValueToDate, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
@@ -328,20 +329,42 @@ export function computeRoute() {
     waypoints[waypoints.length - 1].simTime = tailHohmann.arrivalSimTime;
 
     const planOpts = routePlanOpts();
+    const originBody = state.routeOrigin;
+    const destBody = state.routeDestination;
     let td = tagMultiLegBodies(solveMultiLegRoute(waypoints, planOpts));
-    let dateAdjusted = false;
     const prevDep = departureSimTime;
-    // If seed is infeasible, run coarse multi-leg window search (local opt).
-    if (!td.allLegsOk || (td.flybys || []).some(f => !f.achievable)) {
-      const win = findMultiLegWindow(
-        state.routeOrigin,
-        state.routeDestination,
-        state.flybys.map(f => ({ body: resolveFlybyBody(f), simTime: f.simTime })),
-        departureSimTime,
-        planOpts,
-      );
+    // Seed OK — no heavy window search needed
+    if (td.allLegsOk && !(td.flybys || []).some(f => !f.achievable)) {
+      finalizePlan(td, {
+        sampleFallback: detectSampleFallback(td),
+      }, 'MULTI-LEG ROUTE COMPUTED (local seed — not global optimum)');
+      return;
+    }
+
+    // Infeasible seed: coarse multi-leg window search off the main thread when possible
+    notify('SEARCHING MULTI-LEG WINDOW (coarse seed)…');
+    const searchGen = (state._multiLegSearchGen = (state._multiLegSearchGen || 0) + 1);
+    const flybyHints = state.flybys.map(f => ({ body: resolveFlybyBody(f), simTime: f.simTime }));
+
+    findMultiLegWindowAsync(
+      originBody,
+      destBody,
+      flybyHints,
+      departureSimTime,
+      planOpts,
+      {
+        onProgress: ({ i, n }) => {
+          if (state._multiLegSearchGen !== searchGen) return;
+          if (i === 1 || i === n || i % 6 === 0) {
+            notify(`SEARCHING MULTI-LEG WINDOW… ${i}/${n}`);
+          }
+        },
+      },
+    ).then((win) => {
+      if (state._multiLegSearchGen !== searchGen) return;
+      if (state.routeOrigin !== originBody || state.routeDestination !== destBody) return;
+
       if (win) {
-        departureSimTime = win.departureSimTime;
         dateInput.value = dateToInputValue(simTimeToDate(win.departureSimTime));
         timeState.simTime = win.departureSimTime;
         timeState.setSpeed(3);
@@ -350,17 +373,15 @@ export function computeRoute() {
           f.simTime = win.flybyTimes[i];
         });
         renderFlybyList();
-        waypoints = [
-          { body: state.routeOrigin, simTime: win.departureSimTime },
+        const wps = [
+          { body: originBody, simTime: win.departureSimTime },
           ...state.flybys.map(f => ({ body: resolveFlybyBody(f), simTime: f.simTime })),
-          { body: state.routeDestination, simTime: win.arrivalSimTime },
+          { body: destBody, simTime: win.arrivalSimTime },
         ];
-        td = tagMultiLegBodies(solveMultiLegRoute(waypoints, planOpts));
-        dateAdjusted = true;
-        // K1/K4: still may fail gates — dossier decides success language
+        td = tagMultiLegBodies(solveMultiLegRoute(wps, planOpts));
         const stillBad = !td.allLegsOk || (td.flybys || []).some(f => !f.achievable);
         finalizePlan(td, {
-          dateAdjusted,
+          dateAdjusted: true,
           prevDepartureSimTime: prevDep,
           sampleFallback: detectSampleFallback(td),
         }, stillBad
@@ -368,18 +389,18 @@ export function computeRoute() {
           : 'MULTI-LEG WINDOW SEARCHED (coarse seed — not global optimum)');
         return;
       }
-      // Search failed — still attach dossier as FAIL, never claim success
       finalizePlan(td, {
         pathologicalUnrecovered: false,
         sampleFallback: detectSampleFallback(td),
-      },
-        'MULTI-LEG INFEASIBLE — NO WINDOW FOUND (see Plan Status)');
-      return;
-    }
-
-    finalizePlan(td, {
-      sampleFallback: detectSampleFallback(td),
-    }, 'MULTI-LEG ROUTE COMPUTED (local seed — not global optimum)');
+      }, 'MULTI-LEG INFEASIBLE — NO WINDOW FOUND (see Plan Status)');
+    }).catch((err) => {
+      if (state._multiLegSearchGen !== searchGen) return;
+      console.error(err);
+      finalizePlan(td, {
+        pathologicalUnrecovered: true,
+        sampleFallback: detectSampleFallback(td),
+      }, 'MULTI-LEG SEARCH ERROR (see Plan Status)');
+    });
     return;
   }
 

@@ -51,7 +51,7 @@ Floating-action-button chat and a CLI agent drive the planner. The API key never
 1. Copy `.env.example` → `.env` and set `OLLAMA_API_KEY` from [ollama.com/settings/keys](https://ollama.com/settings/keys).
 2. Default model: **`gemma4:31b-cloud`** ([library](https://ollama.com/library/gemma4)).
 3. Start the app: `npm start` → open **`http://127.0.0.1:8080`** (default bind is loopback only).
-4. Use the **AI** FAB (bottom-right) for in-app chat.
+4. Use the **AI** FAB (bottom-right) for in-app chat (**streams** tokens as they arrive; enable **Tools** to drive the planner).
 
 **Security:** Never expose `npm start` beyond loopback. Chat and agent C2 are not a multi-user API. Optional `HELIOS_API_TOKEN` enables shared-lab auth (see `docs/post-landing-hardening-design.md`). Non-loopback bind (`HELIOS_BIND=0.0.0.0`) **requires** a token.
 
