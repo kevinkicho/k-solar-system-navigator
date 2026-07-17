@@ -2,6 +2,10 @@
  * Wire recovery buttons from plan status banner.
  */
 import { notify } from './format.js';
+import {
+  designFromCurrentPlan,
+  applyAbstractBudgetFromDesign,
+} from './vehicle-design-ui.js';
 
 /**
  * @param {object} handlers
@@ -9,6 +13,7 @@ import { notify } from './format.js';
  * @param {() => void} [handlers.openPorkchop]
  * @param {() => void} [handlers.snapFlybys]
  * @param {() => void} [handlers.adjustVehicle] scroll/focus vehicle controls
+ * @param {() => void} [handlers.designVehicle] open vehicle design paper study
  */
 export function bindPlanRecoveryButtons(handlers = {}) {
   const root = document.getElementById('plan-status-banner')
@@ -27,6 +32,23 @@ export function bindPlanRecoveryButtons(handlers = {}) {
       }
       if (id === 'snap_flybys' && handlers.snapFlybys) {
         handlers.snapFlybys();
+        return;
+      }
+      if (id === 'design_vehicle') {
+        if (handlers.designVehicle) {
+          handlers.designVehicle();
+          return;
+        }
+        import('./vehicle-lab.js').then(({ openVehicleLab }) => {
+          openVehicleLab({ focusDesign: true });
+          notify('VEHICLE DESIGN · PAPER STUDY FOR MISSION NEED');
+        });
+        return;
+      }
+      if (id === 'apply_abstract_budget') {
+        const design = designFromCurrentPlan();
+        if (design.ok) applyAbstractBudgetFromDesign(design);
+        else notify(design.reason || 'NO NEED TO SIZE BUDGET');
         return;
       }
       if (id === 'adjust_vehicle') {

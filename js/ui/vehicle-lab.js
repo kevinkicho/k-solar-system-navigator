@@ -1,10 +1,22 @@
 /**
- * Vehicle Lab — browse SH / Starship / F9 engineering without a route.
+ * Vehicle Lab — sample rockets + design-for-Need paper study.
  */
 import { state } from '../state.js';
 import { vehicleEngineeringHtml } from './vehicle-engineering-ui.js';
 import { estimateAscentLossForVehicle, clampAscentBudget } from '../physics/ascent-loss-model.js';
 import { notify } from './format.js';
+import {
+  designFromCurrentPlan,
+  vehicleDesignReportHtml,
+  bindVehicleDesignActions,
+} from './vehicle-design-ui.js';
+
+let _openLab = null;
+
+/** Open Vehicle Lab (optionally scroll to design section). */
+export function openVehicleLab(opts = {}) {
+  if (typeof _openLab === 'function') _openLab(opts);
+}
 
 export function wireVehicleLab() {
   const btn = document.getElementById('btn-vehicle-lab');
@@ -23,6 +35,12 @@ export function wireVehicleLab() {
       <p style="font-size:10px;color:var(--amber);margin-bottom:8px">
         Concept-grade sample vehicles — not SpaceX-certified. Lab does <strong>not</strong> prove a mission is feasible without a computed plan.
       </p>`;
+
+    // Design-for-Need paper study (uses current transfer Need when available)
+    const design = designFromCurrentPlan();
+    html += vehicleDesignReportHtml(design);
+    html += '<div style="height:14px;border-bottom:1px solid var(--border);margin:12px 0"></div>';
+
     for (const s of slices) {
       html += vehicleEngineeringHtml(s);
       html += '<div style="height:12px;border-bottom:1px solid var(--border);margin:8px 0"></div>';
@@ -36,6 +54,8 @@ export function wireVehicleLab() {
       <button type="button" class="btn-tiny" id="vehicle-lab-apply-ascent">Apply estimate to ascent budget</button>
       <div class="info-row"><span class="key">Note</span><span class="val" style="font-size:9px;opacity:0.75">${est.disclaimer}</span></div>`;
     body.innerHTML = html;
+
+    bindVehicleDesignActions(body, design);
 
     const apply = document.getElementById('vehicle-lab-apply-ascent');
     if (apply) {
@@ -60,9 +80,17 @@ export function wireVehicleLab() {
         notify(`ASCENT BUDGET SET TO ${state.ascentLossBudget_m_s} m/s (EDU)`);
       };
     }
+
+    if (optsFocusDesign) {
+      const el = body.querySelector('#vehicle-design-report');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 
-  const open = () => {
+  let optsFocusDesign = false;
+
+  const open = (opts = {}) => {
+    optsFocusDesign = !!opts.focusDesign;
     panel.hidden = false;
     panel.setAttribute('aria-hidden', 'false');
     if (backdrop) {
@@ -79,6 +107,8 @@ export function wireVehicleLab() {
       backdrop.setAttribute('aria-hidden', 'true');
     }
   };
+
+  _openLab = open;
 
   btn.onclick = () => {
     if (panel.hidden) open();

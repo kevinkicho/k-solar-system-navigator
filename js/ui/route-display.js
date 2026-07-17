@@ -83,6 +83,11 @@ function bindMissionControlButtons(td, { canLaunch }) {
         else document.getElementById('btn-snap-flybys')?.click();
       });
     },
+    designVehicle: () => {
+      import('./vehicle-lab.js').then(({ openVehicleLab }) => {
+        openVehicleLab({ focusDesign: true });
+      });
+    },
   });
 }
 
@@ -274,6 +279,16 @@ function renderSingleLegRouteUI(td) {
   let measureHtml = card.html || '';
   // Prefer not to open vehicle eng by default — measurement-card may include it; leave as-is but under details
 
+  const vehicleBlocked = !missionReady && lambertOk
+    && (dossier?.gates || []).some((g) => g.code === 'G_VEHICLE_FEASIBLE' && g.level === 'fail');
+  const designHint = vehicleBlocked
+    ? `<div class="vd-inline-hint" role="status">
+        Vehicle specs don’t meet Need (${needLabel}).
+        <button type="button" class="btn-tiny" id="btn-design-vehicle">Design vehicle for Need</button>
+        <button type="button" class="btn-tiny" id="btn-apply-abstract-need">Apply abstract budget</button>
+      </div>`
+    : '';
+
   const res = document.getElementById('transfer-results');
   const heroTitle = !lambertOk
     ? 'Estimate only'
@@ -289,7 +304,7 @@ function renderSingleLegRouteUI(td) {
         feasible: missionReady,
         feasibleLabel: missionReady ? 'YES' : 'NO',
         fidelityPill: fidelityPill(dossier),
-        visualWarn: visualWarnHtml(td),
+        visualWarn: visualWarnHtml(td) + designHint,
         surfaceNote: surfaceNoteHtml(td),
       })}
       ${actionsHtml(missionReady)}
@@ -301,6 +316,21 @@ function renderSingleLegRouteUI(td) {
 
   // mission-controls is inside transfer-results now
   bindMissionControlButtons(td, { canLaunch: missionReady });
+  const designBtn = document.getElementById('btn-design-vehicle');
+  if (designBtn) {
+    designBtn.onclick = () => {
+      import('./vehicle-lab.js').then(({ openVehicleLab }) => openVehicleLab({ focusDesign: true }));
+    };
+  }
+  const absBtn = document.getElementById('btn-apply-abstract-need');
+  if (absBtn) {
+    absBtn.onclick = () => {
+      import('./vehicle-design-ui.js').then(({ designFromCurrentPlan, applyAbstractBudgetFromDesign }) => {
+        const d = designFromCurrentPlan();
+        if (d.ok) applyAbstractBudgetFromDesign(d);
+      });
+    };
+  }
   // clear external mission-controls if present
   const mcExt = document.querySelector('#rail-pane-results > #mission-controls, .route-section > #mission-controls');
   if (mcExt && mcExt.id === 'mission-controls' && !mcExt.classList.contains('results-actions')) {

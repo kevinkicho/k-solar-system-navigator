@@ -385,9 +385,17 @@ export function recoveryFromGates(gates, td) {
   }
   if (failCodes.has('G_VEHICLE_FEASIBLE') || failCodes.has('G_VEHICLE_APPLICABLE')) {
     actions.push({
+      id: 'design_vehicle',
+      label: 'Design vehicle for Need (paper study)',
+      primary: true,
+    });
+    actions.push({
+      id: 'apply_abstract_budget',
+      label: 'Apply abstract budget (+10% Need)',
+    });
+    actions.push({
       id: 'adjust_vehicle',
       label: 'Adjust vehicle / cargo / architecture',
-      primary: true,
     });
   }
   if (failCodes.has('G_SITE_DLA') || (gates || []).some((g) => g.code === 'G_SITE_DLA' && g.level === 'warn')) {
