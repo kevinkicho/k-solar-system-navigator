@@ -5,9 +5,65 @@ import { getBodyPosition3D, getBodyVelocity3D } from './kepler.js';
 import {
   getPlanningPosition3D, getPlanningVelocity3D,
 } from './ephemeris-provider.js';
-import { buildTransferOrbit, propagateOrbit } from './helio.js';
+import {
+  buildTransferOrbit, buildHelioOrbit, propagateOrbit, propagateHelioOrbit,
+} from './helio.js';
 import { solveLambertBestBranch, solveLambertProblem } from './lambert.js';
 import { gravityAssistInfo } from './gravity-assist.js';
+
+/** Propagate visual transfer (ellipse or hyperbola). */
+export function propagateVisualOrbit(orb, dt) {
+  if (!orb) return null;
+  if (orb.hyperbolic) return propagateHelioOrbit(orb, dt);
+  return propagateOrbit(orb, dt);
+}
+
+/**
+ * Build visual-orbit state from Lambert solution on exaggerated geometry.
+ * Uses independent best branch + hyperbola-safe propagation.
+ * @returns {{ orbit, visualFallback: null|'cosine' }}
+ */
+function tryBuildVisualOrbit(r1v, r2v, tof, mu, vBody1, vBody2, preferredLongWay = null) {
+  // Prefer free best branch for visuals; fall back to preferred longWay if needed.
+  let best = solveLambertBestBranch(r1v, r2v, tof, mu, vBody1, vBody2);
+  if (!best && preferredLongWay != null) {
+    const sol = solveLambertProblem(r1v, r2v, tof, mu, preferredLongWay);
+    if (sol) {
+      const orbEll = buildTransferOrbit(r1v, sol.v1, mu);
+      const hit = propagateOrbit(orbEll, tof);
+      if (v3mag(v3sub(hit, r2v)) < 1e6) {
+        return { orbit: orbEll, visualFallback: null };
+      }
+      const orbH = buildHelioOrbit(r1v, sol.v1, mu);
+      const hitH = propagateHelioOrbit(orbH, tof);
+      if (v3mag(v3sub(hitH, r2v)) < 1e6) {
+        return { orbit: orbH, visualFallback: null };
+      }
+    }
+    return { orbit: null, visualFallback: 'cosine' };
+  }
+  if (!best) return { orbit: null, visualFallback: 'cosine' };
+  // Hyperbola-safe first (covers e>1 and energy>0 edge cases)
+  try {
+    const orbH = buildHelioOrbit(r1v, best.sol.v1, mu);
+    const hitH = propagateHelioOrbit(orbH, tof);
+    if (v3mag(v3sub(hitH, r2v)) < 1e6) {
+      return { orbit: orbH, visualFallback: null };
+    }
+  } catch {
+    /* fall through */
+  }
+  try {
+    const orbE = buildTransferOrbit(r1v, best.sol.v1, mu);
+    const hitE = propagateOrbit(orbE, tof);
+    if (v3mag(v3sub(hitE, r2v)) < 1e6) {
+      return { orbit: orbE, visualFallback: null };
+    }
+  } catch {
+    /* fall through */
+  }
+  return { orbit: null, visualFallback: 'cosine' };
+}
 
 /** Planning opts: backend 'approx'|'sample-de', classroomMode. Visual path always Kepler. */
 function planOpts(tData) {
@@ -79,16 +135,55 @@ export function solveTransferOrbit(tData) {
   tData.dep3D = depV;
   tData.arr3D = arrV;
   tData.orbit = null;
+  tData.visualFallback = null;
   if (physicsOk) {
     const r1vV = [depV.x * AU, depV.y * AU, depV.z * AU];
     const r2vV = [arrV.x * AU, arrV.y * AU, arrV.z * AU];
-    const solV = solveLambertProblem(r1vV, r2vV, tData.transferTime, mu, chosenLongWay);
-    if (solV) {
-      const orb = buildTransferOrbit(r1vV, solV.v1, mu);
-      const hit = propagateOrbit(orb, tData.transferTime);
-      if (v3mag(v3sub(hit, r2vV)) < 1e6) tData.orbit = orb;
-    }
+    const vBody1v = getBodyVelocity3D(tData.body1, tData.departureSimTime, true);
+    const vBody2v = getBodyVelocity3D(tData.body2, tData.arrivalSimTime, true);
+    // Independent visual branch (not forced physical longWay) + hyperbola-safe
+    const vis = tryBuildVisualOrbit(
+      r1vV, r2vV, tData.transferTime, mu, vBody1v, vBody2v, chosenLongWay,
+    );
+    tData.orbit = vis.orbit;
+    tData.visualFallback = vis.visualFallback;
   }
+}
+
+/**
+ * Refresh visual geometry (exaggerated positions / orbits) without changing
+ * physics Δv. Call after display-mode cinematic ↔ schematic changes.
+ */
+export function refreshVisualTransferGeometry(td) {
+  if (!td) return;
+  if (!td.isMultiLeg) {
+    solveTransferOrbit(td);
+    return;
+  }
+  const mu = G_CONST * SUN_DATA.mass;
+  const wps = td.waypoints || [];
+  for (let i = 0; i < (td.legs || []).length; i++) {
+    const L = td.legs[i];
+    if (!L || !L.ok) continue;
+    const a = wps[i], b = wps[i + 1];
+    if (!a?.body || !b?.body) continue;
+    const tof = L.tof;
+    const pAV = getBodyPosition3D(a.body, a.simTime, true);
+    const pBV = getBodyPosition3D(b.body, b.simTime, true);
+    L.dep3D = pAV;
+    L.arr3D = pBV;
+    const r1V = [pAV.x * AU, pAV.y * AU, pAV.z * AU];
+    const r2V = [pBV.x * AU, pBV.y * AU, pBV.z * AU];
+    const vA = getBodyVelocity3D(a.body, a.simTime, true);
+    const vB = getBodyVelocity3D(b.body, b.simTime, true);
+    const vis = tryBuildVisualOrbit(r1V, r2V, tof, mu, vA, vB, L.longWay);
+    L.orbit = vis.orbit;
+    L.visualFallback = vis.visualFallback;
+  }
+  // Aggregate flag for UI
+  td.visualFallback = (td.legs || []).some((L) => L.ok && L.visualFallback === 'cosine')
+    ? 'cosine'
+    : null;
 }
 
 // waypoints: [{body, simTime}, …] with length ≥ 2. First is origin, last is
@@ -116,18 +211,17 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
     const pAV = getBodyPosition3D(a.body, a.simTime, true);
     const pBV = getBodyPosition3D(b.body, b.simTime, true);
 
-    let orbP = null, orbV = null, ok = false, v1 = null, v2 = null;
+    let orbP = null, orbV = null, ok = false, v1 = null, v2 = null, visualFallback = null;
     if (bestP) {
       orbP = bestP.orb;
       v1 = bestP.sol.v1; v2 = bestP.sol.v2; ok = true;
       const r1V = [pAV.x*AU, pAV.y*AU, pAV.z*AU];
       const r2V = [pBV.x*AU, pBV.y*AU, pBV.z*AU];
-      const solV = solveLambertProblem(r1V, r2V, tof, mu, bestP.longWay);
-      if (solV) {
-        const o = buildTransferOrbit(r1V, solV.v1, mu);
-        const hit = propagateOrbit(o, tof);
-        if (v3mag(v3sub(hit, r2V)) < 1e6) orbV = o;
-      }
+      const vAv = getBodyVelocity3D(a.body, a.simTime, true);
+      const vBv = getBodyVelocity3D(b.body, b.simTime, true);
+      const vis = tryBuildVisualOrbit(r1V, r2V, tof, mu, vAv, vBv, bestP.longWay);
+      orbV = vis.orbit;
+      visualFallback = vis.visualFallback;
     }
 
     legs.push({
@@ -137,6 +231,7 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
       v1, v2,
       orbitPhysical: orbP,
       orbit: orbV,
+      visualFallback,
       dep3D: pAV, arr3D: pBV,
       longWay: bestP ? bestP.longWay : null,
     });
@@ -186,6 +281,7 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
     arrivalSimTime:   waypoints[waypoints.length - 1].simTime,
     transferTime:     waypoints[waypoints.length - 1].simTime - waypoints[0].simTime,
     allLegsOk: legs.every(l => l.ok),
+    visualFallback: legs.some((l) => l.ok && l.visualFallback === 'cosine') ? 'cosine' : null,
   };
 }
 
@@ -225,17 +321,26 @@ export function getShipPositionOnTransfer(departureSimTime, tData, currentSimTim
     if (!active) {
       const last = [...legs].reverse().find(l => l.ok);
       if (!last) return null;
-      const pos_m = propagateOrbit(last.orbit, last.tof);
-      return { x: pos_m[0]/AU, y: pos_m[1]/AU, z: pos_m[2]/AU,
-               progress: 1, legIndex: legs.length - 1, legProgress: 1, currentLeg: last };
+      if (last.orbit) {
+        const pos_m = propagateVisualOrbit(last.orbit, last.tof);
+        if (pos_m) {
+          return { x: pos_m[0]/AU, y: pos_m[1]/AU, z: pos_m[2]/AU,
+                   progress: 1, legIndex: legs.length - 1, legProgress: 1, currentLeg: last };
+        }
+      }
+      const arr = last.arr3D;
+      if (arr) return { x: arr.x, y: arr.y, z: arr.z, progress: 1, legIndex: legs.length - 1, legProgress: 1, currentLeg: last };
+      return null;
     }
 
     const elapsed = Math.max(0, currentSimTime - active.departSimTime);
     const legProgress = Math.max(0, Math.min(1, elapsed / active.tof));
     if (active.orbit) {
-      const pos_m = propagateOrbit(active.orbit, elapsed);
-      return { x: pos_m[0]/AU, y: pos_m[1]/AU, z: pos_m[2]/AU,
-               progress: overallProgress, legIndex: activeIdx, legProgress, currentLeg: active };
+      const pos_m = propagateVisualOrbit(active.orbit, elapsed);
+      if (pos_m) {
+        return { x: pos_m[0]/AU, y: pos_m[1]/AU, z: pos_m[2]/AU,
+                 progress: overallProgress, legIndex: activeIdx, legProgress, currentLeg: active };
+      }
     }
     const dep = active.dep3D, arr = active.arr3D;
     const blend = 0.5 - 0.5 * Math.cos(PI * legProgress);
@@ -251,8 +356,10 @@ export function getShipPositionOnTransfer(departureSimTime, tData, currentSimTim
   const progress = Math.max(0, Math.min(1, elapsed / tData.transferTime));
 
   if (tData.orbit) {
-    const pos_m = propagateOrbit(tData.orbit, elapsed);
-    return { x: pos_m[0] / AU, y: pos_m[1] / AU, z: pos_m[2] / AU, progress };
+    const pos_m = propagateVisualOrbit(tData.orbit, elapsed);
+    if (pos_m) {
+      return { x: pos_m[0] / AU, y: pos_m[1] / AU, z: pos_m[2] / AU, progress };
+    }
   }
 
   const dep = tData.dep3D || getBodyPosition3D(tData.body1, departureSimTime);

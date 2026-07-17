@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { scene } from './setup.js';
 
 // Single transfer-orbit dashed line (recreated each route compute).
@@ -45,6 +46,7 @@ scene.add(transferMarkers.arrive);
 // planet, parked at "where the destination WILL BE at arrival time." Makes
 // the trajectory's target visually obvious before launch and during flight,
 // then hides once the mission has arrived (the rendezvous already happened).
+// CSS2D labels clarify burn-time positions vs live planets.
 function makeGhost(defaultColor) {
   const m = new THREE.Mesh(
     new THREE.SphereGeometry(0.04, 24, 24),
@@ -55,6 +57,15 @@ function makeGhost(defaultColor) {
   );
   m.visible = false;
   m.renderOrder = 5;
+  const div = document.createElement('div');
+  div.className = 'planet-label ghost-label';
+  div.textContent = '';
+  const label = new CSS2DObject(div);
+  label.position.set(0, 0.08, 0);
+  label.visible = false;
+  m.add(label);
+  m.userData.ghostLabel = label;
+  m.userData.ghostLabelDiv = div;
   return m;
 }
 
@@ -63,17 +74,37 @@ export const departureGhost = makeGhost(0x00e676);   // green, mirrors depart ma
 scene.add(arrivalGhost);
 scene.add(departureGhost);
 
-function placeGhost(mesh, { x, y, z, radius, color }) {
+function placeGhost(mesh, { x, y, z, radius, color, label }) {
   mesh.position.set(x, y, z);
   mesh.scale.setScalar(Math.max(radius, 0.03) / 0.04);
   mesh.material.color.setHex(color);
   mesh.visible = true;
+  const lbl = mesh.userData.ghostLabel;
+  const div = mesh.userData.ghostLabelDiv;
+  if (lbl && div) {
+    if (label) {
+      div.textContent = label;
+      lbl.visible = true;
+      // Counteract parent scale so text stays readable
+      const s = mesh.scale.x || 1;
+      lbl.scale.setScalar(1 / s);
+    } else {
+      div.textContent = '';
+      lbl.visible = false;
+    }
+  }
 }
 
 export function setArrivalGhost(opts)   { placeGhost(arrivalGhost, opts); }
 export function setDepartureGhost(opts) { placeGhost(departureGhost, opts); }
-export function hideArrivalGhost()   { arrivalGhost.visible = false; }
-export function hideDepartureGhost() { departureGhost.visible = false; }
+export function hideArrivalGhost() {
+  arrivalGhost.visible = false;
+  if (arrivalGhost.userData.ghostLabel) arrivalGhost.userData.ghostLabel.visible = false;
+}
+export function hideDepartureGhost() {
+  departureGhost.visible = false;
+  if (departureGhost.userData.ghostLabel) departureGhost.userData.ghostLabel.visible = false;
+}
 
 // Per-flyby ghosts — for multi-leg routes, mirror the arrivalGhost pattern
 // at each intermediate flyby planet's planned-flyby-time position.  Created

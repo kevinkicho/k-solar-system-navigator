@@ -259,13 +259,14 @@ function buildCompleteness(td, need, capability, margin, asymptotePkg, quality) 
 
 /**
  * Status banner + recovery + checklist HTML.
+ * Compact by default: non-OK gates + recovery; details expand for trust/DLA/ascent.
  */
 export function planStatusBannerHtml(dossier) {
   if (!dossier) return '';
   const st = dossier.status;
   const color = st === 'pass' ? 'green' : st === 'pass_with_warnings' ? 'amber' : 'red-val';
   const title = st === 'pass' ? 'PLAN PASS'
-    : st === 'pass_with_warnings' ? 'PLAN PASS WITH WARNINGS'
+    : st === 'pass_with_warnings' ? 'PASS · WARNINGS'
       : 'PLAN FAILED';
 
   const gateLines = (dossier.gates || [])
@@ -280,14 +281,8 @@ export function planStatusBannerHtml(dossier) {
     .map((a) => `<button type="button" class="btn-tiny plan-recovery-btn" data-action="${a.id}">${a.label}</button>`)
     .join(' ');
 
-  const checkItems = (dossier.completeness?.items || [])
-    .map((i) => {
-      if (i.na) return `<span style="opacity:0.5">— ${i.label}</span>`;
-      return i.ok
-        ? `<span class="green">✓ ${i.label}</span>`
-        : `<span class="red-val">✗ ${i.label}</span>`;
-    })
-    .join(' · ');
+  const checkOk = (dossier.completeness?.items || []).filter((i) => i.ok || i.na).length;
+  const checkN = (dossier.completeness?.items || []).length;
 
   let dateNote = '';
   if (dossier.geometry?.date_adjusted) {
@@ -299,15 +294,10 @@ export function planStatusBannerHtml(dossier) {
   let asym = '';
   if (dossier.geometry?.dla_ecliptic_deg != null) {
     asym = `
-      <div class="info-row"><span class="key">DLA (ecliptic-class)</span><span class="val">${dossier.geometry.dla_ecliptic_deg.toFixed(2)}°</span></div>
-      <div class="info-row"><span class="key">RLA (ecliptic-class)</span><span class="val">${dossier.geometry.rla_ecliptic_deg.toFixed(2)}°</span></div>`;
+      <div class="info-row"><span class="key">DLA / RLA (ecl.)</span><span class="val">${dossier.geometry.dla_ecliptic_deg.toFixed(1)}° / ${dossier.geometry.rla_ecliptic_deg.toFixed(1)}°</span></div>`;
     if (dossier.geometry.dla_eq_deg != null) {
       asym += `
-      <div class="info-row"><span class="key">DLA (Earth-eq approx)</span><span class="val amber">${dossier.geometry.dla_eq_deg.toFixed(2)}°</span></div>
-      <div class="info-row"><span class="key">RLA (Earth-eq approx)</span><span class="val amber">${dossier.geometry.rla_eq_deg.toFixed(2)}°</span></div>
-      <div class="info-row"><span class="key">Asymptote note</span><span class="val" style="font-size:9px">Mean obliquity educational — not range safety</span></div>`;
-    } else {
-      asym += `<div class="info-row"><span class="key">Asymptote frame</span><span class="val" style="font-size:9px">${dossier.geometry.asymptote_frame || ''}</span></div>`;
+      <div class="info-row"><span class="key">DLA / RLA (eq≈)</span><span class="val amber">${dossier.geometry.dla_eq_deg.toFixed(1)}° / ${dossier.geometry.rla_eq_deg.toFixed(1)}°</span></div>`;
     }
   }
 
@@ -315,46 +305,37 @@ export function planStatusBannerHtml(dossier) {
   const al = dossier.ascent_loss;
   if (al && al.budget_m_s > 0) {
     ascent = `
-      <div class="result-subtitle" style="font-size:8px">ASCENT LOSS (EDU — NOT IN LAMBERT NEED)</div>
-      <div class="info-row"><span class="key">Budget</span><span class="val">${formatVelocity(al.budget_m_s)}</span></div>
-      ${al.ideal_stack_dv_m_s != null ? `<div class="info-row"><span class="key">Ideal stage/stack Δv</span><span class="val">${formatVelocity(al.ideal_stack_dv_m_s)}</span></div>` : ''}
-      ${al.residual_after_ascent_m_s != null ? `<div class="info-row"><span class="key">Residual after ascent</span><span class="val amber">${formatVelocity(al.residual_after_ascent_m_s)}</span></div>` : ''}
-      ${al.residual_minus_need_m_s != null ? `<div class="info-row"><span class="key">Residual − Need (edu)</span><span class="val">${formatVelocity(al.residual_minus_need_m_s)}</span></div>` : ''}
+      <div class="info-row"><span class="key">Ascent loss (edu)</span><span class="val">${formatVelocity(al.budget_m_s)}</span></div>
       <div class="info-row"><span class="key">Note</span><span class="val" style="font-size:9px">${al.note}</span></div>`;
   }
 
-  const siteLine = dossier.launch_site
+  const siteLine = dossier.launch_site && dossier.launch_site.id !== 'any'
     ? `<div class="info-row"><span class="key">Launch site (edu)</span><span class="val">${dossier.launch_site.name}</span></div>`
     : '';
 
   const multiPark = dossier.inputs?.multi_leg
-    ? `<div class="info-row"><span class="key">Mission parking</span><span class="val amber">n/a multi-leg — SOI escape/capture not chained</span></div>`
+    ? `<div class="info-row"><span class="key">Mission parking</span><span class="val amber">n/a multi-leg</span></div>`
     : '';
 
   return `
     <div class="plan-status-banner" data-status="${st}" id="plan-status-banner">
-      <div class="result-subtitle">PLAN STATUS · <span class="${color}">${title}</span>
-        · conf ${dossier.confidence_0_100} (${dossier.confidence_label})
+      <div class="result-subtitle">STATUS · <span class="${color}">${title}</span>
+        · conf ${dossier.confidence_0_100}
       </div>
-      <div class="info-row"><span class="key">Mission ready</span><span class="val ${dossier.mission_ready ? 'green' : 'red-val'}">${
+      <div class="info-row"><span class="key">Ready / Launch</span><span class="val ${dossier.mission_ready ? 'green' : 'red-val'}">${
         dossier.mission_ready ? 'YES' : 'NO'
-      }</span></div>
-      <div class="info-row"><span class="key">Launch</span><span class="val ${(dossier.launch_enabled ?? dossier.mission_ready) ? 'green' : 'red-val'}">${
-        (dossier.launch_enabled ?? dossier.mission_ready) ? 'ENABLED' : 'BLOCKED'
-      }</span></div>
-      <div class="info-row"><span class="key">Confidence note</span><span class="val" style="font-size:9px;opacity:0.8">${dossier.confidence_note}</span></div>
-      ${siteLine}
-      ${multiPark}
+      } / ${(dossier.launch_enabled ?? dossier.mission_ready) ? 'ENABLED' : 'BLOCKED'}</span></div>
       ${dateNote}
       ${gateLines || '<div class="info-row"><span class="key">Gates</span><span class="val green">All critical gates OK</span></div>'}
-      ${asym}
-      ${ascent}
-      <div style="height:4px"></div>
-      <div class="result-subtitle" style="font-size:8px">RECOVERY</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px">${actions || '<span class="val" style="font-size:10px">—</span>'}</div>
-      <div class="result-subtitle" style="font-size:8px">COMPLETENESS</div>
-      <div style="font-size:10px;line-height:1.5;margin-bottom:8px">${checkItems}</div>
-      ${trustCardHtml(dossier, dossier.fidelity)}
+      ${actions ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0">${actions}</div>` : ''}
+      <details class="results-details nested">
+        <summary>Methodology · completeness (${checkOk}/${checkN}) · trust</summary>
+        <div class="results-details-body">
+          <p style="font-size:9px;opacity:0.8;margin:4px 0">${dossier.confidence_note}</p>
+          ${siteLine}${multiPark}${asym}${ascent}
+          ${trustCardHtml(dossier, dossier.fidelity)}
+        </div>
+      </details>
     </div>`;
 }
 

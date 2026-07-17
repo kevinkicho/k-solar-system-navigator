@@ -263,15 +263,11 @@ export function wireControls() {
       data.line.geometry = new THREE.BufferGeometry().setFromPoints(pts);
     }
     if (state.showTransferOrbit && state.transferData) {
-      if (state.transferData.isMultiLeg) {
-        // re-solve visual branch via recompute is heavy; just refresh visual
+      // Re-solve visual geometry for single- and multi-leg under new incl. scale
+      import('../physics/routing.js').then(({ refreshVisualTransferGeometry }) => {
+        refreshVisualTransferGeometry(state.transferData);
         updateTransferOrbitVisual();
-      } else {
-        import('../physics/routing.js').then(({ solveTransferOrbit }) => {
-          solveTransferOrbit(state.transferData);
-          updateTransferOrbitVisual();
-        });
-      }
+      });
     }
     updateViewBadge();
     notify(dispSel.value === 'schematic'

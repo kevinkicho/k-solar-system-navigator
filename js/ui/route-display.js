@@ -1,8 +1,7 @@
 /**
  * Route results panel + mission controls (DOM).
- * Scene transfer visuals live in route-orbit-visual.js;
- * plan JSON export lives in mission-export.js;
- * shared Δv helpers live in mission-budget-ui.js.
+ * Results hierarchy: hero summary → actions → collapsible details.
+ * Scene transfer visuals live in route-orbit-visual.js.
  */
 import { AU, DAY, DEG, LEG_COLORS } from '../constants.js';
 import { state } from '../state.js';
@@ -16,21 +15,13 @@ import { exportMissionPlan } from './mission-export.js';
 import { buildMeasurementCard } from './measurement-card.js';
 import { planStatusBannerHtml, buildPlanDossier } from './plan-dossier.js';
 import { bindPlanRecoveryButtons } from './plan-recovery.js';
+import { activateRailTab } from './rail-ui.js';
 export { updateTransferOrbitVisual } from './route-orbit-visual.js';
 export { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 
-// Launch handler — injected by main.js to break the route ↔ mission cycle.
-// (Abort uses bindAbortHandler in route-planner.js for the same reason.)
 let _launchMission = null;
 export function bindMissionHandlers({ launch }) {
   _launchMission = launch;
-}
-
-/** @deprecated Prefer buildMeasurementCard — kept for multi-leg interim. */
-function vehicleBlockHtml(requiredDv, isMulti = false) {
-  const card = buildMeasurementCard(state.transferData);
-  if (!isMulti) return card.html;
-  return card.html;
 }
 
 function ensureDossier(td) {
@@ -61,13 +52,23 @@ function bindMissionControlButtons(td, { canLaunch }) {
       import('./share.js').then(({ copyShareLink }) => copyShareLink());
     };
   }
-  document.getElementById('btn-goto-depart').onclick = () => {
-    timeState.simTime = td.departureSimTime;
-    timeState.setSpeed(3);
-    timeState.updateDisplay();
-    import('./format.js').then(({ notify }) => notify('JUMPED TO DEPARTURE DATE'));
-  };
-  document.getElementById('btn-export-plan').onclick = () => exportMissionPlan(td);
+  const goto = document.getElementById('btn-goto-depart');
+  if (goto) {
+    goto.onclick = () => {
+      timeState.simTime = td.departureSimTime;
+      timeState.setSpeed(3);
+      timeState.updateDisplay();
+      import('./format.js').then(({ notify }) =>
+        notify('JUMPED TO DEPARTURE — ghosts meet live planets'));
+    };
+  }
+  const exp = document.getElementById('btn-export-plan');
+  if (exp) exp.onclick = () => exportMissionPlan(td);
+
+  const winBtn = document.getElementById('btn-open-windows');
+  if (winBtn) {
+    winBtn.onclick = () => document.getElementById('find-windows')?.click();
+  }
 
   bindPlanRecoveryButtons({
     findNearestWindow: () => {
@@ -85,10 +86,75 @@ function bindMissionControlButtons(td, { canLaunch }) {
   });
 }
 
+function heroCardHtml({
+  title, b1, b2, transitLabel, needLabel, feasible, feasibleLabel, fidelityPill, visualWarn,
+}) {
+  const feasCls = feasible ? 'green' : 'red-val';
+  return `
+    <div class="results-hero" id="results-hero">
+      <div class="results-hero-title">${title}</div>
+      <div class="results-hero-route"><span class="green">${b1}</span> → <span class="amber">${b2}</span></div>
+      <div class="results-hero-metrics">
+        <div class="hero-metric"><span class="hm-k">Transit</span><span class="hm-v highlight">${transitLabel}</span></div>
+        <div class="hero-metric"><span class="hm-k">Need Δv</span><span class="hm-v">${needLabel}</span></div>
+        <div class="hero-metric"><span class="hm-k">Feasible</span><span class="hm-v ${feasCls}">${feasibleLabel}</span></div>
+        <div class="hero-metric"><span class="hm-k">Fidelity</span><span class="hm-v">${fidelityPill}</span></div>
+      </div>
+      <p class="results-hero-note">Green/orange ghosts = planet positions <em>at burn times</em>, not “now”. Use Jump to Departure to align the scene.</p>
+      ${visualWarn || ''}
+    </div>`;
+}
+
+function actionsHtml(missionReady) {
+  return `
+    <div class="results-actions" id="mission-controls">
+      <button class="route-btn launch" id="btn-launch"${missionReady ? '' : ' disabled'}>Launch</button>
+      <button class="route-btn secondary" id="btn-open-windows">Windows</button>
+      <button class="route-btn secondary" id="btn-goto-depart">Jump to Departure</button>
+      <button class="route-btn secondary" id="btn-export-plan">Export</button>
+      <button class="route-btn secondary" id="btn-share-link">Share</button>
+    </div>`;
+}
+
+function detailsBlock(id, title, open, inner) {
+  return `
+    <details class="results-details" id="${id}" ${open ? 'open' : ''}>
+      <summary>${title}</summary>
+      <div class="results-details-body">${inner}</div>
+    </details>`;
+}
+
+function visualWarnHtml(td) {
+  if (td.visualFallback === 'cosine' || (td.legs || []).some((L) => L.ok && L.visualFallback === 'cosine')) {
+    return `<div class="visual-fallback-warn" role="status">⚠ Scene path uses a non-Keplerian visual fallback (cosine). Numbers still use physical Lambert. Try Schematic view or recompute.</div>`;
+  }
+  return '';
+}
+
+function fidelityPill(dossier) {
+  const f = dossier?.fidelity?.fidelityLevel || state.fidelityLevel || 'L1';
+  return `<span class="fidelity-badge fidelity-${f}">${f}</span>`;
+}
+
 // ---- DOM-side: results panel + mission controls ----
 export function renderRouteUI() {
   const td = state.transferData;
   if (!td) return;
+  // Switch right-rail tab to Results when a plan is ready (sync — tests + share btn visibility)
+  try {
+    activateRailTab('results');
+    if (document.body.classList.contains('mob-sheet-plan')
+        || document.body.classList.contains('mob-sheet-bodies')
+        || document.body.classList.contains('mob-sheet-results')
+        || window.matchMedia?.('(max-width: 768px)')?.matches) {
+      document.body.classList.remove('mob-sheet-bodies', 'mob-sheet-plan');
+      document.body.classList.add('mob-sheet-results');
+      document.querySelectorAll('#mobile-chips .mob-chip').forEach((c) => {
+        c.setAttribute('aria-pressed', c.dataset.sheet === 'results' ? 'true' : 'false');
+      });
+    }
+  } catch { /* */ }
+
   if (td.isMultiLeg) { renderMultiLegRouteUI(); return; }
   renderSingleLegRouteUI(td);
 }
@@ -99,14 +165,12 @@ function renderSingleLegRouteUI(td) {
   const lambertOk = !!td.lambertOk;
   const orbPhys = td.orbitPhysical;
 
-  const periAU  = orbPhys ? (orbPhys.a * (1 - orbPhys.e)) / AU : null;
-  const apoAU   = orbPhys ? (orbPhys.a * (1 + orbPhys.e)) / AU : null;
+  const periAU = orbPhys ? (orbPhys.a * (1 - orbPhys.e)) / AU : null;
+  const apoAU = orbPhys ? (orbPhys.a * (1 + orbPhys.e)) / AU : null;
   const totalDv = lambertOk ? td.dvTotal_lambert : td.dvTotal;
-  // Patched-conic mission budget for all single-leg Lambert-ok transfers.
   const budget = lambertOk ? computeMissionBudget(td) : null;
   const required = requiredDeltaV(td);
 
-  // Suggest mission basis once when a moon endpoint is selected.
   if ((td.body1?.parent || td.body2?.parent) && !state.moonMissionSuggestDone) {
     state.moonMissionSuggestDone = true;
     if (state.costBasis !== 'mission') {
@@ -119,56 +183,70 @@ function renderSingleLegRouteUI(td) {
   const missionReady = dossier
     ? !!(dossier.launch_enabled ?? dossier.mission_ready)
     : !!lambertOk;
+
+  const card = buildMeasurementCard(td);
+  const needDv = card?.need?.need_dv_m_s;
+  const needLabel = needDv != null && isFinite(needDv)
+    ? formatVelocity(needDv)
+    : formatVelocity(totalDv);
+
+  const lambertBlock = `
+    <div class="result-title">${lambertOk ? 'LAMBERT TRANSFER' : 'HOHMANN ESTIMATE (Lambert failed)'}</div>
+    <div class="info-row"><span class="key">Departure</span><span class="val green">${formatDateShort(departDate)}</span></div>
+    <div class="info-row"><span class="key">Arrival</span><span class="val amber">${formatDateShort(arriveDate)}</span></div>
+    <div class="info-row"><span class="key">Transit</span><span class="val highlight">${formatTimePrecise(td.transferTime)} · ${(td.transferTime / DAY).toFixed(1)} d</span></div>
+    <div class="info-row"><span class="key">Dep / Arr Δv (helio)</span><span class="val">${formatVelocity(lambertOk ? td.dv1_lambert : td.dv1)} / ${formatVelocity(lambertOk ? td.dv2_lambert : td.dv2)}</span></div>
+    <div class="info-row"><span class="key">Heliocentric total</span><span class="val">${formatVelocity(totalDv)}</span></div>
+    ${lambertOk && orbPhys ? `
+    <div class="info-row"><span class="key">a / e</span><span class="val">${formatDist(orbPhys.a)} · ${orbPhys.e.toFixed(4)}</span></div>
+    <div class="info-row"><span class="key">Peri / Apo</span><span class="val">${periAU.toFixed(3)} / ${apoAU.toFixed(3)} AU</span></div>` : `
+    <div class="info-row"><span class="key">Transfer a</span><span class="val">${formatDist(td.aT)}</span></div>`}
+    <div class="info-row"><span class="key">Phase needed / at dep</span><span class="val">${(td.phaseAngle / DEG).toFixed(1)}° / ${(td.currentPhase / DEG).toFixed(1)}°</span></div>
+    <div class="info-row"><span class="key">Next optimal window</span><span class="val highlight">${formatTime(td.timeToWindow)}</span></div>`;
+
+  const missionBlock = budget ? `
+    <div class="result-subtitle">FULL MISSION Δv (parking, ${(budget.parkingAlt_m / 1000).toFixed(0)} km)</div>
+    ${budget.departure.phases.map((p) =>
+    `<div class="info-row"><span class="key">↗ ${p.label}</span><span class="val">${formatVelocity(p.dv)}</span></div>`).join('')}
+    <div class="info-row"><span class="key">Departure subtotal</span><span class="val green">${formatVelocity(budget.departure.total)}</span></div>
+    ${budget.arrival.phases.map((p) =>
+    `<div class="info-row"><span class="key">↘ ${p.label}</span><span class="val">${formatVelocity(p.dv)}</span></div>`).join('')}
+    <div class="info-row"><span class="key">Arrival subtotal</span><span class="val amber">${formatVelocity(budget.arrival.total)}</span></div>
+    <div class="info-row"><span class="key"><strong>Mission total</strong></span><span class="val amber"><strong>${formatVelocity(budget.totalMission)}</strong></span></div>`
+    : '<div class="info-row"><span class="key">Mission parking</span><span class="val" style="opacity:0.7">n/a (no Lambert budget)</span></div>';
+
+  // Compact measurement: strip engineering sheet if present
+  let measureHtml = card.html || '';
+  // Prefer not to open vehicle eng by default — measurement-card may include it; leave as-is but under details
+
   const res = document.getElementById('transfer-results');
   res.innerHTML = `
     <div class="transfer-results">
-      ${planStatusBannerHtml(dossier)}
-      <div class="result-title">${lambertOk ? 'LAMBERT TRANSFER ORBIT' : 'HOHMANN ESTIMATE (Lambert failed)'}</div>
-      <div class="info-row"><span class="key">Departure</span><span class="val green">${formatDateShort(departDate)}</span></div>
-      <div class="info-row"><span class="key">Arrival</span><span class="val amber">${formatDateShort(arriveDate)}</span></div>
-      <div class="info-row"><span class="key">Transit duration</span><span class="val highlight">${formatTimePrecise(td.transferTime)}</span></div>
-      <div class="info-row"><span class="key">Transit (days)</span><span class="val">${(td.transferTime / DAY).toFixed(1)} days</span></div>
-      <div style="height:8px"></div>
-      <div class="info-row"><span class="key">Departure Δv (heliocentric)</span><span class="val green">${formatVelocity(lambertOk ? td.dv1_lambert : td.dv1)}</span></div>
-      <div class="info-row"><span class="key">Arrival Δv (heliocentric)</span><span class="val green">${formatVelocity(lambertOk ? td.dv2_lambert : td.dv2)}</span></div>
-      <div class="info-row"><span class="key">Heliocentric leg total</span><span class="val">${formatVelocity(totalDv)}</span></div>
-      ${budget ? `
-      <div style="height:8px"></div>
-      <div class="result-subtitle">FULL MISSION Δv  (low parking → low parking, ${(budget.parkingAlt_m/1000).toFixed(0)} km)</div>
-      ${budget.departure.phases.map(p =>
-        `<div class="info-row"><span class="key">↗ ${p.label}</span><span class="val">${formatVelocity(p.dv)}</span></div>`
-      ).join('')}
-      <div class="info-row"><span class="key">Departure subtotal</span><span class="val green">${formatVelocity(budget.departure.total)}</span></div>
-      <div style="height:4px"></div>
-      ${budget.arrival.phases.map(p =>
-        `<div class="info-row"><span class="key">↘ ${p.label}</span><span class="val">${formatVelocity(p.dv)}</span></div>`
-      ).join('')}
-      <div class="info-row"><span class="key">Arrival subtotal</span><span class="val amber">${formatVelocity(budget.arrival.total)}</span></div>
-      <div style="height:4px"></div>
-      <div class="info-row"><span class="key"><strong>Mission total Δv</strong></span><span class="val amber"><strong>${formatVelocity(budget.totalMission)}</strong></span></div>` : ''}
-      ${lambertOk && orbPhys ? `
-      <div style="height:8px"></div>
-      <div class="info-row"><span class="key">Transfer semi-major</span><span class="val">${formatDist(orbPhys.a)}</span></div>
-      <div class="info-row"><span class="key">Eccentricity</span><span class="val">${orbPhys.e.toFixed(4)}</span></div>
-      <div class="info-row"><span class="key">Perihelion</span><span class="val">${periAU.toFixed(3)} AU</span></div>
-      <div class="info-row"><span class="key">Apoapsis</span><span class="val">${apoAU.toFixed(3)} AU</span></div>` : `
-      <div style="height:8px"></div>
-      <div class="info-row"><span class="key">Transfer semi-major</span><span class="val">${formatDist(td.aT)}</span></div>`}
-      <div class="info-row"><span class="key">Phase angle needed</span><span class="val">${(td.phaseAngle / DEG).toFixed(2)}&deg;</span></div>
-      <div class="info-row"><span class="key">Phase at departure</span><span class="val">${(td.currentPhase / DEG).toFixed(2)}&deg;</span></div>
-      <div class="info-row"><span class="key">Next optimal window</span><span class="val highlight">${formatTime(td.timeToWindow)}</span></div>
-      <div style="height:8px"></div>
-      ${vehicleBlockHtml(required, false)}
+      ${heroCardHtml({
+        title: lambertOk ? 'Transfer ready' : 'Estimate only',
+        b1: td.body1?.name || 'Origin',
+        b2: td.body2?.name || 'Dest',
+        transitLabel: `${(td.transferTime / DAY).toFixed(0)} d`,
+        needLabel,
+        feasible: missionReady,
+        feasibleLabel: missionReady ? 'YES' : 'NO',
+        fidelityPill: fidelityPill(dossier),
+        visualWarn: visualWarnHtml(td),
+      })}
+      ${actionsHtml(missionReady)}
+      ${detailsBlock('det-lambert', 'Transfer detail', false, lambertBlock)}
+      ${detailsBlock('det-mission', 'Mission parking Δv', false, missionBlock)}
+      ${detailsBlock('det-plan', 'Plan status & recovery', !missionReady, planStatusBannerHtml(dossier, { compact: false }))}
+      ${detailsBlock('det-measure', 'Need / Capability / Margin', true, measureHtml)}
     </div>`;
 
-  const mc = document.getElementById('mission-controls');
-  mc.innerHTML = `
-    <button class="route-btn launch" id="btn-launch"${missionReady ? '' : ' disabled'}>Launch Mission</button>
-    <button class="route-btn" id="btn-goto-depart" style="font-size:9px;padding:7px;margin-top:4px;">Jump to Departure Date</button>
-    <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
-    <button class="route-btn" id="btn-share-link" style="font-size:9px;padding:7px;margin-top:4px;">Copy share link</button>
-  `;
+  // mission-controls is inside transfer-results now
   bindMissionControlButtons(td, { canLaunch: missionReady });
+  // clear external mission-controls if present
+  const mcExt = document.querySelector('#rail-pane-results > #mission-controls, .route-section > #mission-controls');
+  if (mcExt && mcExt.id === 'mission-controls' && !mcExt.classList.contains('results-actions')) {
+    mcExt.innerHTML = '';
+  }
 }
 
 function renderMultiLegRouteUI() {
@@ -181,13 +259,15 @@ function renderMultiLegRouteUI() {
   const allOk = td.allLegsOk;
   const totalDv = td.dvTotalMultiLeg;
   const required = requiredDeltaV(td);
+  const card = buildMeasurementCard(td);
 
   const legRows = td.legs.map((L, i) => {
     const color = '#' + LEG_COLORS[i % LEG_COLORS.length].toString(16).padStart(6, '0');
     if (!L.ok) {
-      return `<div class="info-row"><span class="key" style="color:${color}">Leg ${i+1} ${L.from}→${L.to}</span><span class="val red-val">LAMBERT FAILED</span></div>`;
+      return `<div class="info-row"><span class="key" style="color:${color}">Leg ${i + 1} ${L.from}→${L.to}</span><span class="val red-val">LAMBERT FAILED</span></div>`;
     }
-    return `<div class="info-row"><span class="key" style="color:${color}">Leg ${i+1} ${L.from}→${L.to}</span><span class="val">${(L.tof/DAY).toFixed(0)}d</span></div>`;
+    const fb = L.visualFallback === 'cosine' ? ' · visual cosine' : '';
+    return `<div class="info-row"><span class="key" style="color:${color}">Leg ${i + 1} ${L.from}→${L.to}</span><span class="val">${(L.tof / DAY).toFixed(0)}d${fb}</span></div>`;
   }).join('');
 
   const manRows = td.maneuvers.map((m) => {
@@ -202,40 +282,49 @@ function renderMultiLegRouteUI() {
     const status = gi.achievable ? 'OK' : 'TOO SHARP';
     return `
       <div class="info-row"><span class="key">Flyby ${m.body}</span><span class="val ${cls}">${status}</span></div>
-      <div class="info-row"><span class="key">&nbsp;&nbsp;Turning angle</span><span class="val">${tDeg}&deg; / max ${tMax}&deg;</span></div>
+      <div class="info-row"><span class="key">&nbsp;&nbsp;Turning</span><span class="val">${tDeg}° / max ${tMax}°</span></div>
       <div class="info-row"><span class="key">&nbsp;&nbsp;Periapsis</span><span class="val">${rP} (min ${minR})</span></div>
-      <div class="info-row"><span class="key">&nbsp;&nbsp;V&infin; in / out</span><span class="val">${(gi.vInfInMag/1000).toFixed(2)} / ${(gi.vInfOutMag/1000).toFixed(2)} km/s</span></div>
       ${gi.dvFlyby > 1 ? `<div class="info-row"><span class="key">&nbsp;&nbsp;Powered Δv</span><span class="val amber">${formatVelocity(gi.dvFlyby)}</span></div>` : ''}
     `;
   }).join('');
 
   const b1n = td.body1?.name || 'Origin';
   const b2n = td.body2?.name || 'Destination';
+  const needDv = card?.need?.need_dv_m_s;
+  const needLabel = needDv != null && isFinite(needDv)
+    ? formatVelocity(needDv)
+    : formatVelocity(totalDv);
+
+  const detail = `
+    <div class="result-title">${allOk ? 'MULTI-LEG TRANSFER' : 'MULTI-LEG (some legs failed)'}</div>
+    <div class="info-row"><span class="key">Depart ${b1n}</span><span class="val green">${formatDateShort(simTimeToDate(td.departureSimTime))}</span></div>
+    <div class="info-row"><span class="key">Arrive ${b2n}</span><span class="val amber">${formatDateShort(simTimeToDate(td.arrivalSimTime))}</span></div>
+    <div class="info-row"><span class="key">Total transit</span><span class="val highlight">${(td.transferTime / DAY).toFixed(0)} days</span></div>
+    <div style="height:6px"></div>
+    ${legRows}
+    <div style="height:6px"></div>
+    ${manRows}
+    <div class="info-row"><span class="key">Total Δv (heliocentric)</span><span class="val amber">${formatVelocity(totalDv)}</span></div>
+    <div class="info-row"><span class="key" style="font-size:9px;opacity:0.7">Note</span><span class="val" style="font-size:9px;opacity:0.7">Mission parking is single-leg only · multi-leg search is a coarse seed</span></div>`;
 
   res.innerHTML = `
     <div class="transfer-results">
-      ${planStatusBannerHtml(dossier)}
-      <div class="result-title">${allOk ? 'MULTI-LEG TRANSFER' : 'MULTI-LEG (some legs failed)'}</div>
-      <div class="info-row"><span class="key">Depart ${b1n}</span><span class="val green">${formatDateShort(simTimeToDate(td.departureSimTime))}</span></div>
-      <div class="info-row"><span class="key">Arrive ${b2n}</span><span class="val amber">${formatDateShort(simTimeToDate(td.arrivalSimTime))}</span></div>
-      <div class="info-row"><span class="key">Total transit</span><span class="val highlight">${(td.transferTime / DAY).toFixed(0)} days</span></div>
-      <div style="height:8px"></div>
-      ${legRows}
-      <div style="height:8px"></div>
-      ${manRows}
-      <div style="height:8px"></div>
-      <div class="info-row"><span class="key">Total Δv (heliocentric)</span><span class="val amber">${formatVelocity(totalDv)}</span></div>
-      <div style="height:8px"></div>
-      ${vehicleBlockHtml(required, true)}
-      <div class="info-row"><span class="key" style="font-size:9px;opacity:0.7">Note</span><span class="val" style="font-size:9px;opacity:0.7">Mission parking budget is single-leg only</span></div>
+      ${heroCardHtml({
+        title: allOk ? 'Multi-leg route' : 'Multi-leg incomplete',
+        b1: b1n,
+        b2: b2n,
+        transitLabel: `${(td.transferTime / DAY).toFixed(0)} d`,
+        needLabel,
+        feasible: missionReady,
+        feasibleLabel: missionReady ? 'YES' : 'NO',
+        fidelityPill: fidelityPill(dossier),
+        visualWarn: visualWarnHtml(td),
+      })}
+      ${actionsHtml(missionReady)}
+      ${detailsBlock('det-ml', 'Legs & flybys', true, detail)}
+      ${detailsBlock('det-plan', 'Plan status & recovery', !missionReady, planStatusBannerHtml(dossier))}
+      ${detailsBlock('det-measure', 'Need / Capability / Margin', true, card.html || '')}
     </div>`;
 
-  const mc = document.getElementById('mission-controls');
-  mc.innerHTML = `
-    <button class="route-btn launch" id="btn-launch"${missionReady ? '' : ' disabled'}>Launch Mission</button>
-    <button class="route-btn" id="btn-goto-depart" style="font-size:9px;padding:7px;margin-top:4px;">Jump to Departure Date</button>
-    <button class="route-btn" id="btn-export-plan" style="font-size:9px;padding:7px;margin-top:4px;">Export plan (JSON)</button>
-    <button class="route-btn" id="btn-share-link" style="font-size:9px;padding:7px;margin-top:4px;">Copy share link</button>
-  `;
   bindMissionControlButtons(td, { canLaunch: missionReady });
 }

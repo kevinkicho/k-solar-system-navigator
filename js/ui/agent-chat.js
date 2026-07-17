@@ -51,7 +51,7 @@ function injectStyles() {
   style.id = 'helios-agent-chat-styles';
   style.textContent = `
 #helios-fab {
-  position: fixed; right: 20px; bottom: 20px; z-index: 40;
+  position: fixed; right: 20px; bottom: calc(64px + 12px); z-index: 40;
   width: 56px; height: 56px; border-radius: 50%;
   border: 1px solid var(--border-bright, rgba(0,200,255,0.45));
   background: linear-gradient(145deg, rgba(0,40,70,0.95), rgba(0,20,40,0.98));
@@ -72,9 +72,9 @@ function injectStyles() {
   color: var(--amber, #ff9800);
 }
 #helios-chat-panel {
-  position: fixed; right: 20px; bottom: 88px; z-index: 40;
+  position: fixed; right: 20px; bottom: calc(64px + 12px + 64px); z-index: 40;
   width: min(380px, calc(100vw - 24px));
-  height: min(520px, calc(100vh - 120px));
+  height: min(520px, calc(100vh - 160px));
   display: none; flex-direction: column;
   background: var(--bg-panel, rgba(6,14,28,0.96));
   border: 1px solid var(--border, rgba(0,160,220,0.2));
@@ -152,8 +152,11 @@ function injectStyles() {
 #helios-chat-send:disabled { opacity: 0.45; cursor: not-allowed; }
 #helios-chat-send:not(:disabled):hover { background: rgba(0,120,160,0.45); }
 @media (max-width: 768px) {
-  #helios-fab { right: 12px; bottom: 12px; width: 50px; height: 50px; }
-  #helios-chat-panel { right: 8px; bottom: 72px; width: calc(100vw - 16px); height: min(60vh, 480px); }
+  #helios-fab { right: 12px; bottom: calc(56px + 52px); width: 50px; height: 50px; }
+  #helios-chat-panel {
+    right: 8px; bottom: calc(56px + 52px + 58px);
+    width: calc(100vw - 16px); height: min(50vh, 420px);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   #helios-fab { transition: none; }

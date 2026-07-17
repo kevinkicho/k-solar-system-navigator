@@ -6,12 +6,18 @@ import * as THREE from 'three';
 import { AU, DAY, LEG_COLORS, PI } from '../constants.js';
 import { state } from '../state.js';
 import { getBodyPosition3D, getSunBarycentricOffset } from '../physics/kepler.js';
-import { propagateOrbit } from '../physics/helio.js';
+import { propagateOrbit, propagateHelioOrbit } from '../physics/helio.js';
 import {
   addDateMarker, addFlybyGhost, addFlybyMarker, addLegLine, clearDateMarkers,
   clearMultiLegVisuals, hideArrivalGhost, hideDepartureGhost,
   setArrivalGhost, setDepartureGhost, setTransferLine, transferMarkers,
 } from '../scene/transfer-visual.js';
+
+function propVis(orb, dt) {
+  if (!orb) return null;
+  if (orb.hyperbolic) return propagateHelioOrbit(orb, dt);
+  return propagateOrbit(orb, dt);
+}
 
 export function updateTransferOrbitVisual() {
   setTransferLine(null);
@@ -51,20 +57,22 @@ export function updateTransferOrbitVisual() {
     // Integer-day samples first.
     for (let day = 0; day <= transferDays; day += stride) {
       const dt = day * DAY;
-      const pos_m = propagateOrbit(td.orbit, dt);
+      const pos_m = propVis(td.orbit, dt);
+      if (!pos_m) continue;
       const off = getSunBarycentricOffset(depT + dt);
       points.push(new THREE.Vector3(
         pos_m[0] / AU + off.x, pos_m[1] / AU + off.y, pos_m[2] / AU + off.z));
     }
     // Plus the exact arrival point — transferTime usually isn't an integer
     // number of days, so the last integer-day sample falls a few hours short.
-    const pos_m = propagateOrbit(td.orbit, td.transferTime);
-    points.push(new THREE.Vector3(
-      pos_m[0] / AU + arrOff.x, pos_m[1] / AU + arrOff.y, pos_m[2] / AU + arrOff.z));
+    const pos_m = propVis(td.orbit, td.transferTime);
+    if (pos_m) {
+      points.push(new THREE.Vector3(
+        pos_m[0] / AU + arrOff.x, pos_m[1] / AU + arrOff.y, pos_m[2] / AU + arrOff.z));
+    }
   } else {
-    // Lambert failed — fall back to cosine interpolation just so the line
-    // doesn't disappear; the user has already been notified that the
-    // trajectory is unreliable in this case.
+    // Visual Lambert failed — cosine blend endpoints only (not Keplerian).
+    // UI surfaces td.visualFallback === 'cosine'.
     const NF = 200;
     for (let i = 0; i <= NF; i++) {
       const t = i / NF;
@@ -95,11 +103,13 @@ export function updateTransferOrbitVisual() {
     x: dep.x + depOff.x, y: dep.y + depOff.y, z: dep.z + depOff.z,
     radius: td.body1.displayRadius * 1.6,
     color: parseInt(td.body1.color.replace('#', ''), 16),
+    label: 'AT DEPARTURE',
   });
   setArrivalGhost({
     x: arr.x + arrOff.x, y: arr.y + arrOff.y, z: arr.z + arrOff.z,
     radius: td.body2.displayRadius * 1.6,
     color: parseInt(td.body2.color.replace('#', ''), 16),
+    label: 'AT ARRIVAL',
   });
   // Date markers — fixed-time samples along the trajectory.  Their visual
   // density (clustered near perihelion, spread near apoapsis) makes the
@@ -124,7 +134,8 @@ function addDateMarkersAlongOrbit(orbit, departSimTime, transferTime, color) {
   for (let day = minor; day < transferTime / DAY; day += minor) {
     const dt = day * DAY;
     if (dt >= transferTime) break;
-    const pos_m = propagateOrbit(orbit, dt);
+    const pos_m = propVis(orbit, dt);
+    if (!pos_m) continue;
     const off = getSunBarycentricOffset(departSimTime + dt);
     const isMajor = Math.abs(day % major) < 1e-6;
     addDateMarker(
@@ -148,13 +159,16 @@ function renderMultiLegVisual() {
     if (leg.orbit) {
       for (let day = 0; day <= legDays; day += stride) {
         const dt = day * DAY;
-        const pm = propagateOrbit(leg.orbit, dt);
+        const pm = propVis(leg.orbit, dt);
+        if (!pm) continue;
         const off = getSunBarycentricOffset(leg.departSimTime + dt);
         pts.push(new THREE.Vector3(pm[0]/AU + off.x, pm[1]/AU + off.y, pm[2]/AU + off.z));
       }
-      const pm = propagateOrbit(leg.orbit, leg.tof);
-      const off = getSunBarycentricOffset(leg.arriveSimTime);
-      pts.push(new THREE.Vector3(pm[0]/AU + off.x, pm[1]/AU + off.y, pm[2]/AU + off.z));
+      const pm = propVis(leg.orbit, leg.tof);
+      if (pm) {
+        const off = getSunBarycentricOffset(leg.arriveSimTime);
+        pts.push(new THREE.Vector3(pm[0]/AU + off.x, pm[1]/AU + off.y, pm[2]/AU + off.z));
+      }
     } else {
       const a = leg.dep3D, b = leg.arr3D;
       const NF = 160;
@@ -196,6 +210,7 @@ function renderMultiLegVisual() {
       x: firstLeg.dep3D.x + o.x, y: firstLeg.dep3D.y + o.y, z: firstLeg.dep3D.z + o.z,
       radius: td.body1.displayRadius * 1.6,
       color: parseInt(td.body1.color.replace('#', ''), 16),
+      label: 'AT DEPARTURE',
     });
   }
   if (lastLeg && lastLeg.ok) {
@@ -206,6 +221,7 @@ function renderMultiLegVisual() {
       x: lastLeg.arr3D.x + o.x, y: lastLeg.arr3D.y + o.y, z: lastLeg.arr3D.z + o.z,
       radius: td.body2.displayRadius * 1.6,
       color: parseInt(td.body2.color.replace('#', ''), 16),
+      label: 'AT ARRIVAL',
     });
   }
   // Per-flyby ghosts at each intermediate planet, parked at the planned-flyby-
@@ -219,6 +235,7 @@ function renderMultiLegVisual() {
       x: p.x + o.x, y: p.y + o.y, z: p.z + o.z,
       radius: wp.body.displayRadius * 1.5,
       color: parseInt(wp.body.color.replace('#', ''), 16),
+      label: `AT FLYBY · ${wp.body.name}`,
     });
   }
 

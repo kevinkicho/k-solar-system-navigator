@@ -73,12 +73,29 @@ try {
   await page.locator('#calc-route').click();
   await page.waitForFunction(
     () => (document.getElementById('transfer-results')?.textContent || '').length > 80,
+    null,
     { timeout: 15000 },
   );
   const resultsText = (await page.locator('#transfer-results').textContent()).trim();
-  check('results mention Lambert/Hohmann', /LAMBERT|HOHMANN/i.test(resultsText));
-  const dvMatch = resultsText.match(/(?:Heliocentric leg total|Total\s*Δv)\s*([\d.]+)\s*km\/s/i);
-  const totalDv = dvMatch ? parseFloat(dvMatch[1]) : NaN;
+  // Hero + collapsible details: match need/feasible or legacy Lambert headings
+  check(
+    'results mention transfer / need',
+    /LAMBERT|HOHMANN|Transfer ready|Need Δv|Heliocentric/i.test(resultsText),
+  );
+  const dvMatch = resultsText.match(
+    /(?:Heliocentric (?:leg )?total|Total\s*Δv|Need Δv)\s*([\d.]+)\s*(?:km\/s|m\/s)?/i,
+  );
+  // Need may be formatted as km/s; also accept hero-only metrics if detail collapsed
+  let totalDv = dvMatch ? parseFloat(dvMatch[1]) : NaN;
+  if (!isFinite(totalDv) || totalDv < 3) {
+    // Fall back to state transferData
+    totalDv = await page.evaluate(() => {
+      const td = window.__HELIOS?.transferData;
+      if (!td) return NaN;
+      const m = td.dvTotal_lambert ?? td.dvTotal;
+      return m != null ? m / 1000 : NaN;
+    });
+  }
   check(`heliocentric Δv 3–50 km/s (got ${totalDv})`, isFinite(totalDv) && totalDv > 3 && totalDv < 50);
 
   // PR17: Measurement Card after compute
@@ -91,21 +108,26 @@ try {
   section('3. SHARE HASH + CONTROLS');
   const shareBtn = page.locator('#btn-share-link');
   check('share button visible after compute', await shareBtn.isVisible());
-  // Vehicle / display controls exist
+  // Vehicle / display controls exist (Plan tab + Advanced accordion)
   check('vehicle select', await page.locator('#vehicle-select').count() === 1);
   check('display mode select', await page.locator('#display-mode-select').count() === 1);
   check('cargo mass input', await page.locator('#cargo-mass').count() === 1);
 
+  // Switch to Plan + open Advanced for secondary knobs
+  await page.locator('.rail-tab[data-tab="plan"]').click();
+  await page.locator('#plan-advanced').evaluate((el) => { el.open = true; });
   // Switching to schematic should not throw
   await page.locator('#display-mode-select').selectOption('schematic');
   await page.waitForTimeout(200);
   const mode = await page.evaluate(() => window.__HELIOS?.state?.display?.mode || window.__HELIOS?.display?.mode);
   check('schematic mode applied', mode === 'schematic' || (await page.locator('#display-mode-select').inputValue()) === 'schematic');
 
-  // PR17: F9 + cargo path
+  // PR17: F9 + cargo path (vehicle change re-renders → Results tab; re-open Plan)
   section('3b. FALCON 9 CARGO PATH');
   await page.locator('#vehicle-select').selectOption('falcon9');
   await page.waitForTimeout(150);
+  await page.locator('.rail-tab[data-tab="plan"]').click();
+  await page.locator('#plan-advanced').evaluate((el) => { el.open = true; });
   const f9Visible = await page.locator('#f9-variant-row').isVisible();
   check('F9 variant row visible', f9Visible);
   await page.locator('#cargo-mass').fill('1000');
@@ -121,8 +143,12 @@ try {
   check('state cargo 1000', f9State.cargo === 1000);
 
   // Legacy banner path
+  await page.locator('.rail-tab[data-tab="plan"]').click();
+  await page.locator('#plan-advanced').evaluate((el) => { el.open = true; });
   await page.locator('#vehicle-select').selectOption('sh-starship');
   await page.waitForTimeout(100);
+  await page.locator('.rail-tab[data-tab="plan"]').click();
+  await page.locator('#plan-advanced').evaluate((el) => { el.open = true; });
   if (await page.locator('#starship-arch').count()) {
     await page.locator('#starship-arch').selectOption('legacy-demo');
     await page.waitForTimeout(150);
@@ -131,6 +157,7 @@ try {
   check('legacy demo banner or label', /LEGACY|legacy/i.test(legText));
 
   section('4. SCENARIO LOAD + AUTO COMPUTE');
+  await page.locator('.rail-tab[data-tab="plan"]').click().catch(() => {});
   const sc = page.locator('#scenario-select');
   if (await sc.count()) {
     await sc.selectOption('mars-2026');
@@ -146,6 +173,7 @@ try {
   await classPage.goto(`${appUrl}?mode=classroom`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await classPage.waitForFunction(
     () => window.__HELIOS?.scene && window.__HELIOS?.state,
+    null,
     { timeout: 45000 },
   );
   const classState = await classPage.evaluate(() => ({

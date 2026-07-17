@@ -42,6 +42,7 @@ import { timeState } from './ui/time-system.js';
 import { buildMeasurementCard } from './ui/measurement-card.js';
 import { wireVehicleLab } from './ui/vehicle-lab.js';
 import { wireAgentChat } from './ui/agent-chat.js';
+import { wireRailUi } from './ui/rail-ui.js';
 
 // Mission + animation.
 import { abortMission, launchMission } from './mission.js';
@@ -78,6 +79,7 @@ wireScenarios();
 wireMissionImport();
 wireRecentRoutes();
 wireVehicleLab();
+wireRailUi();
 try {
   wireAgentChat(); // FAB chat + onboard agent C2 — never block app boot
 } catch (err) {

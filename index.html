@@ -571,6 +571,11 @@ html, body {
   margin-top: 8px;
   padding-top: 6px;
 }
+#vehicle-lab-backdrop {
+  display: none; position: fixed; inset: 0; z-index: 89;
+  background: rgba(4, 8, 16, 0.72); backdrop-filter: blur(3px);
+}
+#vehicle-lab-backdrop.visible { display: block; }
 #vehicle-lab-panel {
   position: fixed; z-index: 90; left: 50%; top: 50%;
   transform: translate(-50%, -50%);
@@ -582,6 +587,132 @@ html, body {
   box-shadow: 0 8px 40px rgba(0,0,0,0.55);
 }
 #vehicle-lab-panel[hidden] { display: none !important; }
+
+/* Right-rail tabs */
+.rail-tabs {
+  display: flex; gap: 0; border-bottom: 1px solid var(--border);
+  padding: 0 4px; background: rgba(0,0,0,0.2);
+}
+.rail-tab {
+  flex: 1; padding: 10px 6px; border: none; background: transparent;
+  font-family: var(--font-display); font-size: 9px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-dim); cursor: pointer; transition: all 0.15s;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.rail-tab:hover { color: var(--cyan); background: var(--cyan-glow); }
+.rail-tab.active {
+  color: var(--cyan); border-bottom-color: var(--cyan);
+  background: rgba(0,212,255,0.06);
+}
+.rail-pane[hidden] { display: none !important; }
+
+/* Plan Advanced accordion */
+.plan-advanced {
+  margin: 10px 0 6px; border: 1px solid var(--border); border-radius: 4px;
+  background: rgba(0,0,0,0.2);
+}
+.plan-advanced > summary {
+  font-family: var(--font-display); font-size: 8px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim);
+  padding: 8px 10px; cursor: pointer; list-style: none;
+  user-select: none;
+}
+.plan-advanced > summary::-webkit-details-marker { display: none; }
+.plan-advanced > summary::before {
+  content: '▸ '; color: var(--cyan-dim);
+}
+.plan-advanced[open] > summary::before { content: '▾ '; }
+.plan-advanced[open] > summary { color: var(--cyan); border-bottom: 1px solid var(--border); }
+.plan-advanced-body { padding: 4px 10px 10px; }
+
+/* Results hero + collapsible details */
+.results-hero {
+  padding: 10px 0 8px; margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.results-hero-title {
+  font-family: var(--font-display); font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; color: var(--cyan); text-transform: uppercase;
+}
+.results-hero-route {
+  font-family: var(--font-display); font-size: 13px; letter-spacing: 1px;
+  margin: 6px 0 10px;
+}
+.results-hero-metrics {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px;
+}
+.hero-metric {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 8px; background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(0,160,220,0.12); border-radius: 3px;
+}
+.hero-metric .hm-k {
+  font-family: var(--font-display); font-size: 7px; letter-spacing: 1px;
+  color: var(--text-dim); text-transform: uppercase;
+}
+.hero-metric .hm-v { font-size: 12px; color: var(--text); }
+.results-hero-note {
+  font-size: 9px; color: var(--text-dim); margin-top: 8px; line-height: 1.4;
+  opacity: 0.9;
+}
+.visual-fallback-warn {
+  margin-top: 8px; padding: 6px 8px; font-size: 10px; line-height: 1.35;
+  color: var(--amber); background: rgba(255,152,0,0.08);
+  border: 1px solid rgba(255,152,0,0.3); border-radius: 3px;
+}
+.results-actions {
+  display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px;
+}
+.results-actions .route-btn {
+  width: auto; flex: 1 1 auto; min-width: 72px; margin-top: 0;
+  padding: 8px 10px; font-size: 9px; letter-spacing: 1.5px;
+}
+.results-actions .route-btn.secondary {
+  color: var(--text); background: rgba(0,0,0,0.25); border-color: var(--border);
+}
+.results-actions .route-btn.secondary:hover {
+  border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,255,0.08);
+}
+.results-details {
+  margin: 6px 0; border: 1px solid var(--border); border-radius: 3px;
+  background: rgba(0,0,0,0.15);
+}
+.results-details > summary {
+  font-family: var(--font-display); font-size: 8px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dim);
+  padding: 8px 10px; cursor: pointer; list-style: none;
+}
+.results-details > summary::-webkit-details-marker { display: none; }
+.results-details > summary::before { content: '▸ '; color: var(--cyan-dim); }
+.results-details[open] > summary::before { content: '▾ '; }
+.results-details[open] > summary { color: var(--cyan); border-bottom: 1px solid var(--border); }
+.results-details-body { padding: 6px 10px 10px; }
+.results-details.nested {
+  margin: 6px 0 0; background: transparent;
+}
+.fidelity-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 2px;
+  font-family: var(--font-display); font-size: 9px; letter-spacing: 1px;
+  border: 1px solid var(--border); color: var(--text-dim);
+}
+.fidelity-badge.fidelity-L1 { color: var(--cyan); border-color: rgba(0,212,255,0.35); }
+.fidelity-badge.fidelity-L2,
+.fidelity-badge.fidelity-L2-compare { color: var(--amber); border-color: rgba(255,152,0,0.35); }
+.fidelity-badge.fidelity-L2-plan { color: var(--green); border-color: rgba(0,230,118,0.35); }
+
+.planet-label.ghost-label {
+  font-size: 8px; letter-spacing: 1px; color: var(--amber);
+  opacity: 0.9; padding-left: 8px;
+}
+
+/* Hide FPS / cursor unless body.debug-chrome */
+body:not(.debug-chrome) #fps-display,
+body:not(.debug-chrome) #cursor-coords { display: none; }
+
+#mobile-chips {
+  display: none;
+}
 #classroom-banner {
   position: fixed; top: 48px; left: 50%; transform: translateX(-50%);
   z-index: 15; max-width: min(720px, 92vw);
@@ -723,144 +854,175 @@ input[type="range"]::-webkit-slider-thumb {
 </div>
 
 <div class="panel" id="right-panel">
-  <div class="panel-title">System Data</div>
-  <div id="body-info">
-    <div class="info-section"><h3>Select a Body</h3>
-      <div class="info-row"><span class="key">Click a planet or the list to inspect</span></div>
+  <div class="rail-tabs" role="tablist" aria-label="Right rail">
+    <button type="button" class="rail-tab active" role="tab" data-tab="inspect" aria-selected="true">Inspect</button>
+    <button type="button" class="rail-tab" role="tab" data-tab="plan" aria-selected="false">Plan</button>
+    <button type="button" class="rail-tab" role="tab" data-tab="results" aria-selected="false">Results</button>
+  </div>
+
+  <div class="rail-pane" data-pane="inspect" id="rail-pane-inspect" role="tabpanel">
+    <div class="panel-title">System Data</div>
+    <div id="body-info">
+      <div class="info-section"><h3>Select a Body</h3>
+        <div class="info-row"><span class="key">Click a planet or the list to inspect</span></div>
+      </div>
     </div>
   </div>
-  <div class="route-section">
-    <h3>Route Planner</h3>
-    <div class="scenario-row">
-      <select id="scenario-select" title="Load a pre-baked mission profile">
-        <option value="">Load scenario…</option>
-      </select>
-      <div id="scenario-summary"></div>
-    </div>
-    <div class="route-slot origin" id="route-origin">
-      <span class="slot-label">Origin</span>
-      <span class="slot-value empty" id="origin-name">Drag or right-click</span>
-    </div>
-    <div class="route-slot dest" id="route-dest">
-      <span class="slot-label">Dest</span>
-      <span class="slot-value empty" id="dest-name">Drag or right-click</span>
-    </div>
-    <div class="date-group">
-      <label>Departure Date/Time (UTC)</label>
-      <div class="date-input-row">
-        <input type="datetime-local" class="date-input" id="depart-date" step="1">
-        <button class="btn-tiny" id="btn-use-sim" title="Use current simulation date">SIM</button>
-        <button class="btn-tiny" id="btn-use-optimal" title="Use next optimal launch window">OPT</button>
+
+  <div class="rail-pane" data-pane="plan" id="rail-pane-plan" role="tabpanel" hidden>
+    <div class="route-section">
+      <h3>Route Planner</h3>
+      <div class="scenario-row">
+        <select id="scenario-select" title="Load a pre-baked mission profile">
+          <option value="">Load scenario…</option>
+        </select>
+        <div id="scenario-summary"></div>
       </div>
-    </div>
-    <div class="flyby-section">
-      <div class="flyby-header">
-        <span class="slot-label">Flyby waypoints</span>
-        <span style="display:flex;gap:4px;">
-          <button class="btn-tiny" id="btn-snap-flybys" title="Optimize flyby dates ±30 days for minimum Δv">SNAP</button>
-          <button class="btn-tiny" id="btn-add-flyby" title="Add a gravity-assist flyby between origin and destination">+ FLYBY</button>
-        </span>
+      <div class="route-slot origin" id="route-origin">
+        <span class="slot-label">Origin</span>
+        <span class="slot-value empty" id="origin-name">Drag or right-click</span>
       </div>
-      <div id="flyby-list"></div>
-    </div>
-    <div class="route-field-row">
-      <label>Vehicle / architecture</label>
-      <select id="vehicle-select" title="Vehicle architecture (concept-grade)">
-        <option value="sh-starship">Super Heavy + Starship</option>
-        <option value="falcon9">Falcon 9 (illustrative C3 table)</option>
-        <option value="abstract">Abstract Δv budget</option>
-        <option value="chem-medium">Chemical medium (6 km/s)</option>
-        <option value="fh-class">Heavy-lift chemical abstract (9 km/s)</option>
-        <option value="high-energy">High-energy / advanced (15 km/s)</option>
-      </select>
-    </div>
-    <div class="route-field-row" id="starship-arch-row">
-      <label>Starship architecture</label>
-      <select id="starship-arch" title="SS architecture mode">
-        <option value="legacy-demo">Legacy demo (booster-only Δv)</option>
-        <option value="unrefueled">Unrefueled LEO→TMI (injection)</option>
-        <option value="tanker-n">Tanker refuel (N tankers)</option>
-      </select>
-    </div>
-    <div class="route-field-row" id="tanker-row" style="display:none">
-      <label>Tanker count N</label>
-      <input type="number" id="tanker-count" min="0" max="20" step="1" value="0">
-    </div>
-    <div class="route-field-row" id="f9-variant-row" style="display:none">
-      <label>Falcon 9 variant</label>
-      <select id="f9-variant">
-        <option value="expendable">Expendable (illustrative)</option>
-        <option value="asds">ASDS / recovery derate</option>
-      </select>
-    </div>
-    <div class="route-field-row" id="cargo-row">
-      <label>Cargo mass (kg)</label>
-      <input type="number" id="cargo-mass" min="0" max="500000" step="100" value="0">
-    </div>
-    <div class="route-field-row" id="aero-row">
-      <label>Aeroassist factor (arrival)</label>
-      <input type="number" id="aeroassist-factor" min="0" max="0.9" step="0.05" value="0" title="Reduces arrival capture Need only (0–0.9)">
-    </div>
-    <div class="route-field-row" id="abstract-budget-row" style="display:none">
-      <label>Abstract budget (m/s)</label>
-      <input type="number" id="abstract-budget" min="500" max="50000" step="100" value="8000">
-    </div>
-    <div class="route-field-row">
-      <label>Cost basis (legacy / abstract)</label>
-      <select id="cost-basis-select" title="Heliocentric leg vs full parking-orbit mission Δv">
-        <option value="helio">Heliocentric leg</option>
-        <option value="mission">Full mission (parking)</option>
-      </select>
-    </div>
-    <div class="route-field-row" id="ephemeris-backend-row">
-      <label>Planning ephemeris</label>
-      <select id="ephemeris-backend" title="L1 approx default; offline sample table for L2-plan (not DE/SPICE kernels)">
-        <option value="approx">Approximate Positions (L1 default)</option>
-        <option value="sample-de">Offline sample table (L2-plan · not DE/SPICE)</option>
-      </select>
-    </div>
-    <div class="route-field-row" id="ascent-loss-row">
-      <label>Ascent loss budget (edu)</label>
-      <select id="ascent-loss-budget" title="Educational ascent gravity/drag loss class — not added into Lambert Need">
-        <option value="0">Off (default)</option>
-        <option value="1500">1.5 km/s class</option>
-        <option value="2000">2.0 km/s class</option>
-      </select>
-    </div>
-    <div class="route-field-row" id="launch-site-row">
-      <label>Launch site (edu DLA band)</label>
-      <select id="launch-site" title="Educational |DLA| vs site latitude band — not range safety">
-        <option value="any">No site constraint</option>
-        <option value="cape">Cape-class (~28.5°N)</option>
-        <option value="vandenberg">Vandenberg-class (~34.7°N)</option>
-        <option value="kourou">Kourou-class (~5.2°N)</option>
-      </select>
-    </div>
-    <div class="route-field-row">
-      <label>Vehicle lab</label>
-      <button type="button" class="btn-tiny" id="btn-vehicle-lab" title="Browse SH / Starship / F9 engineering without a route">OPEN VEHICLE LAB</button>
-    </div>
-    <div class="route-field-row">
-      <label>Display scale</label>
-      <select id="display-mode-select" title="Cinematic exaggeration vs schematic inclinations">
-        <option value="cinematic">Cinematic (exaggerated)</option>
-        <option value="schematic">Schematic (true incl./wobble)</option>
-      </select>
-    </div>
-    <button class="route-btn" id="calc-route">Compute Transfer</button>
-    <button class="route-btn" id="find-windows" style="font-size:10px;padding:8px;margin-top:4px;">Find Launch Windows</button>
-    <div class="route-field-row" style="margin-top:8px">
-      <label>Import / recent</label>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn-tiny" id="btn-import-plan" title="Import HELIOS mission JSON (v1/v2)">Import JSON</button>
-        <input type="file" id="import-plan-file" accept="application/json,.json" hidden>
+      <div class="route-slot dest" id="route-dest">
+        <span class="slot-label">Dest</span>
+        <span class="slot-value empty" id="dest-name">Drag or right-click</span>
       </div>
-      <div id="recent-routes" class="recent-routes" aria-label="Recent routes"></div>
+      <div class="date-group">
+        <label>Departure Date/Time (UTC)</label>
+        <div class="date-input-row">
+          <input type="datetime-local" class="date-input" id="depart-date" step="1">
+          <button class="btn-tiny" id="btn-use-sim" title="Use current simulation date">SIM</button>
+          <button class="btn-tiny" id="btn-use-optimal" title="Use next optimal launch window">OPT</button>
+        </div>
+      </div>
+      <div class="flyby-section">
+        <div class="flyby-header">
+          <span class="slot-label">Flyby waypoints</span>
+          <span style="display:flex;gap:4px;">
+            <button class="btn-tiny" id="btn-snap-flybys" title="Optimize flyby dates ±30 days for minimum Δv">SNAP</button>
+            <button class="btn-tiny" id="btn-add-flyby" title="Add a gravity-assist flyby between origin and destination">+ FLYBY</button>
+          </span>
+        </div>
+        <div id="flyby-list"></div>
+      </div>
+      <div class="route-field-row">
+        <label>Vehicle / architecture</label>
+        <select id="vehicle-select" title="Vehicle architecture (concept-grade)">
+          <option value="sh-starship">Super Heavy + Starship</option>
+          <option value="falcon9">Falcon 9 (illustrative C3 table)</option>
+          <option value="abstract">Abstract Δv budget</option>
+          <option value="chem-medium">Chemical medium (6 km/s)</option>
+          <option value="fh-class">Heavy-lift chemical abstract (9 km/s)</option>
+          <option value="high-energy">High-energy / advanced (15 km/s)</option>
+        </select>
+      </div>
+
+      <details class="plan-advanced" id="plan-advanced">
+        <summary>Advanced · architecture, cargo, ephemeris, site</summary>
+        <div class="plan-advanced-body">
+          <div class="route-field-row" id="starship-arch-row">
+            <label>Starship architecture</label>
+            <select id="starship-arch" title="SS architecture mode">
+              <option value="legacy-demo">Legacy demo (booster-only Δv)</option>
+              <option value="unrefueled">Unrefueled LEO→TMI (injection)</option>
+              <option value="tanker-n">Tanker refuel (N tankers)</option>
+            </select>
+          </div>
+          <div class="route-field-row" id="tanker-row" style="display:none">
+            <label>Tanker count N</label>
+            <input type="number" id="tanker-count" min="0" max="20" step="1" value="0">
+          </div>
+          <div class="route-field-row" id="f9-variant-row" style="display:none">
+            <label>Falcon 9 variant</label>
+            <select id="f9-variant">
+              <option value="expendable">Expendable (illustrative)</option>
+              <option value="asds">ASDS / recovery derate</option>
+            </select>
+          </div>
+          <div class="route-field-row" id="cargo-row">
+            <label>Cargo mass (kg)</label>
+            <input type="number" id="cargo-mass" min="0" max="500000" step="100" value="0">
+          </div>
+          <div class="route-field-row" id="aero-row">
+            <label>Aeroassist factor (arrival)</label>
+            <input type="number" id="aeroassist-factor" min="0" max="0.9" step="0.05" value="0" title="Reduces arrival capture Need only (0–0.9)">
+          </div>
+          <div class="route-field-row" id="abstract-budget-row" style="display:none">
+            <label>Abstract budget (m/s)</label>
+            <input type="number" id="abstract-budget" min="500" max="50000" step="100" value="8000">
+          </div>
+          <div class="route-field-row">
+            <label>Cost basis (legacy / abstract)</label>
+            <select id="cost-basis-select" title="Heliocentric leg vs full parking-orbit mission Δv">
+              <option value="helio">Heliocentric leg</option>
+              <option value="mission">Full mission (parking)</option>
+            </select>
+          </div>
+          <div class="route-field-row" id="ephemeris-backend-row">
+            <label>Planning ephemeris</label>
+            <select id="ephemeris-backend" title="L1 approx default; offline sample table for L2-plan (not DE/SPICE kernels)">
+              <option value="approx">Approximate Positions (L1 default)</option>
+              <option value="sample-de">Offline sample table (L2-plan · not DE/SPICE)</option>
+            </select>
+          </div>
+          <div class="route-field-row" id="ascent-loss-row">
+            <label>Ascent loss budget (edu)</label>
+            <select id="ascent-loss-budget" title="Educational ascent gravity/drag loss class — not added into Lambert Need">
+              <option value="0">Off (default)</option>
+              <option value="1500">1.5 km/s class</option>
+              <option value="2000">2.0 km/s class</option>
+            </select>
+          </div>
+          <div class="route-field-row" id="launch-site-row">
+            <label>Launch site (edu DLA band)</label>
+            <select id="launch-site" title="Educational |DLA| vs site latitude band — not range safety">
+              <option value="any">No site constraint</option>
+              <option value="cape">Cape-class (~28.5°N)</option>
+              <option value="vandenberg">Vandenberg-class (~34.7°N)</option>
+              <option value="kourou">Kourou-class (~5.2°N)</option>
+            </select>
+          </div>
+          <div class="route-field-row">
+            <label>Vehicle lab</label>
+            <button type="button" class="btn-tiny" id="btn-vehicle-lab" title="Browse SH / Starship / F9 engineering without a route">OPEN VEHICLE LAB</button>
+          </div>
+          <div class="route-field-row">
+            <label>Display scale</label>
+            <select id="display-mode-select" title="Cinematic exaggeration vs schematic inclinations">
+              <option value="cinematic">Cinematic (exaggerated)</option>
+              <option value="schematic">Schematic (true incl./wobble)</option>
+            </select>
+          </div>
+          <div class="route-field-row">
+            <label>Import / recent</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn-tiny" id="btn-import-plan" title="Import HELIOS mission JSON (v1/v2)">Import JSON</button>
+              <input type="file" id="import-plan-file" accept="application/json,.json" hidden>
+            </div>
+            <div id="recent-routes" class="recent-routes" aria-label="Recent routes"></div>
+          </div>
+        </div>
+      </details>
+
+      <button class="route-btn" id="calc-route">Compute Transfer</button>
+      <button class="route-btn" id="find-windows" style="font-size:10px;padding:8px;margin-top:4px;">Find Launch Windows</button>
+      <button class="route-btn clear" id="clear-route">Clear Route</button>
     </div>
-    <div id="transfer-results"></div>
-    <div id="mission-controls"></div>
-    <button class="route-btn clear" id="clear-route">Clear Route</button>
   </div>
+
+  <div class="rail-pane" data-pane="results" id="rail-pane-results" role="tabpanel" hidden>
+    <div class="route-section" style="padding-top:8px">
+      <div id="transfer-results"></div>
+      <div id="mission-controls"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile map-first chip bar -->
+<div id="mobile-chips" aria-label="Mobile panel toggles" hidden>
+  <button type="button" class="mob-chip" data-sheet="bodies" aria-pressed="false">Bodies</button>
+  <button type="button" class="mob-chip" data-sheet="plan" aria-pressed="false">Plan</button>
+  <button type="button" class="mob-chip" data-sheet="results" aria-pressed="false">Results</button>
+  <button type="button" class="mob-chip" data-sheet="map" aria-pressed="true">Map</button>
 </div>
 
 <div id="bottom-bar">
@@ -878,6 +1040,7 @@ input[type="range"]::-webkit-slider-thumb {
   <button class="time-btn" id="btn-today" title="Reset to today" style="font-size:10px;font-family:var(--font-display);letter-spacing:1px;">NOW</button>
 </div>
 
+<div id="vehicle-lab-backdrop" aria-hidden="true"></div>
 <div id="vehicle-lab-panel" hidden aria-hidden="true" role="dialog" aria-labelledby="vehicle-lab-title">
   <div class="vehicle-lab-inner">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">

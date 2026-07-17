@@ -141,7 +141,9 @@ check('Card HTML has L1 badge', /fidelity-L1|data-fidelity=["']L1["']/.test(card
 check('Card shows approx error row', /Approx error|nominal/i.test(card.html));
 check('Card has CAPABILITY section', /CAPABILITY/.test(card.html));
 check('Card has MARGIN section', /MARGIN/.test(card.html));
-check('Card has vehicle engineering', /VEHICLE ENGINEERING|Surface escape/i.test(card.html));
+// Vehicle engineering sheet lives in Vehicle Lab, not inline on every plan card.
+check('Card does not dump full vehicle engineering sheet', !/VEHICLE ENGINEERING/i.test(card.html));
+check('Vehicle lab module exists', existsSync(resolve(ROOT, 'js/ui/vehicle-lab.js')));
 check('Card disclaimer non-empty', (card.capability?.disclaimer || '').length > 20);
 
 state.fidelityLevel = 'L2-compare';

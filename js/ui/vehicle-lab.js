@@ -11,6 +11,7 @@ export function wireVehicleLab() {
   const panel = document.getElementById('vehicle-lab-panel');
   const body = document.getElementById('vehicle-lab-body');
   const close = document.getElementById('vehicle-lab-close');
+  const backdrop = document.getElementById('vehicle-lab-backdrop');
   if (!btn || !panel || !body) return;
 
   function render() {
@@ -42,11 +43,9 @@ export function wireVehicleLab() {
         state.ascentLossBudget_m_s = clampAscentBudget(est.total_m_s);
         const sel = document.getElementById('ascent-loss-budget');
         if (sel) {
-          // Use custom path: set nearest preset or leave and store state
           if (state.ascentLossBudget_m_s === 1500 || state.ascentLossBudget_m_s === 2000) {
             sel.value = String(state.ascentLossBudget_m_s);
           } else {
-            // keep off option but state holds custom; add option if needed
             let opt = sel.querySelector('option[data-custom]');
             if (!opt) {
               opt = document.createElement('option');
@@ -66,11 +65,19 @@ export function wireVehicleLab() {
   const open = () => {
     panel.hidden = false;
     panel.setAttribute('aria-hidden', 'false');
+    if (backdrop) {
+      backdrop.classList.add('visible');
+      backdrop.setAttribute('aria-hidden', 'false');
+    }
     render();
   };
   const hide = () => {
     panel.hidden = true;
     panel.setAttribute('aria-hidden', 'true');
+    if (backdrop) {
+      backdrop.classList.remove('visible');
+      backdrop.setAttribute('aria-hidden', 'true');
+    }
   };
 
   btn.onclick = () => {
@@ -78,4 +85,5 @@ export function wireVehicleLab() {
     else hide();
   };
   if (close) close.onclick = hide;
+  if (backdrop) backdrop.onclick = hide;
 }

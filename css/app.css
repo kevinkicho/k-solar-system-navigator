@@ -1,12 +1,10 @@
-/* Progressive layout + motion overrides (PR 18).
+/* Progressive layout + motion overrides (PR 18 + UI declutter).
  * Base chrome styles remain in index.html <style>; this sheet layers
- * narrow-viewport stacking and prefers-reduced-motion soft-disables.
+ * narrow-viewport map-first layout and prefers-reduced-motion soft-disables.
  */
 
-/* ── Mobile / narrow viewports (≤768px) ─────────────────────────────
- * Stack side panels so the route planner stays usable without horizontal
- * page scroll. Body list sits as a short strip under the top bar; the
- * right (route/info) panel fills the remaining width and scrolls.
+/* ── Mobile / narrow viewports (≤768px) — map-first ────────────────
+ * Default: full canvas. Chip bar toggles body list / plan / results sheets.
  */
 @media (max-width: 768px) {
   html, body {
@@ -41,32 +39,73 @@
     max-width: 140px;
   }
 
-  /* Body list: full-width strip under top bar */
-  #left-panel {
-    top: 52px;
-    left: 0;
-    right: 0;
-    width: 100%;
-    max-width: 100%;
-    max-height: 28vh;
-    border-left: none;
-    border-right: none;
-    border-radius: 0;
-    z-index: 12;
+  #mobile-chips {
+    display: flex !important;
+    position: fixed;
+    left: 8px;
+    right: 72px;
+    bottom: calc(56px + 8px);
+    z-index: 25;
+    gap: 6px;
+    flex-wrap: wrap;
+    pointer-events: auto;
+  }
+  .mob-chip {
+    font-family: var(--font-display);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    color: var(--text-dim);
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+  }
+  .mob-chip[aria-pressed="true"] {
+    color: var(--cyan);
+    border-color: var(--cyan);
+    background: rgba(0,212,255,0.12);
   }
 
-  /* Route / info panel: full width below body strip, scrollable */
-  #right-panel {
-    top: calc(52px + 28vh);
+  /* Map-first: panels hidden until chip activates a sheet */
+  #left-panel {
+    display: none;
+    top: auto;
+    bottom: calc(56px + 48px);
     left: 0;
     right: 0;
     width: 100%;
     max-width: 100%;
-    max-height: calc(100vh - 52px - 28vh - 64px);
+    max-height: 42vh;
     border-left: none;
     border-right: none;
-    border-radius: 0;
-    z-index: 11;
+    border-radius: 12px 12px 0 0;
+    z-index: 22;
+  }
+  body.mob-sheet-bodies #left-panel {
+    display: block;
+  }
+
+  #right-panel {
+    display: none;
+    top: auto;
+    bottom: calc(56px + 48px);
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 55vh;
+    border-left: none;
+    border-right: none;
+    border-radius: 12px 12px 0 0;
+    z-index: 22;
+  }
+  body.mob-sheet-plan #right-panel,
+  body.mob-sheet-results #right-panel {
+    display: block;
   }
 
   /* Flyby rows: stack fields so 310px+ grids don't force overflow */
@@ -114,7 +153,7 @@
   }
 
   #view-controls {
-    bottom: 72px;
+    bottom: calc(56px + 52px);
     right: 8px;
   }
   #view-controls button {
@@ -124,7 +163,7 @@
   }
 
   #scale-indicator {
-    bottom: 72px;
+    bottom: calc(56px + 52px);
     left: 8px;
     font-size: 9px;
     max-width: 40vw;
@@ -193,15 +232,16 @@
 
 /* Very narrow phones */
 @media (max-width: 420px) {
-  #left-panel {
-    max-height: 24vh;
-  }
+  #left-panel,
   #right-panel {
-    top: calc(52px + 24vh);
-    max-height: calc(100vh - 52px - 24vh - 64px);
+    max-height: 50vh;
   }
   #top-bar .center-info .label {
     display: none;
+  }
+  .mob-chip {
+    padding: 7px 10px;
+    font-size: 8px;
   }
 }
 
