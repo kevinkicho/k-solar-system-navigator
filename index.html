@@ -54,8 +54,22 @@ html, body {
   font-family: var(--font-display); font-weight: 900; font-size: 16px;
   letter-spacing: 6px; color: var(--cyan);
   text-shadow: 0 0 20px rgba(0,212,255,0.5), 0 0 40px rgba(0,212,255,0.2);
+  text-decoration: none; cursor: pointer;
+  display: inline-flex; align-items: baseline; gap: 0;
+  border-radius: 4px; padding: 4px 6px 4px 2px;
+  transition: color 0.15s, text-shadow 0.15s, background 0.15s;
+}
+#top-bar a.logo:hover {
+  color: #7aecff;
+  text-shadow: 0 0 24px rgba(0,212,255,0.75), 0 0 48px rgba(0,212,255,0.35);
+  background: rgba(0, 212, 255, 0.06);
+}
+#top-bar a.logo:focus-visible {
+  outline: 1px solid var(--cyan);
+  outline-offset: 2px;
 }
 #top-bar .logo span { color: var(--text-dim); font-weight: 400; font-size: 11px; letter-spacing: 3px; margin-left: 12px; }
+#top-bar a.logo:hover span { color: var(--text); }
 #top-bar .center-info { font-family: var(--font-mono); font-size: 13px; display: flex; gap: 30px; align-items: center; }
 #top-bar .center-info .label { color: var(--text-dim); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-right: 6px; }
 #top-bar .right-info { font-size: 11px; color: var(--text-dim); display: flex; gap: 16px; align-items: center; }
@@ -825,7 +839,7 @@ input[type="range"]::-webkit-slider-thumb {
 <div class="scanlines"></div>
 
 <div id="top-bar">
-  <div class="logo">HELIOS<span>SOLAR SYSTEM NAVIGATOR</span></div>
+  <a class="logo" href="/" id="logo-home" title="Return to main HELIOS site" aria-label="HELIOS — return to main site">HELIOS<span>SOLAR SYSTEM NAVIGATOR</span></a>
   <div class="center-info">
     <div><span class="label">Date</span><span id="sim-date">2026-04-14</span></div>
     <div><span class="label">MJD</span><span id="sim-mjd">60780</span></div>
