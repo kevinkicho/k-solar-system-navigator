@@ -1,11 +1,13 @@
 // Pre-baked mission profiles. Clicking one populates origin, destination,
 // departure date, and any gravity-assist flybys in the route planner.
 //
-// plan_expect (reliability K12 / extras E2):
+// plan_expect (Mode A — geometry / frozen audit vehicle):
 //   mission_ready — dossier.mission_ready must be true under audit vehicle
-//   warn_ok       — pass or pass_with_warnings
+//   warn_ok       — any dossier status (geometry stress / multi-leg seeds)
 //   demo_unsafe   — expected to fail gates (teaching / high-Δv)
-// auditVehicleId  — frozen vehicle for CI audit (not ambient app default)
+// product_plan_expect (Mode B — product default sh-starship unrefueled):
+//   mission_ready | not_ready | warn_ok | dossier_ok
+// auditVehicleId  — frozen vehicle for Mode A (not ambient app default)
 
 export const SCENARIOS = [
   {
@@ -17,6 +19,7 @@ export const SCENARIOS = [
     departureUTC: Date.UTC(2026, 10, 21),
     flybys: [],
     plan_expect: 'mission_ready',
+    product_plan_expect: 'mission_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
   },
@@ -29,6 +32,7 @@ export const SCENARIOS = [
     departureUTC: Date.UTC(2033, 3, 22),
     flybys: [],
     plan_expect: 'mission_ready',
+    product_plan_expect: 'mission_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
   },
@@ -41,18 +45,20 @@ export const SCENARIOS = [
     departureUTC: Date.UTC(2029, 0, 15),
     flybys: [],
     plan_expect: 'mission_ready',
+    product_plan_expect: 'mission_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
   },
   {
     id: 'jupiter-direct',
     name: 'Earth → Jupiter · direct Hohmann',
-    summary: '~1000-day cruise, ~14 km/s Δv — outside Super Heavy budget without an assist',
+    summary: '~1000-day cruise, ~14 km/s Δv — educational high-energy; abstract budget passes',
     origin: 'Earth',
     destination: 'Jupiter',
     departureUTC: Date.UTC(2031, 7, 15),
     flybys: [],
     plan_expect: 'mission_ready',
+    product_plan_expect: 'mission_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
   },
@@ -67,9 +73,10 @@ export const SCENARIOS = [
       { bodyName: 'Mars', dateUTC: Date.UTC(2031, 9, 1) },
     ],
     plan_expect: 'warn_ok',
+    product_plan_expect: 'not_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
-    plan_notes: 'Flyby may need SNAP; warn_ok allows any dossier status',
+    plan_notes: 'Flyby may need SNAP; multi-leg seed often fails gates under product vehicle',
   },
   {
     id: 'venus-mars-via-venus',
@@ -82,6 +89,7 @@ export const SCENARIOS = [
       { bodyName: 'Venus', dateUTC: Date.UTC(2027, 5, 15) },
     ],
     plan_expect: 'warn_ok',
+    product_plan_expect: 'not_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
   },
@@ -94,6 +102,7 @@ export const SCENARIOS = [
     departureUTC: Date.UTC(2030, 5, 1),
     flybys: [],
     plan_expect: 'mission_ready',
+    product_plan_expect: 'not_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
   },
@@ -106,6 +115,7 @@ export const SCENARIOS = [
     departureUTC: Date.UTC(2028, 4, 1),
     flybys: [],
     plan_expect: 'mission_ready',
+    product_plan_expect: 'mission_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
   },
@@ -118,6 +128,7 @@ export const SCENARIOS = [
     departureUTC: Date.UTC(2027, 8, 15),
     flybys: [],
     plan_expect: 'mission_ready',
+    product_plan_expect: 'mission_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
   },
@@ -130,6 +141,7 @@ export const SCENARIOS = [
     departureUTC: Date.UTC(2026, 6, 1),
     flybys: [],
     plan_expect: 'warn_ok',
+    product_plan_expect: 'mission_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
     plan_notes: 'Waypoint sketch — geometric only',
@@ -143,6 +155,7 @@ export const SCENARIOS = [
     departureUTC: Date.UTC(2029, 0, 20),
     flybys: [],
     plan_expect: 'mission_ready',
+    product_plan_expect: 'not_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
   },
@@ -155,6 +168,7 @@ export const SCENARIOS = [
     departureUTC: Date.UTC(2026, 9, 1),
     flybys: [],
     plan_expect: 'mission_ready',
+    product_plan_expect: 'mission_ready',
     auditVehicleId: 'abstract',
     auditAbstractBudget_m_s: 50000,
   },
@@ -167,8 +181,9 @@ export const SCENARIOS = [
     departureUTC: Date.UTC(2031, 7, 15),
     flybys: [],
     plan_expect: 'demo_unsafe',
+    product_plan_expect: 'mission_ready',
     auditVehicleId: 'sh-starship',
     auditStarshipArch: 'legacy-demo',
-    plan_notes: 'Expected mission_ready false under SH legacy',
+    plan_notes: 'Mode A: legacy SH fails. Mode B product unrefueled may pass (different arch).',
   },
 ];

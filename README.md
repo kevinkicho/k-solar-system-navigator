@@ -23,12 +23,14 @@ A real-time 3D solar system simulator with accurate orbital mechanics, real stel
 Five deep-space probes rendered as labelled tetrahedron markers with velocity-direction trails, anchored at J2000 state vectors and linearly propagated (validated against NASA tracking to within a few percent through 2026):
 - Voyager 1 · Voyager 2 · Pioneer 10 · Pioneer 11 · New Horizons
 
-### Mission planner
+### Mission planner (concept-grade educational)
 - **Robust Lambert solver** — bracketed bisection on the universal-variable equation. Convergence-safe across the full single-revolution regime; rejects degenerate 180° geometries and validates every solution by propagating back to the target (≤1000 km miss required).
 - **Physics / visuals decoupling** — inclinations are visually exaggerated for dramatic 3D tilt, but all Δv and orbit-parameter computations use real inclinations, so displayed numbers are physically accurate.
-- **Porkchop-plot launch-window finder** — sweep a grid of (departure date × transit duration) and heat-map the total Δv. Click a cell or use the auto-selected global minimum to drive the planner's dates in one click.
-- **Gravity-assist / multi-leg routing** — add any number of flyby waypoints between origin and destination. Each leg is solved with its own Lambert; at each flyby the spacecraft's V∞ turning angle is checked against the maximum achievable at the planet's minimum-safe periapsis — infeasible swingbys are flagged **TOO SHARP** with the required vs. minimum periapsis shown.
-- **Mission feasibility** against the configured vehicle stack (Starship + Super Heavy): all of Starship's propellant is reserved for final-mile ops; transfer Δv budget is Super Heavy only, lifting the fully-loaded Starship as payload.
+- **Plan Dossier quality gates** — every compute produces pass / warn / fail gates, confidence (completeness, not OD covariance), and Launch enablement only when `mission_ready` / `launch_enabled`.
+- **Need / Capability / Margin triad** — educational vehicle stacks: Falcon 9 (illustrative C₃ payload table), Starship + Super Heavy (**product default: unrefueled Starship injection** arch; optional legacy-demo SH-only or N-tanker). **Not SpaceX-certified, not flight ops.**
+- **Ephemeris fidelity** — default **L1** offline JPL Approximate Positions; optional L2-compare (Horizons Δr check only); optional L2-plan offline sample table endpoints (**not DE/SPICE kernels**). Classroom mode forces offline L1.
+- **Porkchop-plot launch-window finder** — sweep a grid of (departure date × transit duration) and heat-map Δv or SS injection-class cargo. Click a cell or use the auto-selected minimum to drive dates.
+- **Gravity-assist / multi-leg routing** — patched-conic flybys; infeasible swingbys flagged **TOO SHARP**. Multi-leg search is a **coarse local seed**, not a global mission-design optimum.
 
 ### Simulation
 - **Date picker** — jump to any instant with presets (Apollo 11, Voyager 1 launch, J2000, etc.)
@@ -83,20 +85,25 @@ Keep a browser tab on HELIOS so the **onboard agent** can execute C2 commands (`
 
 ## Tests
 
-Offline numeric validation (no browser required):
+Primary gate (offline, no browser):
+
+```bash
+npm test   # physics suite + server path jail + agent API + snapshot/launch contracts
+```
+
+Useful individual suites:
 
 ```bash
 node tests/trip_planning_test.mjs     # Lambert / Hohmann / planet positions vs references
-node tests/verify_fix.mjs             # Lambert solver convergence sweep
-node tests/porkchop_sim.mjs           # porkchop minimum vs real Mars windows
-node tests/gravity_assist_sim.mjs     # multi-leg VEEGA-style routes
-node tests/spacecraft_check.mjs       # Voyager/Pioneer distances vs NASA tracking
-node tests/visual_alignment.mjs       # trajectory-line-vs-marker accuracy
-node tests/module_integration.mjs     # imports js/* modules: load, accuracy; perf is soft
-node tests/perf_budgets.mjs           # soft/informational perf floors (always exit 0)
-node tests/ephemeris_check.mjs        # JPL element-rate model: J2000 self-consistency, perihelion/aphelion, Mars opposition, drift vs frozen-J2000
-node tests/horizons_mock.mjs          # optional Horizons adapter: parse sample VECTOR payload + mocked fetch (no live network)
+node tests/plan_quality.mjs           # Plan Dossier gates
+node tests/scenario_gate_audit.mjs    # Mode A abstract + Mode B product-default vehicles
+node tests/agent_api.mjs              # chat proxy + C2 claim/lease + auth tiers
+node tests/onboard_snapshot_contract.mjs
+node tests/ephemeris_check.mjs
+node tests/horizons_mock.mjs          # Horizons adapter (mocked fetch only)
 ```
+
+Design docs: `docs/trip-planner-design.md`, cargo / fidelity / reliability / concept-grade / **post-landing-hardening**.
 
 ## Performance baselines
 

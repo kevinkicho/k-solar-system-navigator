@@ -21,6 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import readline from 'readline';
+import { HELIOS_AGENT_TOOLS } from '../js/agent/tools.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -159,93 +160,7 @@ async function queueCommand(action, args = {}, { waitMs = 15000 } = {}) {
   );
 }
 
-const TOOLS = [
-  {
-    type: 'function',
-    function: {
-      name: 'get_mission_state',
-      description: 'Read current HELIOS planner state from the browser.',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'set_route',
-      description: 'Set origin and/or destination body by name.',
-      parameters: {
-        type: 'object',
-        properties: {
-          origin: { type: 'string' },
-          destination: { type: 'string' },
-        },
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'compute_route',
-      description: 'Compute Lambert / multi-leg transfer for current route.',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'clear_route',
-      description: 'Clear the current route.',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'set_vehicle',
-      description: 'Set vehicle / cargo / Starship architecture.',
-      parameters: {
-        type: 'object',
-        properties: {
-          vehicleId: { type: 'string' },
-          cargoMass_kg: { type: 'number' },
-          starshipArch: { type: 'string' },
-        },
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'set_departure',
-      description: 'Set departure date (YYYY-MM-DD or ISO).',
-      parameters: {
-        type: 'object',
-        properties: { date: { type: 'string' } },
-        required: ['date'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'list_bodies',
-      description: 'List available body names.',
-      parameters: { type: 'object', properties: {} },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'notify',
-      description: 'Show a toast in the HELIOS UI.',
-      parameters: {
-        type: 'object',
-        properties: { message: { type: 'string' } },
-        required: ['message'],
-      },
-    },
-  },
-];
+const TOOLS = HELIOS_AGENT_TOOLS;
 
 async function runTool(name, args) {
   switch (name) {

@@ -4,13 +4,17 @@
  * Default model: gemma4:31b-cloud
  */
 
-import { startOnboardAgent, snapshotState } from '../agent/onboard.js';
+import { startOnboardAgent, snapshotState, executeCommand } from '../agent/onboard.js';
 import {
   heliosFetch,
   getStoredHeliosToken,
   setStoredHeliosToken,
   clearStoredHeliosToken,
 } from '../agent/api-auth.js';
+import {
+  AGENT_SYSTEM_WITH_TOOLS,
+  runToolAgentLoop,
+} from '../agent/tools.js';
 
 const DEFAULT_MODEL = 'gemma4:31b-cloud';
 const SYSTEM_PROMPT = `You are HELIOS Assistant — co-pilot for the HELIOS Solar System Navigator, a browser interplanetary trip planner.
@@ -21,7 +25,7 @@ Scope and honesty:
 - If asked for operational flight design, say so clearly and stay educational.
 
 You can explain routes, Δv, porkchops, vehicles (Falcon 9 / Starship arches), fidelity badges, and plan quality gates.
-When the user wants the UI changed (set Earth→Mars, compute route), tell them the onboard agent/CLI can drive those actions, or summarize what to click.
+When the user wants the UI changed (set Earth→Mars, compute route), enable **Tools** in settings or use the CLI agent.
 
 Keep answers concise, technical when needed, and label uncertainties.`;
 
@@ -200,6 +204,8 @@ export function wireAgentChat() {
   });
   if (getStoredHeliosToken()) tokenInput.value = '••••••••';
   const persistCb = el('input', { type: 'checkbox', id: 'helios-token-persist' });
+  const toolsCb = el('input', { type: 'checkbox', id: 'helios-tools-enabled' });
+  toolsCb.title = 'Allow model to set route / compute via onboard tools (in-process)';
   const saveTok = el('button', {
     type: 'button',
     className: 'hc-close',
@@ -234,6 +240,10 @@ export function wireAgentChat() {
     el('label', { style: 'display:flex;gap:4px;align-items:center;cursor:pointer' }, [
       persistCb,
       el('span', { text: 'Persist on this machine (localStorage)' }),
+    ]),
+    el('label', { style: 'display:flex;gap:4px;align-items:center;cursor:pointer' }, [
+      toolsCb,
+      el('span', { text: 'Tools — allow AI to drive planner (set route, compute…)' }),
     ]),
   ]);
 
@@ -283,10 +293,25 @@ export function wireAgentChat() {
 
   appendMsg(
     'system',
-    'Concept-grade co-pilot. API key stays on the server. Onboard agent is online for CLI C2.',
+    'Concept-grade co-pilot. API key stays on the server. Enable Tools to drive the planner; CLI C2 also works when this tab is open.',
   );
 
   fab.addEventListener('click', () => setOpen(!open));
+
+  async function chatApi(body) {
+    const res = await heliosFetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        stream: false,
+        ...body,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Chat failed (${res.status})`);
+    return data;
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -309,28 +334,35 @@ export function wireAgentChat() {
         /* ignore */
       }
 
-      const messages = [
-        { role: 'system', content: SYSTEM_PROMPT + contextNote },
-        ...history.slice(-16),
-      ];
+      const useTools = !!toolsCb.checked;
+      let reply;
 
-      const res = await heliosFetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: DEFAULT_MODEL,
+      if (useTools) {
+        const messages = [
+          { role: 'system', content: AGENT_SYSTEM_WITH_TOOLS + contextNote },
+          ...history.slice(-12),
+        ];
+        reply = await runToolAgentLoop({
           messages,
-          stream: false,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || `Chat failed (${res.status})`);
+          chatFn: chatApi,
+          executeFn: async (name, args) => executeCommand({ action: name, args }),
+          maxRounds: 6,
+          onTool: (name, args) => {
+            thinking.textContent = `tool → ${name}(${JSON.stringify(args).slice(0, 80)})…`;
+          },
+        });
+      } else {
+        const messages = [
+          { role: 'system', content: SYSTEM_PROMPT + contextNote },
+          ...history.slice(-16),
+        ];
+        const data = await chatApi({ messages });
+        reply =
+          data?.message?.content ||
+          data?.response ||
+          '(empty model response)';
       }
-      const reply =
-        data?.message?.content ||
-        data?.response ||
-        '(empty model response)';
+
       thinking.textContent = reply;
       history.push({ role: 'assistant', content: reply });
     } catch (err) {
@@ -338,7 +370,10 @@ export function wireAgentChat() {
       thinking.textContent =
         err.message ||
         'Chat unavailable. Start with `npm start` and ensure OLLAMA_API_KEY is in .env.';
-      // Do not keep failed user turn unbalanced if we want retry — keep history as-is.
+      // Pop orphaned user turn on failure so retries stay balanced
+      if (history.length && history[history.length - 1].role === 'user') {
+        history.pop();
+      }
     } finally {
       busy = false;
       sendBtn.disabled = false;

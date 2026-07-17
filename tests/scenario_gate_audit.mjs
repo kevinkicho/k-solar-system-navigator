@@ -1,6 +1,8 @@
 /**
- * Offline scenario gate audit (E2 / K12).
- * Freezes vehicle per scenario.auditVehicleId — not ambient product default.
+ * Offline scenario gate audit (E2 / K12 + hardening PR12 dual mode).
+ *
+ * Mode A — geometry: freezes auditVehicleId (usually abstract 50 km/s).
+ * Mode B — product: sh-starship unrefueled (app cold-start default).
  */
 import { dirname, resolve } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -22,13 +24,7 @@ function check(label, ok, detail = '') {
   if (!ok) failed++;
 }
 
-console.log('\n━━━ SCENARIO GATE AUDIT ━━━');
-
-check('has scenarios', SCENARIOS.length >= 5);
-
-for (const sc of SCENARIOS) {
-  const expect = sc.plan_expect || 'mission_ready';
-  // Freeze vehicle: abstract high budget so audit tests geometry gates, not product default SH.
+function applyModeA(sc) {
   const veh = sc.auditVehicleId || 'abstract';
   state.vehicleId = veh;
   state.abstractBudget_m_s = sc.auditAbstractBudget_m_s ?? 50000;
@@ -41,11 +37,30 @@ for (const sc of SCENARIOS) {
   state.fidelityLevel = 'L1';
   state.ephemerisBackend = 'approx';
   state.ascentLossBudget_m_s = 0;
+  return veh;
+}
 
+function applyModeB() {
+  // Product cold-start (applyProductVehicleDefaults): unrefueled SS
+  state.vehicleId = 'sh-starship';
+  state.starshipArch = 'unrefueled';
+  state.cargoMass_kg = 0;
+  state.tankerCount = 0;
+  state.abstractBudget_m_s = 8000;
+  state.costBasis = 'helio';
+  state.classroomMode = false;
+  state.planStrictVehicle = true;
+  state.launchSiteId = 'any';
+  state.fidelityLevel = 'L1';
+  state.ephemerisBackend = 'approx';
+  state.ascentLossBudget_m_s = 0;
+  return 'sh-starship/unrefueled';
+}
+
+function solveScenario(sc) {
   const origin = findByIdOrName(sc.origin);
   const dest = findByIdOrName(sc.destination);
-  check(`${sc.id} bodies resolve`, !!(origin && dest));
-  if (!origin || !dest) continue;
+  if (!origin || !dest) return { origin, dest, td: null };
 
   const depSim = (sc.departureUTC - J2000) / 1000;
   let td;
@@ -65,12 +80,14 @@ for (const sc of SCENARIOS) {
       const tail = hohmannTransfer(last.body, dest, last.simTime);
       waypoints[waypoints.length - 1].simTime = tail.arrivalSimTime;
     }
-    td = solveMultiLegRoute(waypoints);
+    td = solveMultiLegRoute(waypoints, {
+      ephemerisBackend: 'approx',
+      classroomMode: false,
+    });
   } else {
     td = hohmannTransfer(origin, dest, depSim);
     td.ephemerisBackend = 'approx';
     solveTransferOrbit(td);
-    // Mirror computeRoute recovery for pathological seeds
     const orb = td.orbitPhysical;
     const periAU = orb ? (orb.a * (1 - orb.e)) / AU : Infinity;
     const totalDv = td.dvTotal_lambert ?? td.dvTotal;
@@ -95,21 +112,59 @@ for (const sc of SCENARIOS) {
     dateAdjusted,
     prevDepartureSimTime: dateAdjusted ? prevDep : null,
   });
+  return { origin, dest, td, dossier, dateAdjusted };
+}
+
+function checkExpect(label, expect, dossier, td, veh) {
   const ready = !!dossier?.mission_ready;
   const status = dossier?.status;
+  const dv = ((td?.dvTotal_lambert || td?.dvTotal || td?.dvTotalMultiLeg || 0) / 1000).toFixed(1);
+  const detail = `status=${status} ready=${ready} veh=${veh} dv=${dv}`;
 
   if (expect === 'mission_ready') {
-    check(`${sc.id} mission_ready`, ready, `status=${status} veh=${veh} dv=${((td.dvTotal_lambert || td.dvTotal || 0) / 1000).toFixed(1)}`);
-  } else if (expect === 'demo_unsafe') {
-    check(`${sc.id} demo_unsafe (not ready)`, !ready, `status=${status}`);
-  } else if (expect === 'warn_ok') {
-    check(`${sc.id} warn_ok (has dossier)`, !!dossier && ['pass', 'pass_with_warnings', 'fail'].includes(status),
-      `status=${status} ready=${ready}`);
+    check(`${label} mission_ready`, ready, detail);
+  } else if (expect === 'demo_unsafe' || expect === 'not_ready') {
+    check(`${label} not ready`, !ready, detail);
+  } else if (expect === 'warn_ok' || expect === 'dossier_ok') {
+    check(
+      `${label} dossier_ok`,
+      !!dossier && ['pass', 'pass_with_warnings', 'fail'].includes(status),
+      detail,
+    );
+  } else {
+    check(`${label} unknown expect ${expect}`, false, detail);
   }
+}
+
+console.log('\n━━━ SCENARIO GATE AUDIT · MODE A (geometry / frozen vehicle) ━━━');
+
+check('has scenarios', SCENARIOS.length >= 5);
+
+for (const sc of SCENARIOS) {
+  const veh = applyModeA(sc);
+  const { origin, dest, td, dossier } = solveScenario(sc);
+  check(`${sc.id} bodies resolve`, !!(origin && dest));
+  if (!origin || !dest || !td) continue;
+  checkExpect(`A:${sc.id}`, sc.plan_expect || 'mission_ready', dossier, td, veh);
+}
+
+console.log('\n━━━ SCENARIO GATE AUDIT · MODE B (product default unrefueled SS) ━━━');
+
+for (const sc of SCENARIOS) {
+  const veh = applyModeB();
+  const { origin, dest, td, dossier } = solveScenario(sc);
+  check(`${sc.id} product bodies`, !!(origin && dest));
+  if (!origin || !dest || !td) continue;
+  check(
+    `${sc.id} product arch unrefueled`,
+    state.vehicleId === 'sh-starship' && state.starshipArch === 'unrefueled',
+  );
+  const expect = sc.product_plan_expect || 'dossier_ok';
+  checkExpect(`B:${sc.id}`, expect, dossier, td, veh);
 }
 
 if (failed) {
   console.error(`\n${failed} scenario audit check(s) failed`);
   process.exit(1);
 }
-console.log('\nAll scenario gate audit checks passed');
+console.log('\nAll scenario gate audit checks passed (Mode A + Mode B)');

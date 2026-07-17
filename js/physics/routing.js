@@ -44,7 +44,7 @@ export const MIN_PERIHELION_AU = 0.3;
 // `allowPast: true`.
 //
 // Returns { departureSimTime, transferTime, dvTotal, perihelionAU } for the
-// minimum-Δv cell on a 30×30 (departure × TOF) grid, or null.
+// minimum-Δv cell on a N_DEP×N_TOF grid (default 40×35 ≈ 1400 cells), or null.
 export function findNearestFeasibleTransfer(body1, body2, depHint, tofHint, opts = {}) {
   const mu = G_CONST * SUN_DATA.mass;
   const N_DEP = 40, N_TOF = 35;   // ~1400 cells

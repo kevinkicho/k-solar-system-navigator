@@ -19,7 +19,7 @@ export function normalizeFidelity(level) {
 
 export function fidelityBadgeLabel(level) {
   const f = normalizeFidelity(level);
-  if (f === 'L2-plan') return 'L2-plan · sample-table endpoints (educational)';
+  if (f === 'L2-plan') return 'L2-plan · offline sample table (not DE/SPICE)';
   if (f === 'L2-compare') return 'L2-compare · Horizons Δr check (planning still L1)';
   return 'L1 · JPL approx (offline default)';
 }
@@ -96,13 +96,13 @@ export function buildMeasurementCard(td) {
       <div class="info-row"><span class="key">Error note</span><span class="val" style="font-size:9px;opacity:0.8">JPL nominal table 1800–2050 — not 1σ covariance, not DE/SPICE</span></div>`;
   } else {
     errorRows = `
-      <div class="info-row"><span class="key">Planning backend</span><span class="val amber">sample-de endpoints (educational) — not SPICE navigation</span></div>`;
+      <div class="info-row"><span class="key">Planning backend</span><span class="val amber">offline sample table (educational) — not DE/SPICE kernels</span></div>`;
   }
 
   let html = `
       <div class="measurement-card" data-fidelity="${cssFid}" data-backend="${backend}" id="measurement-card">
       <div class="result-subtitle">MISSION MEASUREMENT
-        <span class="fidelity-badge fidelity-${cssFid}" title="L1 = offline JPL Approximate Positions. L2-compare = Horizons Δr check only (planning still L1). L2-plan = optional sample-table endpoints. L3 SPICE is out of product scope.">${cssFid}</span>
+        <span class="fidelity-badge fidelity-${cssFid}" title="L1 = offline JPL Approximate Positions. L2-compare = Horizons Δr check only (planning still L1). L2-plan = offline educational sample table (not DE/SPICE). L3 SPICE is out of product scope.">${cssFid}</span>
       </div>
       <div class="info-row"><span class="key">Ephemeris fidelity</span><span class="val">${fidelityLabel}</span></div>
       <div class="info-row"><span class="key">Planning backend</span><span class="val">${backend}</span></div>
