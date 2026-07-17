@@ -45,6 +45,7 @@ const SUITE = [
   'tests/ui_split_static.mjs',
   'tests/body_picker_dossier.mjs',
   'tests/surface_point.mjs',
+  'tests/planet_relative.mjs',
   'tests/perf_budgets.mjs',
 ];
 

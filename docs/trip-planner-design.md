@@ -90,7 +90,7 @@ This design evolves HELIOS from an educational mission-design demo into the **go
 |---|---|
 | **Flight dynamics operations tool** | No navigation filters, covariance, burn sequencing for real missions |
 | **Full n-body / SPICE kernels in phase 1–5** | JPL Approximate Positions 1800–2050 remains the core ephemeris; SPICE `.bsp` never required; optional Horizons **fetch** is Stretch only (not kernels) |
-| **Planet-relative detailed mission design** | Moon↔parent / co-parent routes remain refused (`isPlanetRelativeRoute`); no high-fidelity Earth–Moon CR3BP |
+| **High-fidelity planet-relative CR3BP** | Same-SOI routes (Europa→Io, Earth→Moon) use **parent-centered Lambert** (concept-grade patched-conic), not CR3BP / n-body lunar transfer design |
 | **Mandatory backend** | Core planning stays browser-only; optional remote ephemeris later |
 | **TypeScript big-bang** | Optional incremental JSDoc / `// @ts-check` later; not a rewrite gate |
 | **Mobile-first redesign** | Desktop primary; progressive mobile (touch-friendly later polish) |
@@ -144,7 +144,7 @@ sequenceDiagram
   participant PC as porkchop (+ worker)
 
   User->>RP: Set origin/dest/flybys, Compute
-  RP->>RP: isPlanetRelativeRoute guard
+  RP->>RP: planet-relative → parent-μ Lambert (else heliocentric)
   alt multi-leg
     RP->>RT: solveMultiLegRoute(waypoints)
   else single-leg

@@ -187,9 +187,9 @@ export function applyPlanRequest(req) {
     }
     solveTransferOrbit(state.transferData);
 
-    // Pathological auto-snap only
+    // Pathological auto-snap only (heliocentric Sun-grazing — not planet-relative)
     const td = state.transferData;
-    if (td.lambertOk && td.orbitPhysical) {
+    if (td.lambertOk && td.orbitPhysical && !td.planetRelative) {
       const peri = td.orbitPhysical.a * (1 - td.orbitPhysical.e) / (1.495978707e11);
       const dv = td.dvTotal_lambert;
       if (peri < MIN_PERIHELION_AU || dv > 30000) {

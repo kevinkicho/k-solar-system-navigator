@@ -96,10 +96,84 @@ function captureToMoonOrbitDV(parent, moon, vInfParent_mps) {
   return v_periapsis - v_circ;
 }
 
+/**
+ * Mission budget for planet-relative (parent-centered) transfers.
+ * Lambert v1/v2 are already relative to the central body — no heliocentric
+ * parent-escape leg. Moon endpoints use SOI escape/capture with V∞ ≈ body-
+ * relative Lambert Δv; central-body parking endpoints use that Δv directly
+ * (solve already starts/ends on the parking orbit).
+ */
+function computePlanetRelativeMissionBudget(td) {
+  const origin = td.body1;
+  const dest = td.body2;
+  const central = td.centralBody || getSOIParent(origin.parent ? origin : dest);
+  const vInfDep = td.dv1_lambert;
+  const vInfArr = td.dv2_lambert;
+
+  const dep = { phases: [], total: 0, vInf: vInfDep };
+  if (origin.parent) {
+    // Low moon parking → hyperbolic departure matching transfer V∞ rel moon.
+    const altDep = parkingAltFor(td, 'origin');
+    const dv = escapeFromLowOrbitDV(
+      G_CONST * origin.mass, origin.radius, vInfDep, altDep,
+    );
+    dep.phases.push({
+      label: `Depart ${origin.name} parking → ${central?.name || 'parent'}-centered transfer (V∞ ≈ ${(vInfDep / 1000).toFixed(2)} km/s)`,
+      dv,
+    });
+    dep.total = dv;
+  } else {
+    // Already solved from parking about the central body.
+    dep.phases.push({
+      label: `Inject from ${origin.name} parking onto transfer (Δv)`,
+      dv: vInfDep,
+    });
+    dep.total = vInfDep;
+  }
+
+  const arr = { phases: [], total: 0, vInf: vInfArr };
+  if (dest.parent) {
+    const altArr = parkingAltFor(td, 'dest');
+    const dv = escapeFromLowOrbitDV(
+      G_CONST * dest.mass, dest.radius, vInfArr, altArr,
+    );
+    arr.phases.push({
+      label: `Capture into low ${dest.name} parking (V∞ ≈ ${(vInfArr / 1000).toFixed(2)} km/s)`,
+      dv,
+    });
+    arr.total = dv;
+  } else {
+    arr.phases.push({
+      label: `Capture into ${dest.name} parking from transfer (Δv)`,
+      dv: vInfArr,
+    });
+    arr.total = vInfArr;
+  }
+
+  const parkDep = parkingAltFor(td, 'origin');
+  const parkArr = parkingAltFor(td, 'dest');
+  return {
+    parkingAlt_m: parkDep,
+    parkingAltDep_m: parkDep,
+    parkingAltArr_m: parkArr,
+    originSurfaceKind: bodySurfaceKind(origin),
+    destSurfaceKind: bodySurfaceKind(dest),
+    planetRelative: true,
+    centralBodyName: central?.name || td.centralBodyName || null,
+    departure: dep,
+    arrival: arr,
+    totalMission: dep.total + arr.total,
+  };
+}
+
 // `td` must be a single-leg transferData with v1_lambert/v2_lambert stored
 // (set by solveTransferOrbit).  Returns null if Lambert hasn't solved.
 export function computeMissionBudget(td) {
   if (!td || !td.lambertOk || !td.v1_lambert || !td.v2_lambert) return null;
+
+  if (td.planetRelative) {
+    return computePlanetRelativeMissionBudget(td);
+  }
 
   const origin = td.body1, dest = td.body2;
   const originSOIParent = getSOIParent(origin);

@@ -195,11 +195,14 @@ function renderSingleLegRouteUI(td) {
   const budget = lambertOk ? computeMissionBudget(td) : null;
   const required = requiredDeltaV(td);
 
-  if ((td.body1?.parent || td.body2?.parent) && !state.moonMissionSuggestDone) {
+  if ((td.planetRelative || td.body1?.parent || td.body2?.parent)
+      && !state.moonMissionSuggestDone) {
     state.moonMissionSuggestDone = true;
     if (state.costBasis !== 'mission') {
       import('./format.js').then(({ notify }) =>
-        notify('TIP: switch Cost basis → Mission for parking-orbit Δv'));
+        notify(td.planetRelative
+          ? 'TIP: Cost basis → Mission for parking-orbit Δv (planet-relative)'
+          : 'TIP: switch Cost basis → Mission for parking-orbit Δv'));
     }
   }
 
@@ -214,17 +217,35 @@ function renderSingleLegRouteUI(td) {
     ? formatVelocity(needDv)
     : formatVelocity(totalDv);
 
+  const pr = !!td.planetRelative;
+  const cenName = td.centralBodyName || td.centralBody?.name || 'parent';
+  const frameLabel = pr ? `${cenName}-centered` : 'heliocentric';
+  const periApoRow = (() => {
+    if (!lambertOk || !orbPhys) {
+      return `<div class="info-row"><span class="key">Transfer a</span><span class="val">${formatDist(td.aT)}</span></div>`;
+    }
+    if (pr) {
+      const peri_m = orbPhys.a * (1 - orbPhys.e);
+      const apo_m = orbPhys.a * (1 + orbPhys.e);
+      return `
+    <div class="info-row"><span class="key">a / e</span><span class="val">${formatDist(orbPhys.a)} · ${orbPhys.e.toFixed(4)}</span></div>
+    <div class="info-row"><span class="key">Peri / Apo (vs ${cenName})</span><span class="val">${formatDist(peri_m)} / ${formatDist(apo_m)}</span></div>`;
+    }
+    return `
+    <div class="info-row"><span class="key">a / e</span><span class="val">${formatDist(orbPhys.a)} · ${orbPhys.e.toFixed(4)}</span></div>
+    <div class="info-row"><span class="key">Peri / Apo</span><span class="val">${periAU.toFixed(3)} / ${apoAU.toFixed(3)} AU</span></div>`;
+  })();
   const lambertBlock = `
-    <div class="result-title">${lambertOk ? 'LAMBERT TRANSFER' : 'HOHMANN ESTIMATE (Lambert failed)'}</div>
+    <div class="result-title">${lambertOk
+      ? (pr ? `PLANET-RELATIVE LAMBERT (${cenName})` : 'LAMBERT TRANSFER')
+      : 'HOHMANN ESTIMATE (Lambert failed)'}</div>
+    ${pr ? `<div class="info-row"><span class="key">Frame</span><span class="val green">${cenName}-centered · same SOI</span></div>` : ''}
     <div class="info-row"><span class="key">Departure</span><span class="val green">${formatDateShort(departDate)}</span></div>
     <div class="info-row"><span class="key">Arrival</span><span class="val amber">${formatDateShort(arriveDate)}</span></div>
     <div class="info-row"><span class="key">Transit</span><span class="val highlight">${formatTimePrecise(td.transferTime)} · ${(td.transferTime / DAY).toFixed(1)} d</span></div>
-    <div class="info-row"><span class="key">Dep / Arr Δv (helio)</span><span class="val">${formatVelocity(lambertOk ? td.dv1_lambert : td.dv1)} / ${formatVelocity(lambertOk ? td.dv2_lambert : td.dv2)}</span></div>
-    <div class="info-row"><span class="key">Heliocentric total</span><span class="val">${formatVelocity(totalDv)}</span></div>
-    ${lambertOk && orbPhys ? `
-    <div class="info-row"><span class="key">a / e</span><span class="val">${formatDist(orbPhys.a)} · ${orbPhys.e.toFixed(4)}</span></div>
-    <div class="info-row"><span class="key">Peri / Apo</span><span class="val">${periAU.toFixed(3)} / ${apoAU.toFixed(3)} AU</span></div>` : `
-    <div class="info-row"><span class="key">Transfer a</span><span class="val">${formatDist(td.aT)}</span></div>`}
+    <div class="info-row"><span class="key">Dep / Arr Δv (${frameLabel})</span><span class="val">${formatVelocity(lambertOk ? td.dv1_lambert : td.dv1)} / ${formatVelocity(lambertOk ? td.dv2_lambert : td.dv2)}</span></div>
+    <div class="info-row"><span class="key">${pr ? 'Transfer total' : 'Heliocentric total'}</span><span class="val">${formatVelocity(totalDv)}</span></div>
+    ${periApoRow}
     <div class="info-row"><span class="key">Phase needed / at dep</span><span class="val">${(td.phaseAngle / DEG).toFixed(1)}° / ${(td.currentPhase / DEG).toFixed(1)}°</span></div>
     <div class="info-row"><span class="key">Next optimal window</span><span class="val highlight">${formatTime(td.timeToWindow)}</span></div>`;
 

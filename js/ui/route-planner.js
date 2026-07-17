@@ -7,6 +7,10 @@ import {
   MIN_PERIHELION_AU,
   solveMultiLegRoute, solveTransferOrbit,
 } from '../physics/routing.js';
+import {
+  isPlanetRelativeRoute,
+  planetRelativePeriapsisOk,
+} from '../physics/planet-relative.js';
 import { findNearestFeasibleTransferAsync } from './nearest-feasible-async.js';
 import { findMultiLegWindowAsync } from './multi-leg-window-async.js';
 import { effectiveBackend } from '../physics/ephemeris-provider.js';
@@ -347,26 +351,9 @@ export function snapFlybyDates() {
   notify(`FLYBY DATES SNAPPED · TOTAL Δv ${(bestCost / 1000).toFixed(2)} KM/S`);
 }
 
-// Two bodies are "in the same gravity well" when one is the other's parent
-// or they share a parent (e.g., Moon→Earth, Earth→Moon, Phobos→Deimos, Io→
-// Europa).  These are planet-relative maneuvers — the spacecraft never
-// leaves the parent's SOI — and our heliocentric Lambert solver cannot
-// model them honestly (it would draw a half-orbit around the Sun, which is
-// not what you'd actually fly).  Refuse to compute and explain why.
-function isPlanetRelativeRoute(b1, b2) {
-  if (b1.parent && b1.parent === b2.name) return true;     // moon → its parent
-  if (b2.parent && b2.parent === b1.name) return true;     // parent → its moon
-  if (b1.parent && b2.parent && b1.parent === b2.parent) return true;
-  return false;
-}
-
 export function computeRoute() {
   if (!state.routeOrigin || !state.routeDestination) {
     notify('SET ORIGIN AND DESTINATION FIRST'); return;
-  }
-  if (isPlanetRelativeRoute(state.routeOrigin, state.routeDestination)) {
-    notify('PLANET-RELATIVE MANEUVER — pick bodies in different parent systems');
-    return;
   }
 
   const dateInput = document.getElementById('depart-date');
@@ -380,6 +367,12 @@ export function computeRoute() {
   }
 
   if (state.flybys.length > 0) {
+    // Gravity-assist multi-leg is heliocentric; same-SOI pairs need the
+    // parent-centered single-leg solver (no flybys).
+    if (isPlanetRelativeRoute(state.routeOrigin, state.routeDestination)) {
+      notify('PLANET-RELATIVE ROUTES ARE SINGLE-LEG — clear flybys to compute');
+      return;
+    }
     // Coerce mission cost basis for multi-leg
     if (state.costBasis === 'mission') {
       state.costBasis = 'helio';
@@ -502,10 +495,34 @@ export function computeRoute() {
   state.transferData.surfaceDestPoint = cloneSurfacePoint(state.routeDestPoint);
   solveTransferOrbit(state.transferData);
 
-  const orb = state.transferData.orbitPhysical;
+  const td0 = state.transferData;
+  const orb = td0.orbitPhysical;
+  const totalDv = td0.dvTotal_lambert ?? td0.dvTotal;
+  let pathological;
+  if (td0.planetRelative) {
+    // Parent-frame periapsis (not perihelion); skip Sun-grazing window search.
+    const periOk = orb && td0.centralBody
+      ? planetRelativePeriapsisOk(orb, td0.centralBody)
+      : !!td0.lambertOk;
+    pathological = !td0.lambertOk || !periOk || !isFinite(totalDv) || totalDv > 30000;
+    if (!pathological) {
+      const cen = td0.centralBodyName || td0.centralBody?.name || 'parent';
+      finalizePlan(td0, {
+        dateAdjusted: false,
+        sampleFallback: detectSampleFallback(td0),
+      }, `PLANET-RELATIVE TRANSFER (${cen}-centered)`);
+      return;
+    }
+    // No nearest-feasible heliocentric search for same-SOI — report failure.
+    finalizePlan(td0, {
+      pathologicalUnrecovered: true,
+      sampleFallback: detectSampleFallback(td0),
+    }, 'PLANET-RELATIVE SOLVE FAILED — try another departure date');
+    return;
+  }
+
   const periAU = orb ? (orb.a * (1 - orb.e)) / AU : Infinity;
-  const totalDv = state.transferData.dvTotal_lambert ?? state.transferData.dvTotal;
-  const pathological = !isFinite(periAU) || periAU < MIN_PERIHELION_AU || totalDv > 30000;
+  pathological = !isFinite(periAU) || periAU < MIN_PERIHELION_AU || totalDv > 30000;
 
   if (!pathological) {
     finalizePlan(state.transferData, {

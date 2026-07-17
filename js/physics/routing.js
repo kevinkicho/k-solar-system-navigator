@@ -1,6 +1,6 @@
 import { AU, DAY, G_CONST, PI } from '../constants.js';
 import { SUN_DATA } from '../data/bodies.js';
-import { v3mag, v3sub } from './vec3.js';
+import { v3cross, v3mag, v3scale, v3sub } from './vec3.js';
 import { getBodyPosition3D, getBodyVelocity3D } from './kepler.js';
 import {
   getPlanningPosition3D, getPlanningVelocity3D,
@@ -12,7 +12,58 @@ import { solveLambertBestBranch, solveLambertProblem } from './lambert.js';
 import { gravityAssistInfo } from './gravity-assist.js';
 import {
   applySurfaceEndpoint, isSurfacePointActive, surfacePointMeta,
+  resolveParkingAlt_m,
 } from './surface-point.js';
+import {
+  isPlanetRelativeRoute,
+  resolvePlanetRelativeCentral,
+  planetRelativePeriapsisOk,
+  planetRelativeEndpointStates,
+} from './planet-relative.js';
+
+/**
+ * Analytic coplanar Hohmann when Lambert is singular (~180° transfer).
+ * r1, r2 in metres; velocities of the endpoints for prograde sense.
+ * @returns {{ v1, v2, orb, transferTime }|null}
+ */
+function analyticCoplanarHohmann(r1v, r2v, mu, vBody1, vBody2) {
+  const r1 = v3mag(r1v);
+  const r2 = v3mag(r2v);
+  if (!(r1 > 0 && r2 > 0 && mu > 0)) return null;
+  const aT = (r1 + r2) / 2;
+  if (!(aT > 0)) return null;
+  const transferTime = PI * Math.sqrt((aT * aT * aT) / mu);
+  const v1t = Math.sqrt(mu * (2 / r1 - 1 / aT));
+  const v2t = Math.sqrt(mu * (2 / r2 - 1 / aT));
+
+  // Transfer plane from r1 × r2; fall back to body velocity planes near 180°.
+  let h = v3cross(r1v, r2v);
+  if (v3mag(h) < 1e-6 * r1 * r2) {
+    // Collinear: use r1 × v_body
+    const vRef = vBody1 && v3mag(vBody1) > 1 ? vBody1 : vBody2;
+    h = v3cross(r1v, vRef || [0, 0, 1]);
+    if (v3mag(h) < 1e-12) h = v3cross(r1v, [0, 1, 0]);
+    if (v3mag(h) < 1e-12) h = v3cross(r1v, [1, 0, 0]);
+  }
+  const hHat = v3scale(h, 1 / (v3mag(h) || 1));
+  // Prograde tangential at r1: h × r
+  let t1 = v3cross(hHat, r1v);
+  let t2 = v3cross(hHat, r2v);
+  if (v3mag(t1) < 1e-12 || v3mag(t2) < 1e-12) return null;
+  t1 = v3scale(t1, 1 / v3mag(t1));
+  t2 = v3scale(t2, 1 / v3mag(t2));
+  // Outer apoapsis velocity is slower and still prograde along t2
+  const v1 = v3scale(t1, v1t);
+  const v2 = v3scale(t2, v2t);
+  let orb;
+  try {
+    orb = buildTransferOrbit(r1v, v1, mu);
+  } catch {
+    return null;
+  }
+  if (!orb || !isFinite(orb.a) || !isFinite(orb.e)) return null;
+  return { v1, v2, orb, transferTime };
+}
 
 /** Propagate visual transfer (ellipse or hyperbola). */
 export function propagateVisualOrbit(orb, dt) {
@@ -94,6 +145,133 @@ export {
   DEFAULT_N_TOF,
 } from './nearest-feasible-search.js';
 
+/**
+ * Parent-frame Lambert for same-SOI pairs (Europa→Io, Earth→Moon).
+ * Orbit state is stored in parent-centered meters; ship/visual add the
+ * central body's heliocentric position at each epoch.
+ */
+function solvePlanetRelativeTransferOrbit(tData) {
+  const central = tData.centralBody || resolvePlanetRelativeCentral(tData.body1, tData.body2);
+  if (!central) {
+    tData.lambertOk = false;
+    return;
+  }
+  tData.planetRelative = true;
+  tData.centralBody = central;
+  tData.centralBodyName = central.name;
+  tData.orbitFrame = 'planetocentric';
+
+  const mu = G_CONST * central.mass;
+  const originPt = tData.surfaceOriginPoint || null;
+  const destPt = tData.surfaceDestPoint || null;
+  const altDep = resolveParkingAlt_m(tData.body1, originPt);
+  const altArr = resolveParkingAlt_m(tData.body2, destPt);
+
+  // Physical (real-inclination) parent-relative states.
+  // Parent↔moon uses coplanar Hohmann endpoint construction.
+  const { st1, st2 } = planetRelativeEndpointStates(
+    tData.body1, tData.body2, central,
+    tData.departureSimTime, tData.arrivalSimTime,
+    { parkingAlt1_m: altDep, parkingAlt2_m: altArr, exaggerate: false },
+  );
+  let depS = applySurfaceEndpoint(
+    st1.posAU, st1.vel, tData.body1, tData.departureSimTime, originPt,
+  );
+  let arrS = applySurfaceEndpoint(
+    st2.posAU, st2.vel, tData.body2, tData.arrivalSimTime, destPt,
+  );
+  const depP = depS.pos;
+  const arrP = arrS.pos;
+  const vBody1 = depS.vel;
+  const vBody2 = arrS.vel;
+  const r1vP = [depP.x * AU, depP.y * AU, depP.z * AU];
+  const r2vP = [arrP.x * AU, arrP.y * AU, arrP.z * AU];
+
+  // Prefer Lambert; near-180° parent↔moon geometry is singular — fall back
+  // to analytic coplanar Hohmann (standard LEO↔lunar educational transfer).
+  let bestP = solveLambertBestBranch(
+    r1vP, r2vP, tData.transferTime, mu, vBody1, vBody2,
+  );
+  let usedAnalyticHohmann = false;
+  if (bestP && !planetRelativePeriapsisOk(bestP.orb, central)) {
+    bestP = null;
+  }
+  if (!bestP) {
+    const analytic = analyticCoplanarHohmann(r1vP, r2vP, mu, vBody1, vBody2);
+    if (analytic && planetRelativePeriapsisOk(analytic.orb, central)) {
+      bestP = { sol: { v1: analytic.v1, v2: analytic.v2 }, orb: analytic.orb, longWay: false };
+      usedAnalyticHohmann = true;
+      // Align TOF with Hohmann half-period for this (r1,r2)
+      if (analytic.transferTime > 0) {
+        tData.transferTime = analytic.transferTime;
+        tData.arrivalSimTime = tData.departureSimTime + analytic.transferTime;
+      }
+    }
+  }
+
+  let physicsOk = false;
+  let chosenLongWay = null;
+  if (bestP) {
+    physicsOk = true;
+    chosenLongWay = bestP.longWay;
+    tData.orbitPhysical = bestP.orb;
+    // Parent-frame velocities (m/s relative to central).
+    tData.v1_lambert = bestP.sol.v1;
+    tData.v2_lambert = bestP.sol.v2;
+    tData.dv1_lambert = v3mag(v3sub(bestP.sol.v1, vBody1));
+    tData.dv2_lambert = v3mag(v3sub(bestP.sol.v2, vBody2));
+    tData.dvTotal_lambert = tData.dv1_lambert + tData.dv2_lambert;
+    tData.longWay = chosenLongWay;
+    tData.analyticHohmann = usedAnalyticHohmann;
+    tData.surfaceOriginMeta = surfacePointMeta(tData.body1, originPt);
+    tData.surfaceDestMeta = surfacePointMeta(tData.body2, destPt);
+    tData.surfaceOriginOffset_m = depS.offset_m || 0;
+    tData.surfaceDestOffset_m = arrS.offset_m || 0;
+    tData.originIsParking = !!st1.isParking;
+    tData.destIsParking = !!st2.isParking;
+  }
+  tData.lambertOk = physicsOk;
+
+  // Heliocentric markers for ghosts / cosine fallback (exaggerated scene).
+  const depV0 = getBodyPosition3D(tData.body1, tData.departureSimTime, true);
+  const arrV0 = getBodyPosition3D(tData.body2, tData.arrivalSimTime, true);
+  const depVs = applySurfaceEndpoint(depV0, [0, 0, 0], tData.body1, tData.departureSimTime, originPt);
+  const arrVs = applySurfaceEndpoint(arrV0, [0, 0, 0], tData.body2, tData.arrivalSimTime, destPt);
+  tData.dep3D = depVs.pos;
+  tData.arr3D = arrVs.pos;
+  tData.orbit = null;
+  tData.visualFallback = null;
+
+  if (physicsOk) {
+    // Visual: same parent-frame construction (exaggerated central heliocentric
+    // placement is applied later when converting parent-frame → scene).
+    const { st1: st1v, st2: st2v } = planetRelativeEndpointStates(
+      tData.body1, tData.body2, central,
+      tData.departureSimTime, tData.arrivalSimTime,
+      { parkingAlt1_m: altDep, parkingAlt2_m: altArr, exaggerate: true },
+    );
+    const depSv = applySurfaceEndpoint(
+      st1v.posAU, st1v.vel, tData.body1, tData.departureSimTime, originPt,
+    );
+    const arrSv = applySurfaceEndpoint(
+      st2v.posAU, st2v.vel, tData.body2, tData.arrivalSimTime, destPt,
+    );
+    const r1vV = [depSv.pos.x * AU, depSv.pos.y * AU, depSv.pos.z * AU];
+    const r2vV = [arrSv.pos.x * AU, arrSv.pos.y * AU, arrSv.pos.z * AU];
+    if (usedAnalyticHohmann) {
+      const aVis = analyticCoplanarHohmann(r1vV, r2vV, mu, depSv.vel, arrSv.vel);
+      tData.orbit = aVis?.orb || tData.orbitPhysical;
+      tData.visualFallback = aVis ? null : 'cosine';
+    } else {
+      const vis = tryBuildVisualOrbit(
+        r1vV, r2vV, tData.transferTime, mu, depSv.vel, arrSv.vel, chosenLongWay,
+      );
+      tData.orbit = vis.orbit;
+      tData.visualFallback = vis.visualFallback;
+    }
+  }
+}
+
 // Solve Lambert for the single-leg transfer described in tData and cache the orbit.
 // We solve twice:
 //   (1) PHYSICAL geometry (real inclinations) → orbit used for the Δv numbers,
@@ -103,7 +281,18 @@ export {
 //       visually-tilted planets.
 // Optional surface points (lat/lon/alt) offset r and v at each endpoint.
 // Each solve is rejected if propagating the orbit to tof misses r2 by > 1000 km.
+// Planet-relative pairs use parent μ (see solvePlanetRelativeTransferOrbit).
 export function solveTransferOrbit(tData) {
+  if (!tData?.body1 || !tData?.body2) {
+    if (tData) tData.lambertOk = false;
+    return;
+  }
+  // Preserve seed flag or re-detect
+  if (tData.planetRelative || isPlanetRelativeRoute(tData.body1, tData.body2)) {
+    solvePlanetRelativeTransferOrbit(tData);
+    return;
+  }
+
   const mu  = G_CONST * SUN_DATA.mass;
   const pOpts = planOpts(tData);
   const originPt = tData.surfaceOriginPoint || null;
@@ -147,6 +336,8 @@ export function solveTransferOrbit(tData) {
     tData.surfaceDestOffset_m = arrS.offset_m || 0;
   }
   tData.lambertOk = physicsOk;
+  tData.planetRelative = false;
+  tData.orbitFrame = 'heliocentric';
 
   const depV0 = getBodyPosition3D(tData.body1, tData.departureSimTime, true);
   const arrV0 = getBodyPosition3D(tData.body2, tData.arrivalSimTime, true);
@@ -176,6 +367,17 @@ export function solveTransferOrbit(tData) {
     tData.orbit = vis.orbit;
     tData.visualFallback = vis.visualFallback;
   }
+}
+
+/** Heliocentric ship/arc position from parent-frame orbit + central body. */
+export function parentFrameToHelioAU(orbitPos_m, central, timeSec, exaggerate = true) {
+  if (!orbitPos_m || !central) return null;
+  const p = getBodyPosition3D(central, timeSec, exaggerate);
+  return {
+    x: p.x + orbitPos_m[0] / AU,
+    y: p.y + orbitPos_m[1] / AU,
+    z: p.z + orbitPos_m[2] / AU,
+  };
 }
 
 /**
@@ -418,6 +620,13 @@ export function getShipPositionOnTransfer(departureSimTime, tData, currentSimTim
   if (tData.orbit) {
     const pos_m = propagateVisualOrbit(tData.orbit, elapsed);
     if (pos_m) {
+      // Parent-frame orbits live about the central body, not the Sun.
+      if (tData.planetRelative && tData.centralBody) {
+        const helio = parentFrameToHelioAU(
+          pos_m, tData.centralBody, currentSimTime, true,
+        );
+        if (helio) return { ...helio, progress };
+      }
       return { x: pos_m[0] / AU, y: pos_m[1] / AU, z: pos_m[2] / AU, progress };
     }
   }

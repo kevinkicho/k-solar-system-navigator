@@ -38,7 +38,7 @@ This design makes trip planning **complete, inspectable, and fail-safe**:
 
 | Failure mode | Code path | User experience today | Severity |
 |---|---|---|---|
-| **Planet-relative refused** | `isPlanetRelativeRoute` → toast only | No panel explaining *why* or how to reframe | Medium |
+| **Planet-relative (same SOI)** | Parent-centered Lambert (`planet-relative.js`) for moon↔parent / co-parent moons | Concept-grade; not CR3BP; multi-leg flybys still heliocentric-only | Low |
 | **Pathological Lambert** (sun-grazer, huge Δv) | `pathological` + `findNearestFeasibleTransfer` | Date silently adjusted; toast “LAUNCH ADJUSTED…” easy to miss | **High** |
 | **Pathological + no fix** | `fix` null | Still shows transfer UI with bad numbers / no hard STOP | **Critical** |
 | **Multi-leg infeasible flybys** | `solveMultiLegRoute` then optional `findMultiLegWindow` | May still `MULTI-LEG ROUTE COMPUTED` with TOO SHARP flybys if search fails | **Critical** |
@@ -229,7 +229,7 @@ Attach to `state.transferData.dossier` and export under `plan.dossier`.
 
 | Code | Level if violated | Rule |
 |---|---|---|
-| `G_ORIGIN_DEST` | fail | Origin & dest set, not planet-relative |
+| `G_ORIGIN_DEST` | fail | Origin & dest set (planet-relative pairs allowed via parent-frame Lambert) |
 | `G_LAMBERT_OK` | fail (single-leg ballistic claim) | `lambertOk === true` for primary geometry; warn if Hohmann-only |
 | `G_PERIHELION` | fail | perihelion ≥ `MIN_PERIHELION_AU` |
 | `G_DV_SANE` | fail | total helio Δv finite and ≤ 30 km/s (same class as pathological) |

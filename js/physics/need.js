@@ -54,6 +54,12 @@ function planningOpts(td) {
 /** C3 = |V∞_dep|² in m²/s² from Lambert solution (same vectors as mission-budget). */
 export function computeDepartureC3(td) {
   if (!td?.lambertOk || !td.v1_lambert) return null;
+  // Planet-relative: Lambert is parent-centered; body-relative V∞ ≈ dv1.
+  if (td.planetRelative) {
+    const vInf = td.dv1_lambert;
+    if (vInf == null || !isFinite(vInf)) return null;
+    return vInf * vInf;
+  }
   const origin = td.body1;
   const parent = getSOIParent(origin);
   const vParent = getPlanningVelocity3D(parent, td.departureSimTime, planningOpts(td));

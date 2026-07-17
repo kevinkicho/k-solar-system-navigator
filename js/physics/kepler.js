@@ -4,6 +4,9 @@ import {
 import { BODIES, SUN_DATA } from '../data/bodies.js';
 import { MOONS } from '../data/moons.js';
 import { inclMultiplier, sunWobbleMultiplier } from '../display-scale.js';
+import {
+  isPlanetRelativeRoute, planetRelativeTransferSeed,
+} from './planet-relative.js';
 
 export function solveKepler(M, e, tol = 1e-10) {
   M = ((M % TWO_PI) + TWO_PI) % TWO_PI;
@@ -195,6 +198,11 @@ function helioElements(body) {
 }
 
 export function hohmannTransfer(body1, body2, departureSimTime) {
+  // Same-SOI pairs (Europa→Io, Earth→Moon): parent-centered seed, not Sun μ.
+  if (isPlanetRelativeRoute(body1, body2)) {
+    return planetRelativeTransferSeed(body1, body2, departureSimTime);
+  }
+
   const pos1 = getBodyPosition3D(body1, departureSimTime);
   const pos2 = getBodyPosition3D(body2, departureSimTime);
   const e1 = helioElements(body1);

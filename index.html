@@ -1241,6 +1241,7 @@ input[type="range"]::-webkit-slider-thumb {
       <tr><td>Branch selection</td><td>Both short-arc and long-arc evaluated; cheaper Δv kept</td></tr>
       <tr><td>Validation</td><td>Every solution propagated back to target; rejected if miss &gt; 1,000 km</td></tr>
       <tr><td>Multi-leg routes</td><td>Lambert per leg; patched-conic gravity assist between legs</td></tr>
+      <tr><td>Planet-relative (same SOI)</td><td>Parent-centered Lambert (e.g. Europa→Io about Jupiter; Earth→Moon about Earth). Concept-grade patched-conic — not CR3BP / n-body</td></tr>
     </table>
 
     <h3>Gravity assist (patched-conic)</h3>
@@ -1281,6 +1282,7 @@ input[type="range"]::-webkit-slider-thumb {
     <p>· Single-revolution Lambert. Type-II multi-revolution solutions are not yet a product mode.</p>
     <p>· Visual inclinations are exaggerated 8× for legibility. <strong>All physics computations use real inclinations.</strong></p>
     <p>· Geographic body-fixed frames are concept-grade (IAU-class tables), not full SPICE kernels or survey geodesy.</p>
+    <p>· Planet-relative routes are parent-centered 2-body Lambert + parking sketches — not CR3BP, not low-energy lunar transfers, not tour design with resonant moon assists.</p>
 
     <h3>Optional Horizons comparison (educational)</h3>
     <p><strong>Not SPICE. Not flight ops. Not required for planning.</strong> Trip planning always uses the offline JPL Approximate Positions model above. This stretch feature can optionally fetch a public NASA/JPL Horizons VECTOR table over the network and report distance error vs the approximate ephemeris for a selected major planet — for classroom curiosity only. No <code>.bsp</code> kernels, no covariance, no navigation solutions.</p>

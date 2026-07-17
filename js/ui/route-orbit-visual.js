@@ -7,6 +7,7 @@ import { AU, DAY, LEG_COLORS, PI } from '../constants.js';
 import { state } from '../state.js';
 import { getBodyPosition3D, getSunBarycentricOffset } from '../physics/kepler.js';
 import { propagateOrbit, propagateHelioOrbit } from '../physics/helio.js';
+import { parentFrameToHelioAU } from '../physics/routing.js';
 import {
   addDateMarker, addFlybyGhost, addFlybyMarker, addLegLine, clearDateMarkers,
   clearMultiLegVisuals, hideArrivalGhost, hideDepartureGhost,
@@ -17,6 +18,16 @@ function propVis(orb, dt) {
   if (!orb) return null;
   if (orb.hyperbolic) return propagateHelioOrbit(orb, dt);
   return propagateOrbit(orb, dt);
+}
+
+/** Orbit sample → heliocentric AU (handles parent-frame planet-relative arcs). */
+function orbitSampleHelioAU(td, orb, dt, depT) {
+  const pos_m = propVis(orb, dt);
+  if (!pos_m) return null;
+  if (td.planetRelative && td.centralBody) {
+    return parentFrameToHelioAU(pos_m, td.centralBody, depT + dt, true);
+  }
+  return { x: pos_m[0] / AU, y: pos_m[1] / AU, z: pos_m[2] / AU };
 }
 
 export function updateTransferOrbitVisual() {
@@ -52,23 +63,36 @@ export function updateTransferOrbitVisual() {
   // Cap-and-stride: for very long transfers (Saturn, Neptune) we'd have
   // thousands of vertices.  At >3000d, switch to one-per-2-days etc., but
   // always keep the FIRST and LAST samples at exactly t=0 and t=transferTime.
+  // Short planet-relative arcs (<2 d) use fixed N samples instead of per-day.
   const stride = Math.max(1, Math.ceil(transferDays / 3000));
   if (td.orbit) {
-    // Integer-day samples first.
-    for (let day = 0; day <= transferDays; day += stride) {
-      const dt = day * DAY;
-      const pos_m = propVis(td.orbit, dt);
-      if (!pos_m) continue;
-      const off = getSunBarycentricOffset(depT + dt);
-      points.push(new THREE.Vector3(
-        pos_m[0] / AU + off.x, pos_m[1] / AU + off.y, pos_m[2] / AU + off.z));
-    }
-    // Plus the exact arrival point — transferTime usually isn't an integer
-    // number of days, so the last integer-day sample falls a few hours short.
-    const pos_m = propVis(td.orbit, td.transferTime);
-    if (pos_m) {
-      points.push(new THREE.Vector3(
-        pos_m[0] / AU + arrOff.x, pos_m[1] / AU + arrOff.y, pos_m[2] / AU + arrOff.z));
+    if (td.transferTime < 2 * DAY) {
+      const N = 64;
+      for (let i = 0; i <= N; i++) {
+        const dt = (i / N) * td.transferTime;
+        const helio = orbitSampleHelioAU(td, td.orbit, dt, depT);
+        if (!helio) continue;
+        const off = getSunBarycentricOffset(depT + dt);
+        points.push(new THREE.Vector3(
+          helio.x + off.x, helio.y + off.y, helio.z + off.z));
+      }
+    } else {
+      // Integer-day samples first.
+      for (let day = 0; day <= transferDays; day += stride) {
+        const dt = day * DAY;
+        const helio = orbitSampleHelioAU(td, td.orbit, dt, depT);
+        if (!helio) continue;
+        const off = getSunBarycentricOffset(depT + dt);
+        points.push(new THREE.Vector3(
+          helio.x + off.x, helio.y + off.y, helio.z + off.z));
+      }
+      // Plus the exact arrival point — transferTime usually isn't an integer
+      // number of days, so the last integer-day sample falls a few hours short.
+      const helioArr = orbitSampleHelioAU(td, td.orbit, td.transferTime, depT);
+      if (helioArr) {
+        points.push(new THREE.Vector3(
+          helioArr.x + arrOff.x, helioArr.y + arrOff.y, helioArr.z + arrOff.z));
+      }
     }
   } else {
     // Visual Lambert failed — cosine blend endpoints only (not Keplerian).
@@ -116,30 +140,33 @@ export function updateTransferOrbitVisual() {
   // Keplerian variable-speed nature of the orbit obvious; without these the
   // dashed line's uniform arc-length spacing hides what's actually a Kepler
   // ellipse and looks like a smooth spline.
-  if (td.orbit) addDateMarkersAlongOrbit(td.orbit, depT, td.transferTime, 0xffd54f);
+  if (td.orbit) addDateMarkersAlongOrbit(td, td.orbit, depT, td.transferTime, 0xffd54f);
 }
 
 // Choose tick cadence so a transfer gets ~10–14 minor ticks plus a few
 // labelled major ticks.  For Earth→Mars (~258d) ticks are weekly-ish, for
-// Earth→Jupiter (~1000d) they're monthly-ish.
+// Earth→Jupiter (~1000d) they're monthly-ish. Short planet-relative TOFs
+// use sub-day cadence.
 function chooseTickIntervals(transferTimeDays) {
+  if (transferTimeDays < 2)    return { minor: 0.25, major: 1 };
+  if (transferTimeDays < 14)   return { minor: 1,    major: 3 };
   if (transferTimeDays < 90)   return { minor: 7,   major: 30  };
   if (transferTimeDays < 365)  return { minor: 30,  major: 90  };
   if (transferTimeDays < 1500) return { minor: 60,  major: 180 };
   return { minor: 180, major: 360 };
 }
 
-function addDateMarkersAlongOrbit(orbit, departSimTime, transferTime, color) {
+function addDateMarkersAlongOrbit(td, orbit, departSimTime, transferTime, color) {
   const { minor, major } = chooseTickIntervals(transferTime / DAY);
   for (let day = minor; day < transferTime / DAY; day += minor) {
     const dt = day * DAY;
     if (dt >= transferTime) break;
-    const pos_m = propVis(orbit, dt);
-    if (!pos_m) continue;
+    const helio = orbitSampleHelioAU(td || {}, orbit, dt, departSimTime);
+    if (!helio) continue;
     const off = getSunBarycentricOffset(departSimTime + dt);
-    const isMajor = Math.abs(day % major) < 1e-6;
+    const isMajor = Math.abs(day % major) < 1e-6 || major < 1;
     addDateMarker(
-      pos_m[0]/AU + off.x, pos_m[1]/AU + off.y, pos_m[2]/AU + off.z,
+      helio.x + off.x, helio.y + off.y, helio.z + off.z,
       color, isMajor,
     );
   }

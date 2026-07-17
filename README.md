@@ -32,6 +32,7 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 - **Geographic sites** — optional origin/dest **lat / lon / altitude** (planetocentric east-lon; height above reference). Gas/ice giants use a **1-bar cloud-deck** sphere with high default parking; oblate bodies use local ellipsoid *R*(φ) and dual planetographic readout; body-fixed orientation uses IAU-class *W(t)* (+ leading Moon/Mercury libration) and ICRF pole α₀/δ₀ → ecliptic. Sites round-trip in share hash (`os`/`ds`) and mission JSON; multi-leg applies sites on **terminals only**.
 - **Porkchop-plot launch-window finder** — sweep a grid of (departure date × transit duration) and heat-map Δv or SS injection-class cargo (workerized). Click a cell or use the auto-selected minimum to drive dates.
 - **Gravity-assist / multi-leg routing** — patched-conic flybys; infeasible swingbys flagged **TOO SHARP**. Multi-leg / nearest-feasible window search is a **coarse local seed** (workerized), not a global mission-design optimum.
+- **Planet-relative routes** — same-SOI pairs (e.g. Europa→Io, Earth→Moon) use **parent-centered Lambert** (Jupiter/Earth μ), not a dishonest heliocentric half-orbit. Concept-grade patched-conic; not CR3BP.
 
 ### Simulation & chrome
 - **Date picker** — jump to any instant with presets (Apollo 11, Voyager 1 launch, J2000, etc.)

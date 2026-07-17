@@ -146,35 +146,65 @@ export function runQualityGates(td, measurement = null, opts = {}) {
     }
 
     const orb = td.orbitPhysical;
-    const periAU = orb ? (orb.a * (1 - orb.e)) / AU : null;
-    if (periAU != null && isFinite(periAU)) {
-      const ok = periAU >= MIN_PERIHELION_AU;
-      gates.push({
-        code: 'G_PERIHELION',
-        level: ok ? 'ok' : 'fail',
-        message: ok
-          ? `Perihelion ${periAU.toFixed(3)} AU ≥ ${MIN_PERIHELION_AU} AU.`
-          : `Sun-grazing transfer: perihelion ${periAU.toFixed(3)} AU < ${MIN_PERIHELION_AU} AU.`,
-        detail: { perihelion_AU: periAU, min_AU: MIN_PERIHELION_AU },
-      });
-    } else if (td.lambertOk) {
-      gates.push({
-        code: 'G_PERIHELION',
-        level: 'warn',
-        message: 'Perihelion not available on orbit object.',
-      });
+    if (td.planetRelative) {
+      // Parent-frame periapsis — not perihelion.
+      const peri_m = orb && isFinite(orb.a) && isFinite(orb.e) ? orb.a * (1 - orb.e) : null;
+      const centralR = td.centralBody?.radius;
+      if (peri_m != null && centralR != null) {
+        const ok = peri_m >= centralR * 1.02;
+        const name = td.centralBodyName || td.centralBody?.name || 'parent';
+        gates.push({
+          code: 'G_PERIHELION',
+          level: ok ? 'ok' : 'fail',
+          message: ok
+            ? `Periapsis about ${name} ${(peri_m / 1000).toFixed(0)} km clears body.`
+            : `Impact risk: periapsis about ${name} ${(peri_m / 1000).toFixed(0)} km < body radius.`,
+          detail: {
+            planetRelative: true,
+            periapsis_m: peri_m,
+            central_radius_m: centralR,
+            central: name,
+          },
+        });
+      } else if (td.lambertOk) {
+        gates.push({
+          code: 'G_PERIHELION',
+          level: 'warn',
+          message: 'Planet-relative periapsis not available on orbit object.',
+        });
+      }
+    } else {
+      const periAU = orb ? (orb.a * (1 - orb.e)) / AU : null;
+      if (periAU != null && isFinite(periAU)) {
+        const ok = periAU >= MIN_PERIHELION_AU;
+        gates.push({
+          code: 'G_PERIHELION',
+          level: ok ? 'ok' : 'fail',
+          message: ok
+            ? `Perihelion ${periAU.toFixed(3)} AU ≥ ${MIN_PERIHELION_AU} AU.`
+            : `Sun-grazing transfer: perihelion ${periAU.toFixed(3)} AU < ${MIN_PERIHELION_AU} AU.`,
+          detail: { perihelion_AU: periAU, min_AU: MIN_PERIHELION_AU },
+        });
+      } else if (td.lambertOk) {
+        gates.push({
+          code: 'G_PERIHELION',
+          level: 'warn',
+          message: 'Perihelion not available on orbit object.',
+        });
+      }
     }
 
     const totalDv = td.dvTotal_lambert ?? td.dvTotal;
     if (totalDv != null && isFinite(totalDv)) {
       const ok = totalDv > 0 && totalDv <= 30000;
+      const frame = td.planetRelative ? 'Planet-relative' : 'Heliocentric';
       gates.push({
         code: 'G_DV_SANE',
         level: ok ? 'ok' : 'fail',
         message: ok
-          ? `Heliocentric Δv ${(totalDv / 1000).toFixed(2)} km/s within sanity bound.`
-          : `Heliocentric Δv ${(totalDv / 1000).toFixed(2)} km/s exceeds 30 km/s sanity bound.`,
-        detail: { total_dv_m_s: totalDv },
+          ? `${frame} Δv ${(totalDv / 1000).toFixed(2)} km/s within sanity bound.`
+          : `${frame} Δv ${(totalDv / 1000).toFixed(2)} km/s exceeds 30 km/s sanity bound.`,
+        detail: { total_dv_m_s: totalDv, planetRelative: !!td.planetRelative },
       });
     }
   }
