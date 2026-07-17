@@ -12,8 +12,17 @@ import { gravityAssistInfo } from './gravity-assist.js';
 /** Planning opts: backend 'approx'|'sample-de', classroomMode. Visual path always Kepler. */
 function planOpts(tData) {
   return {
-    backend: tData?.ephemerisBackend || 'approx',
+    backend: tData?.ephemerisBackend || tData?.backend || 'approx',
     classroomMode: !!tData?.classroomMode,
+  };
+}
+
+/** Merge multi-leg plan opts from first waypoint or explicit route opts. */
+function multiLegPlanOpts(waypoints, routeOpts = {}) {
+  const w0 = waypoints?.[0] || {};
+  return {
+    backend: routeOpts.ephemerisBackend || routeOpts.backend || w0.ephemerisBackend || w0.backend || 'approx',
+    classroomMode: !!(routeOpts.classroomMode ?? w0.classroomMode),
   };
 }
 
@@ -155,8 +164,9 @@ export function solveTransferOrbit(tData) {
 // destination, everything in between is a flyby. Returns a structure similar
 // in spirit to single-leg transferData, plus per-leg orbits and per-flyby
 // feasibility info.
-export function solveMultiLegRoute(waypoints) {
+export function solveMultiLegRoute(waypoints, routeOpts = {}) {
   const mu = G_CONST * SUN_DATA.mass;
+  const pOpts = multiLegPlanOpts(waypoints, routeOpts);
   const legs = [];
   for (let i = 0; i < waypoints.length - 1; i++) {
     const a = waypoints[i], b = waypoints[i + 1];
@@ -164,7 +174,6 @@ export function solveMultiLegRoute(waypoints) {
     if (tof <= 0) { legs.push({ ok: false, reason: 'non-positive TOF' }); continue; }
 
     // Multi-leg planning positions via provider; visual still Kepler exaggerated.
-    const pOpts = planOpts(waypoints[0] || {});
     const pA = getPlanningPosition3D(a.body, a.simTime, pOpts);
     const pB = getPlanningPosition3D(b.body, b.simTime, pOpts);
     const r1P = [pA.x*AU, pA.y*AU, pA.z*AU];
@@ -207,7 +216,7 @@ export function solveMultiLegRoute(waypoints) {
   let dvTotal = 0;
   for (let i = 0; i < waypoints.length; i++) {
     const wp = waypoints[i];
-    const vPlanet = getPlanningVelocity3D(wp.body, wp.simTime, planOpts(waypoints[0] || {}));
+    const vPlanet = getPlanningVelocity3D(wp.body, wp.simTime, pOpts);
     if (i === 0) {
       const L = legs[0];
       if (L && L.ok) {
@@ -257,7 +266,7 @@ export function solveMultiLegRoute(waypoints) {
  * Returns { departureSimTime, flybyTimes[], arrivalSimTime, dvTotal } or null.
  * Label in UI: local optimum — not global.
  */
-export function findMultiLegWindow(origin, dest, flybyHints, depHint) {
+export function findMultiLegWindow(origin, dest, flybyHints, depHint, routeOpts = {}) {
   if (!flybyHints || flybyHints.length === 0) return null;
 
   const nFb = flybyHints.length;
@@ -293,7 +302,7 @@ export function findMultiLegWindow(origin, dest, flybyHints, depHint) {
           ...flybyHints.map((f, idx) => ({ body: f.body, simTime: flybyTimes[idx] })),
           { body: dest, simTime: arr },
         ];
-        const td = solveMultiLegRoute(wps);
+        const td = solveMultiLegRoute(wps, routeOpts);
         if (!td.allLegsOk) continue;
         if (td.flybys.some(fb => !fb.achievable)) continue;
         const cost = td.dvTotalMultiLeg;

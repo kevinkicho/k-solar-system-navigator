@@ -83,11 +83,18 @@ Examples:
 `.trim());
 }
 
+function heliosHeaders(extra = {}) {
+  const h = { 'Content-Type': 'application/json', ...extra };
+  const tok = process.env.HELIOS_API_TOKEN;
+  if (tok) h.Authorization = `Bearer ${tok}`;
+  return h;
+}
+
 async function fetchJson(urlPath, opts = {}) {
   const res = await fetch(`${BASE}${urlPath}`, {
     ...opts,
     headers: {
-      'Content-Type': 'application/json',
+      ...heliosHeaders(),
       ...(opts.headers || {}),
     },
   });

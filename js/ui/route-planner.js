@@ -7,6 +7,7 @@ import {
   MIN_PERIHELION_AU, findNearestFeasibleTransfer, findMultiLegWindow,
   solveMultiLegRoute, solveTransferOrbit,
 } from '../physics/routing.js';
+import { effectiveBackend } from '../physics/ephemeris-provider.js';
 import { dateToInputValue, dateToSimTime, inputValueToDate, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
 import { selectBody } from './selection.js';
@@ -31,6 +32,43 @@ export function stampPlanningEphemeris(td) {
   return td;
 }
 
+function routePlanOpts() {
+  return {
+    ephemerisBackend: state.classroomMode
+      ? 'approx'
+      : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
+    classroomMode: !!state.classroomMode,
+  };
+}
+
+/**
+ * True when sample-de was requested but any planning endpoint fell back to approx.
+ */
+export function detectSampleFallback(td) {
+  if (state.classroomMode || state.ephemerisBackend !== 'sample-de') return false;
+  if (!td) return false;
+  const pairs = [];
+  if (td.isMultiLeg && Array.isArray(td.legs)) {
+    for (const L of td.legs) {
+      const b1 = findByIdOrName(L.from) || L.fromBody;
+      const b2 = findByIdOrName(L.to) || L.toBody;
+      if (b1 && L.departSimTime != null) pairs.push([b1, L.departSimTime]);
+      if (b2 && L.arriveSimTime != null) pairs.push([b2, L.arriveSimTime]);
+    }
+  } else {
+    if (td.body1 && td.departureSimTime != null) pairs.push([td.body1, td.departureSimTime]);
+    if (td.body2 && td.arrivalSimTime != null) pairs.push([td.body2, td.arrivalSimTime]);
+  }
+  for (const [body, t] of pairs) {
+    const { sampleHit } = effectiveBackend(body, t, 'sample-de', {
+      classroomMode: false,
+    });
+    // requested sample-de but sampleHit false means fallback
+    if (!sampleHit) return true;
+  }
+  return false;
+}
+
 /** Ensure multi-leg td has body1/body2 for measurement card when possible. */
 function tagMultiLegBodies(td) {
   if (!td || !td.isMultiLeg) return td;
@@ -48,6 +86,15 @@ function finalizePlan(td, dossierOpts, notifyMsg) {
   renderRouteUI();
   syncShareHash();
   if (notifyMsg) notify(notifyMsg);
+  try {
+    window.dispatchEvent(new CustomEvent('helios:plan-computed', {
+      detail: {
+        ok: !!(td && (td.dossier?.mission_ready || td.lambertOk || td.allLegsOk)),
+        mission_ready: td?.dossier?.mission_ready ?? null,
+        isMultiLeg: !!td?.isMultiLeg,
+      },
+    }));
+  } catch { /* non-browser */ }
 }
 
 export function setRouteOrigin(body) {
@@ -279,7 +326,8 @@ export function computeRoute() {
     const tailHohmann = hohmannTransfer(lastFlyby.body, state.routeDestination, lastFlyby.simTime);
     waypoints[waypoints.length - 1].simTime = tailHohmann.arrivalSimTime;
 
-    let td = tagMultiLegBodies(solveMultiLegRoute(waypoints));
+    const planOpts = routePlanOpts();
+    let td = tagMultiLegBodies(solveMultiLegRoute(waypoints, planOpts));
     let dateAdjusted = false;
     const prevDep = departureSimTime;
     // If seed is infeasible, run coarse multi-leg window search (local opt).
@@ -289,6 +337,7 @@ export function computeRoute() {
         state.routeDestination,
         state.flybys.map(f => ({ body: resolveFlybyBody(f), simTime: f.simTime })),
         departureSimTime,
+        planOpts,
       );
       if (win) {
         departureSimTime = win.departureSimTime;
@@ -305,25 +354,31 @@ export function computeRoute() {
           ...state.flybys.map(f => ({ body: resolveFlybyBody(f), simTime: f.simTime })),
           { body: state.routeDestination, simTime: win.arrivalSimTime },
         ];
-        td = tagMultiLegBodies(solveMultiLegRoute(waypoints));
+        td = tagMultiLegBodies(solveMultiLegRoute(waypoints, planOpts));
         dateAdjusted = true;
         // K1/K4: still may fail gates — dossier decides success language
         const stillBad = !td.allLegsOk || (td.flybys || []).some(f => !f.achievable);
         finalizePlan(td, {
           dateAdjusted,
           prevDepartureSimTime: prevDep,
+          sampleFallback: detectSampleFallback(td),
         }, stillBad
           ? 'MULTI-LEG SEARCHED — STILL INFEASIBLE (see Plan Status)'
-          : 'MULTI-LEG WINDOW SEARCHED (local optimum — not global)');
+          : 'MULTI-LEG WINDOW SEARCHED (coarse seed — not global optimum)');
         return;
       }
       // Search failed — still attach dossier as FAIL, never claim success
-      finalizePlan(td, { pathologicalUnrecovered: false },
+      finalizePlan(td, {
+        pathologicalUnrecovered: false,
+        sampleFallback: detectSampleFallback(td),
+      },
         'MULTI-LEG INFEASIBLE — NO WINDOW FOUND (see Plan Status)');
       return;
     }
 
-    finalizePlan(td, {}, 'MULTI-LEG ROUTE COMPUTED');
+    finalizePlan(td, {
+      sampleFallback: detectSampleFallback(td),
+    }, 'MULTI-LEG ROUTE COMPUTED (local seed — not global optimum)');
     return;
   }
 
@@ -373,6 +428,7 @@ export function computeRoute() {
     dateAdjusted: adjusted,
     prevDepartureSimTime: adjusted ? prevDepSingle : null,
     pathologicalUnrecovered: unrecovered,
+    sampleFallback: detectSampleFallback(state.transferData),
   }, unrecovered
     ? 'PLAN FAILED — NO FEASIBLE WINDOW (see Plan Status)'
     : adjusted

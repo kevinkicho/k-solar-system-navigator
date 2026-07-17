@@ -105,33 +105,42 @@ setTimeout(() => {
   if (hint) hint.style.opacity = '0';
 }, 8000);
 
-// Test hook — exposes live scene state to automation (Playwright, Puppeteer).
-window.__HELIOS = {
-  get scene() { return scene; },
-  get sunMesh() { return sunMesh; },
-  get planetMeshes() { return planetMeshes; },
-  get bodyPositions() { return state.bodyPositions; },
-  get transferMarkers() { return transferMarkers; },
-  // transferLine is recreated each compute. ES module bindings are live, so
-  // re-reading the namespace import returns the current value.
-  get transferLine() { return TransferVisual.transferLine; },
+// Test hook — full surface on loopback / ?debug=1; minimal elsewhere.
+const heliosDebug =
+  location.hostname === 'localhost' ||
+  location.hostname === '127.0.0.1' ||
+  new URLSearchParams(location.search).get('debug') === '1';
+
+const heliosHook = {
   get transferData() { return state.transferData; },
-  get timeState() { return timeState; },
-  get SUN_WOBBLE_EXAGGERATION() { return SUN_WOBBLE_EXAGGERATION; },
-  get FX() { return FX; },
-  get potentialMesh() { return potentialMesh; },
-  get hillMeshes() { return hillMeshes; },
   get mission() { return state.mission; },
-  get flybyMarkers() { return flybyMarkers; },
-  get shipGroup() { return shipGroup; },
   get state() { return state; },
-  get catalog() { return catalog; },
-  get display() { return state.display; },
-  /** Offline/CI helpers for vehicle triad + fidelity (PR14–17). */
   get fidelityLevel() { return state.fidelityLevel; },
+  get timeState() { return timeState; },
   buildMeasurementCard,
   getSunBarycentricOffset,
   getBodyPosition3D,
 };
+
+if (heliosDebug) {
+  Object.assign(heliosHook, {
+    get scene() { return scene; },
+    get sunMesh() { return sunMesh; },
+    get planetMeshes() { return planetMeshes; },
+    get bodyPositions() { return state.bodyPositions; },
+    get transferMarkers() { return transferMarkers; },
+    get transferLine() { return TransferVisual.transferLine; },
+    get SUN_WOBBLE_EXAGGERATION() { return SUN_WOBBLE_EXAGGERATION; },
+    get FX() { return FX; },
+    get potentialMesh() { return potentialMesh; },
+    get hillMeshes() { return hillMeshes; },
+    get flybyMarkers() { return flybyMarkers; },
+    get shipGroup() { return shipGroup; },
+    get catalog() { return catalog; },
+    get display() { return state.display; },
+  });
+}
+
+window.__HELIOS = heliosHook;
 
 animate();

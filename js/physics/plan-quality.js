@@ -87,6 +87,47 @@ export function runQualityGates(td, measurement = null, opts = {}) {
       level: allLegsOk ? 'ok' : 'fail',
       message: allLegsOk ? 'Multi-leg ballistic legs OK.' : 'Multi-leg ballistic geometry incomplete.',
     });
+
+    // Perihelion per leg (hardening K15)
+    let worstPeri = Infinity;
+    let badLegs = [];
+    for (const L of legs) {
+      const orb = L.orbitPhysical;
+      if (!orb) continue;
+      const periAU = (orb.a * (1 - orb.e)) / AU;
+      if (isFinite(periAU) && periAU < worstPeri) worstPeri = periAU;
+      if (isFinite(periAU) && periAU < MIN_PERIHELION_AU) {
+        badLegs.push({ from: L.from, to: L.to, perihelion_AU: periAU });
+      }
+    }
+    if (badLegs.length) {
+      gates.push({
+        code: 'G_PERIHELION_LEGS',
+        level: 'fail',
+        message: `Sun-grazing multi-leg: ${badLegs.length} leg(s) perihelion < ${MIN_PERIHELION_AU} AU.`,
+        detail: { bad: badLegs, min_AU: MIN_PERIHELION_AU },
+      });
+    } else if (allLegsOk && isFinite(worstPeri) && worstPeri < Infinity) {
+      gates.push({
+        code: 'G_PERIHELION_LEGS',
+        level: 'ok',
+        message: `Multi-leg perihelia OK (worst ${worstPeri.toFixed(3)} AU).`,
+        detail: { worst_perihelion_AU: worstPeri },
+      });
+    }
+
+    const totalDvMl = td.dvTotalMultiLeg;
+    if (totalDvMl != null && isFinite(totalDvMl)) {
+      const ok = totalDvMl > 0 && totalDvMl <= 30000;
+      gates.push({
+        code: 'G_DV_SANE',
+        level: ok ? 'ok' : 'fail',
+        message: ok
+          ? `Multi-leg Δv ${(totalDvMl / 1000).toFixed(2)} km/s within sanity bound.`
+          : `Multi-leg Δv ${(totalDvMl / 1000).toFixed(2)} km/s exceeds 30 km/s sanity bound.`,
+        detail: { total_dv_m_s: totalDvMl },
+      });
+    }
   } else {
     // Single-leg
     if (td.lambertOk) {
@@ -194,7 +235,8 @@ export function runQualityGates(td, measurement = null, opts = {}) {
     gates.push({
       code: 'G_SAMPLE_OOR',
       level: 'warn',
-      message: 'Sample-de ephemeris out of range — fell back to Approximate Positions.',
+      message:
+        'Requested offline sample table (not DE/SPICE) out of range — fell back to Approximate Positions for one or more endpoints.',
     });
   }
 
@@ -253,12 +295,15 @@ function finalize(gates) {
   }
 
   const mission_ready = status !== 'fail';
+  // Default: launch_enabled tracks mission_ready. Optional strict warnings later.
+  const launch_enabled = mission_ready;
 
   return {
     status,
     gates,
     confidence_0_100: conf,
     mission_ready,
+    launch_enabled,
   };
 }
 
@@ -268,7 +313,8 @@ function finalize(gates) {
 export function recoveryFromGates(gates, td) {
   const failCodes = new Set((gates || []).filter((g) => g.level === 'fail').map((g) => g.code));
   const actions = [];
-  if (failCodes.has('G_PATHOLOGICAL') || failCodes.has('G_PERIHELION') || failCodes.has('G_DV_SANE')
+  if (failCodes.has('G_PATHOLOGICAL') || failCodes.has('G_PERIHELION')
+      || failCodes.has('G_PERIHELION_LEGS') || failCodes.has('G_DV_SANE')
       || failCodes.has('G_LAMBERT_OK')) {
     actions.push({
       id: 'find_nearest_window',

@@ -4,7 +4,7 @@
 import { state } from '../state.js';
 import { computeMissionBudget } from './mission-budget.js';
 import { v3mag, v3sub } from './vec3.js';
-import { getBodyVelocity3D } from './kepler.js';
+import { getPlanningVelocity3D } from './ephemeris-provider.js';
 import { BODIES } from '../data/bodies.js';
 
 const AERO_MIN = 0;
@@ -43,12 +43,20 @@ function getSOIParent(body) {
   return body;
 }
 
+/** Planning-velocity opts from transferData (L2-plan consistent). */
+function planningOpts(td) {
+  return {
+    backend: td?.ephemerisBackend || 'approx',
+    classroomMode: !!td?.classroomMode,
+  };
+}
+
 /** C3 = |V∞_dep|² in m²/s² from Lambert solution (same vectors as mission-budget). */
 export function computeDepartureC3(td) {
   if (!td?.lambertOk || !td.v1_lambert) return null;
   const origin = td.body1;
   const parent = getSOIParent(origin);
-  const vParent = getBodyVelocity3D(parent, td.departureSimTime, false);
+  const vParent = getPlanningVelocity3D(parent, td.departureSimTime, planningOpts(td));
   const vInf = v3sub(td.v1_lambert, vParent);
   const mag = v3mag(vInf);
   return mag * mag;

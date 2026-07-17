@@ -6,6 +6,8 @@
 
 import { falcon9MaxPayloadKg, falcon9EarthDepartureOnly } from '../data/falcon9-c3-table.js';
 import { maxCargoForNeed } from './starship-architecture.js';
+import { injectionDepartureDvFromC3 } from './mission-budget.js';
+import { BODIES } from '../data/bodies.js';
 
 /**
  * Which cargo map applies for the current vehicle + origin.
@@ -41,9 +43,19 @@ export function cellMaxCargoKg(opts = {}) {
     return falcon9MaxPayloadKg(opts.c3_m2_s2, opts.falcon9Variant || 'expendable');
   }
   if (mode === 'ss') {
-    if (!isFinite(opts.dv_m_s) || opts.dv_m_s <= 0) return null;
+    // Prefer injection-class Need from C3 (aligned with Measurement Card unrefueled).
+    // Fall back to helio Δv only if C3 missing.
+    let needDv = null;
+    if (isFinite(opts.c3_m2_s2) && opts.c3_m2_s2 >= 0) {
+      const earth = opts.originBody || BODIES.find((b) => b.name === 'Earth');
+      if (earth) needDv = injectionDepartureDvFromC3(earth, opts.c3_m2_s2);
+    }
+    if (needDv == null || !isFinite(needDv)) {
+      if (!isFinite(opts.dv_m_s) || opts.dv_m_s <= 0) return null;
+      needDv = opts.dv_m_s; // legacy helio fallback
+    }
     const maxC = maxCargoForNeed(
-      opts.dv_m_s,
+      needDv,
       opts.starshipArch || 'unrefueled',
       opts.tankerCount || 0,
     );

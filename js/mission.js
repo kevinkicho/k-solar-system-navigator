@@ -11,12 +11,15 @@ import { formatDateShort, formatTimePrecise, notify, simTimeToDate } from './ui/
 import { renderRouteUI } from './ui/route-display.js';
 import { timeState } from './ui/time-system.js';
 import { MAX_TRAIL_POINTS } from './constants.js';
+import { canLaunchMission } from './mission-gates.js';
 
 export function launchMission() {
   const td = state.transferData;
   if (!td) return;
-  if (td.isMultiLeg && !td.allLegsOk) {
-    notify('CANNOT LAUNCH: some legs failed Lambert'); return;
+  const gate = canLaunchMission(td);
+  if (!gate.ok) {
+    notify(`CANNOT LAUNCH: ${gate.reason || 'plan not ready'}`);
+    return;
   }
 
   const m = state.mission;

@@ -31,10 +31,11 @@ check('traversal encoded rejected',
 check('null byte rejected',
   resolveSafePath('/js/main.js%00.txt') === null || resolveSafePath('/js/\0main.js') === null);
 
-// Integration: real HTTP
+// Integration: real HTTP (always loopback — production default is 127.0.0.1)
 const server = createServer();
-await new Promise((res) => server.listen(0, res));
+await new Promise((res) => server.listen(0, '127.0.0.1', res));
 const port = server.address().port;
+check('listen host is loopback', server.address().address === '127.0.0.1');
 const base = `http://127.0.0.1:${port}`;
 
 function get(reqPath) {

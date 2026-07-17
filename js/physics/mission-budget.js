@@ -28,19 +28,35 @@
 import { G_CONST } from '../constants.js';
 import { BODIES } from '../data/bodies.js';
 import { v3mag, v3sub } from './vec3.js';
-import { getBodyVelocity3D } from './kepler.js';
+import { getPlanningVelocity3D } from './ephemeris-provider.js';
 
 const PARKING_ALT_M = 100e3;
+
+/**
+ * Δv from low circular parking orbit to hyperbolic escape with V∞ (m/s).
+ * Exported for porkchop SS injection-class cargo (hardening K11).
+ */
+export function escapeFromLowOrbitDV(mu, radius_m, vInf_mps, alt = PARKING_ALT_M) {
+  const r = radius_m + alt;
+  return Math.sqrt(vInf_mps * vInf_mps + 2 * mu / r) - Math.sqrt(mu / r);
+}
+
+/** Injection-class departure Δv from C3 (m²/s²) at origin parking orbit. */
+export function injectionDepartureDvFromC3(originBody, c3_m2_s2) {
+  if (!originBody || !isFinite(c3_m2_s2) || c3_m2_s2 < 0) return null;
+  const vInf = Math.sqrt(c3_m2_s2);
+  return escapeFromLowOrbitDV(G_CONST * originBody.mass, originBody.radius, vInf);
+}
+
+/** Injection-class departure Δv from V∞ magnitude. */
+export function injectionDepartureDvFromVinf(originBody, vInf_m_s) {
+  if (!originBody || !isFinite(vInf_m_s) || vInf_m_s < 0) return null;
+  return escapeFromLowOrbitDV(G_CONST * originBody.mass, originBody.radius, vInf_m_s);
+}
 
 function getSOIParent(body) {
   if (body.parent) return BODIES.find(b => b.name === body.parent);
   return body;
-}
-
-// Δv from low circular parking orbit to a hyperbolic escape with V∞ at infinity.
-function escapeFromLowOrbitDV(mu, radius_m, vInf_mps, alt = PARKING_ALT_M) {
-  const r = radius_m + alt;
-  return Math.sqrt(vInf_mps * vInf_mps + 2 * mu / r) - Math.sqrt(mu / r);
 }
 
 // Δv to escape a moon's SOI from low parking orbit (V∞ rel moon = 0 at infinity).
@@ -70,9 +86,13 @@ export function computeMissionBudget(td) {
   const originSOIParent = getSOIParent(origin);
   const destSOIParent   = getSOIParent(dest);
 
-  // V∞ relative to each SOI parent (parent for moons, the body itself for planets).
-  const vDepParent = getBodyVelocity3D(originSOIParent, td.departureSimTime, false);
-  const vArrParent = getBodyVelocity3D(destSOIParent,   td.arrivalSimTime,   false);
+  // V∞ relative to each SOI parent — use planning velocity (same as Lambert under L2-plan).
+  const pOpts = {
+    backend: td.ephemerisBackend || 'approx',
+    classroomMode: !!td.classroomMode,
+  };
+  const vDepParent = getPlanningVelocity3D(originSOIParent, td.departureSimTime, pOpts);
+  const vArrParent = getPlanningVelocity3D(destSOIParent, td.arrivalSimTime, pOpts);
   const vInfDep_vec = v3sub(td.v1_lambert, vDepParent);
   const vInfArr_vec = v3sub(td.v2_lambert, vArrParent);
   const vInfDep = v3mag(vInfDep_vec);

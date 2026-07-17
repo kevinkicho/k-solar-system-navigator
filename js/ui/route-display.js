@@ -116,7 +116,9 @@ function renderSingleLegRouteUI(td) {
   }
 
   const dossier = ensureDossier(td);
-  const missionReady = dossier ? !!dossier.mission_ready : !!lambertOk;
+  const missionReady = dossier
+    ? !!(dossier.launch_enabled ?? dossier.mission_ready)
+    : !!lambertOk;
   const res = document.getElementById('transfer-results');
   res.innerHTML = `
     <div class="transfer-results">
@@ -173,7 +175,9 @@ function renderMultiLegRouteUI() {
   const td = state.transferData;
   const res = document.getElementById('transfer-results');
   const dossier = ensureDossier(td);
-  const missionReady = dossier ? !!dossier.mission_ready : false;
+  const missionReady = dossier
+    ? !!(dossier.launch_enabled ?? dossier.mission_ready)
+    : false;
   const allOk = td.allLegsOk;
   const totalDv = td.dvTotalMultiLeg;
   const required = requiredDeltaV(td);

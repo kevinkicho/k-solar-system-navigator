@@ -5,6 +5,12 @@
  */
 
 import { startOnboardAgent, snapshotState } from '../agent/onboard.js';
+import {
+  heliosFetch,
+  getStoredHeliosToken,
+  setStoredHeliosToken,
+  clearStoredHeliosToken,
+} from '../agent/api-auth.js';
 
 const DEFAULT_MODEL = 'gemma4:31b-cloud';
 const SYSTEM_PROMPT = `You are HELIOS Assistant — co-pilot for the HELIOS Solar System Navigator, a browser interplanetary trip planner.
@@ -185,6 +191,52 @@ export function wireAgentChat() {
   });
   const form = el('form', { id: 'helios-chat-form' }, [input, sendBtn]);
 
+  const tokenInput = el('input', {
+    type: 'password',
+    id: 'helios-token-input',
+    placeholder: 'HELIOS_API_TOKEN (shared lab)',
+    'aria-label': 'API token',
+    style: 'flex:1;background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);font-size:10px;padding:4px 6px;border-radius:4px',
+  });
+  if (getStoredHeliosToken()) tokenInput.value = '••••••••';
+  const persistCb = el('input', { type: 'checkbox', id: 'helios-token-persist' });
+  const saveTok = el('button', {
+    type: 'button',
+    className: 'hc-close',
+    text: 'SAVE',
+    onClick: () => {
+      const raw = tokenInput.value;
+      if (!raw || raw.startsWith('••')) return;
+      setStoredHeliosToken(raw, { persist: !!persistCb.checked });
+      tokenInput.value = '••••••••';
+      appendMsg('system', 'Token saved for this browser (not sent to Ollama — only local server).');
+    },
+  });
+  const clearTok = el('button', {
+    type: 'button',
+    className: 'hc-close',
+    text: 'CLEAR',
+    onClick: () => {
+      clearStoredHeliosToken();
+      tokenInput.value = '';
+      appendMsg('system', 'Token cleared.');
+    },
+  });
+  const settings = el('div', {
+    style: 'display:flex;flex-direction:column;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:9px;color:var(--text-dim)',
+  }, [
+    el('div', { text: 'Settings · optional API token (T1 shared lab). XSS can read it — prefer unset on solo loopback.' }),
+    el('div', { style: 'display:flex;gap:4px;align-items:center' }, [
+      tokenInput,
+      saveTok,
+      clearTok,
+    ]),
+    el('label', { style: 'display:flex;gap:4px;align-items:center;cursor:pointer' }, [
+      persistCb,
+      el('span', { text: 'Persist on this machine (localStorage)' }),
+    ]),
+  ]);
+
   const head = el('div', { className: 'hc-head' }, [
     el('div', {}, [
       el('div', { className: 'hc-title', text: 'HELIOS // ASSISTANT' }),
@@ -199,6 +251,7 @@ export function wireAgentChat() {
   ]);
 
   panel.appendChild(head);
+  panel.appendChild(settings);
   panel.appendChild(messagesEl);
   panel.appendChild(form);
   document.body.appendChild(panel);
@@ -261,7 +314,7 @@ export function wireAgentChat() {
         ...history.slice(-16),
       ];
 
-      const res = await fetch('/api/chat', {
+      const res = await heliosFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -95,6 +95,7 @@ export function buildPlanDossier(td, opts = {}) {
     status: quality.status,
     confidence_0_100: quality.confidence_0_100,
     mission_ready: quality.mission_ready,
+    launch_enabled: quality.launch_enabled ?? quality.mission_ready,
     gates: quality.gates,
     recovery,
     inputs: {
@@ -336,7 +337,10 @@ export function planStatusBannerHtml(dossier) {
         · conf ${dossier.confidence_0_100} (${dossier.confidence_label})
       </div>
       <div class="info-row"><span class="key">Mission ready</span><span class="val ${dossier.mission_ready ? 'green' : 'red-val'}">${
-        dossier.mission_ready ? 'YES — Launch enabled' : 'NO — Launch blocked'
+        dossier.mission_ready ? 'YES' : 'NO'
+      }</span></div>
+      <div class="info-row"><span class="key">Launch</span><span class="val ${(dossier.launch_enabled ?? dossier.mission_ready) ? 'green' : 'red-val'}">${
+        (dossier.launch_enabled ?? dossier.mission_ready) ? 'ENABLED' : 'BLOCKED'
       }</span></div>
       <div class="info-row"><span class="key">Confidence note</span><span class="val" style="font-size:9px;opacity:0.8">${dossier.confidence_note}</span></div>
       ${siteLine}
