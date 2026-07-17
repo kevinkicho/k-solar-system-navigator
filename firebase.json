@@ -1,0 +1,75 @@
+{
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "functions/**",
+      "tests/**",
+      "docs/**",
+      "scripts/**",
+      "public/**",
+      "*.md",
+      "package.json",
+      "package-lock.json",
+      "server.js",
+      "LICENSE",
+      "hyg_v42.csv",
+      "trajectory-calculator.js",
+      "firestore.rules",
+      "firestore.indexes.json",
+      "database.rules.json",
+      "storage.rules",
+      "firebase-debug.log",
+      "firebase-debug.*.log"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|mjs|css|json|wasm)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public,max-age=3600"
+          }
+        ]
+      }
+    ]
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "database": {
+    "rules": "database.rules.json"
+  }
+}

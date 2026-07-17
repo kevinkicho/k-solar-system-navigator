@@ -19,6 +19,8 @@ firebase-debug.log
 firebase-debug.*.log
 ui-debug.log
 *.cache
+# Accidental firebase init SPA stub (hosting public is project root ".")
+public/
 # Service account keys (never commit)
 *-firebase-adminsdk-*.json
 serviceAccount*.json
