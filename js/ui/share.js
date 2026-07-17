@@ -192,7 +192,7 @@ export function applyPlanRequest(req) {
     if (td.lambertOk && td.orbitPhysical && !td.planetRelative) {
       const peri = td.orbitPhysical.a * (1 - td.orbitPhysical.e) / (1.495978707e11);
       const dv = td.dvTotal_lambert;
-      if (peri < MIN_PERIHELION_AU || dv > 30000) {
+      if (peri < MIN_PERIHELION_AU || dv > 50000) {
         const best = findNearestFeasibleTransfer(origin, dest, depSim, td.transferTime);
         if (best) {
           timeState.simTime = best.departureSimTime;

@@ -504,13 +504,28 @@ export function computeRoute() {
     const periOk = orb && td0.centralBody
       ? planetRelativePeriapsisOk(orb, td0.centralBody)
       : !!td0.lambertOk;
-    pathological = !td0.lambertOk || !periOk || !isFinite(totalDv) || totalDv > 30000;
+    pathological = !td0.lambertOk || !periOk || !isFinite(totalDv) || totalDv > 50000;
     if (!pathological) {
       const cen = td0.centralBodyName || td0.centralBody?.name || 'parent';
+      let dateAdjusted = false;
+      // Phase-window snap for co-orbital moons (Hohmann phase).
+      if (td0.phaseSnapped
+          && isFinite(td0.departureSimTime)
+          && Math.abs(td0.departureSimTime - prevDepSingle) > 60) {
+        dateInput.value = dateToInputValue(simTimeToDate(td0.departureSimTime));
+        timeState.simTime = td0.departureSimTime;
+        timeState.setSpeed(3);
+        timeState.updateDisplay();
+        dateAdjusted = true;
+      }
+      const tofD = (td0.transferTime / DAY).toFixed(2);
       finalizePlan(td0, {
-        dateAdjusted: false,
+        dateAdjusted,
+        prevDepartureSimTime: dateAdjusted ? prevDepSingle : null,
         sampleFallback: detectSampleFallback(td0),
-      }, `PLANET-RELATIVE TRANSFER (${cen}-centered)`);
+      }, dateAdjusted
+        ? `PLANET-RELATIVE (${cen}) · PHASE WINDOW · TOF ${tofD} d`
+        : `PLANET-RELATIVE TRANSFER (${cen}-centered · TOF ${tofD} d)`);
       return;
     }
     // No nearest-feasible heliocentric search for same-SOI — report failure.
@@ -522,7 +537,8 @@ export function computeRoute() {
   }
 
   const periAU = orb ? (orb.a * (1 - orb.e)) / AU : Infinity;
-  pathological = !isFinite(periAU) || periAU < MIN_PERIHELION_AU || totalDv > 30000;
+  // 50 km/s aligns with G_DV_SANE fail bound (high-energy Mercury departures).
+  pathological = !isFinite(periAU) || periAU < MIN_PERIHELION_AU || totalDv > 50000;
 
   if (!pathological) {
     finalizePlan(state.transferData, {

@@ -240,6 +240,8 @@ function renderSingleLegRouteUI(td) {
       ? (pr ? `PLANET-RELATIVE LAMBERT (${cenName})` : 'LAMBERT TRANSFER')
       : 'HOHMANN ESTIMATE (Lambert failed)'}</div>
     ${pr ? `<div class="info-row"><span class="key">Frame</span><span class="val green">${cenName}-centered · same SOI</span></div>` : ''}
+    ${pr && td.hohmannNote ? `<div class="info-row"><span class="key">Note</span><span class="val" style="font-size:9px;opacity:0.85">${td.hohmannNote}</span></div>` : ''}
+    ${pr && td.phaseSnapped ? `<div class="info-row"><span class="key">Phase</span><span class="val green">snapped to Hohmann window</span></div>` : ''}
     <div class="info-row"><span class="key">Departure</span><span class="val green">${formatDateShort(departDate)}</span></div>
     <div class="info-row"><span class="key">Arrival</span><span class="val amber">${formatDateShort(arriveDate)}</span></div>
     <div class="info-row"><span class="key">Transit</span><span class="val highlight">${formatTimePrecise(td.transferTime)} · ${(td.transferTime / DAY).toFixed(1)} d</span></div>

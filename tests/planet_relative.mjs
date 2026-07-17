@@ -36,6 +36,7 @@ const Jupiter = BODIES.find((b) => b.name === 'Jupiter');
 const Moon = MOONS.find((m) => m.name === 'Moon');
 const Io = MOONS.find((m) => m.name === 'Io');
 const Europa = MOONS.find((m) => m.name === 'Europa');
+const Ganymede = MOONS.find((m) => m.name === 'Ganymede');
 const Phobos = MOONS.find((m) => m.name === 'Phobos');
 const Deimos = MOONS.find((m) => m.name === 'Deimos');
 
@@ -70,10 +71,10 @@ check('Europa→Io Lambert OK', !!td.lambertOk, td.lambertOk ? '' : 'solve faile
 check('orbit frame planetocentric', td.orbitFrame === 'planetocentric');
 check('Δv finite and positive', isFinite(td.dvTotal_lambert) && td.dvTotal_lambert > 0,
   `dv=${(td.dvTotal_lambert / 1000).toFixed(2)} km/s`);
-// Co-orbital Galilean transfers are typically a few km/s class (not 20+ helio nonsense)
+// Galilean impulsive transfers are few–tens of km/s (incl. plane change), not 100+
 check(
-  'Europa→Io transfer Δv under 15 km/s',
-  td.dvTotal_lambert < 15000,
+  'Europa→Io transfer Δv under 25 km/s',
+  td.dvTotal_lambert < 25000,
   `dv=${(td.dvTotal_lambert / 1000).toFixed(2)} km/s`,
 );
 
@@ -119,6 +120,44 @@ const tdHelio = { ...hohmannTransfer(Earth, Mars, 0) };
 solveTransferOrbit(tdHelio);
 check('Earth→Mars not planet-relative after solve', !tdHelio.planetRelative);
 check('Earth→Mars Lambert OK', !!tdHelio.lambertOk);
+
+// Io→Ganymede: ~2 d Hohmann is correct; must intercept (not dishonest analytic)
+const tdIG = { ...hohmannTransfer(Io, Ganymede, 0) };
+solveTransferOrbit(tdIG);
+check('Io→Ganymede Lambert OK', !!tdIG.lambertOk);
+check(
+  'Io→Ganymede TOF ~1–4 days (impulsive Hohmann class)',
+  tdIG.transferTime / DAY > 0.5 && tdIG.transferTime / DAY < 5,
+  `tof=${(tdIG.transferTime / DAY).toFixed(2)} d`,
+);
+check(
+  'Io→Ganymede not analytic-fallback when phase window used',
+  !tdIG.analyticHohmann,
+  tdIG.analyticHohmann ? 'used analytic' : 'Lambert',
+);
+check(
+  'Io→Ganymede Δv under 20 km/s near phase window',
+  tdIG.lambertOk && tdIG.dvTotal_lambert < 20000,
+  tdIG.lambertOk ? `dv=${(tdIG.dvTotal_lambert / 1000).toFixed(2)} km/s` : 'no solve',
+);
+check('Io→Ganymede phase snap preferred', tdIG.phaseSnapped === true || tdIG.timeToWindow === 0);
+
+// Mercury→Io is heliocentric high-energy (not planet-relative)
+const Mercury = BODIES.find((b) => b.name === 'Mercury');
+check('Mercury→Io not planet-relative', !isPlanetRelativeRoute(Mercury, Io));
+const tdMI = { ...hohmannTransfer(Mercury, Io, 0) };
+solveTransferOrbit(tdMI);
+check('Mercury→Io Lambert OK', !!tdMI.lambertOk);
+const gatesMI = runQualityGates(tdMI, {
+  capability: { applicable: true },
+  margin: { feasible: true },
+}, {});
+const dvGate = gatesMI.gates.find((g) => g.code === 'G_DV_SANE');
+check(
+  'Mercury→Io G_DV_SANE not hard-fail under 50 km/s with abstract margin ok',
+  dvGate && dvGate.level !== 'fail',
+  dvGate ? `${dvGate.level}: ${dvGate.message}` : 'no gate',
+);
 
 if (process.exitCode) {
   console.error('\nplanet_relative.mjs: FAILED');

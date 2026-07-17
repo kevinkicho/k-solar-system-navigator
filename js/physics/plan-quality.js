@@ -7,6 +7,10 @@ import { AU } from '../constants.js';
 
 // Keep in sync with routing.js MIN_PERIHELION_AU (avoid circular import).
 const MIN_PERIHELION_AU = 0.3;
+/** Fail only above this — high-energy Mercury departures are legitimately ~25–45 km/s. */
+const MAX_DV_SANE_M_S = 50000;
+/** Soft warn above this (still mission-ready if vehicle ok). */
+const WARN_DV_M_S = 30000;
 
 /** @typedef {'ok'|'warn'|'fail'} GateLevel */
 /** @typedef {'pass'|'pass_with_warnings'|'fail'} PlanStatus */
@@ -118,14 +122,20 @@ export function runQualityGates(td, measurement = null, opts = {}) {
 
     const totalDvMl = td.dvTotalMultiLeg;
     if (totalDvMl != null && isFinite(totalDvMl)) {
-      const ok = totalDvMl > 0 && totalDvMl <= 30000;
+      let level = 'ok';
+      let message = `Multi-leg Δv ${(totalDvMl / 1000).toFixed(2)} km/s within sanity bound.`;
+      if (!(totalDvMl > 0) || totalDvMl > MAX_DV_SANE_M_S) {
+        level = 'fail';
+        message = `Multi-leg Δv ${(totalDvMl / 1000).toFixed(2)} km/s exceeds ${MAX_DV_SANE_M_S / 1000} km/s sanity bound.`;
+      } else if (totalDvMl > WARN_DV_M_S) {
+        level = 'warn';
+        message = `Multi-leg Δv ${(totalDvMl / 1000).toFixed(2)} km/s is high-energy (warn > ${WARN_DV_M_S / 1000} km/s).`;
+      }
       gates.push({
         code: 'G_DV_SANE',
-        level: ok ? 'ok' : 'fail',
-        message: ok
-          ? `Multi-leg Δv ${(totalDvMl / 1000).toFixed(2)} km/s within sanity bound.`
-          : `Multi-leg Δv ${(totalDvMl / 1000).toFixed(2)} km/s exceeds 30 km/s sanity bound.`,
-        detail: { total_dv_m_s: totalDvMl },
+        level,
+        message,
+        detail: { total_dv_m_s: totalDvMl, max_m_s: MAX_DV_SANE_M_S, warn_m_s: WARN_DV_M_S },
       });
     }
   } else {
@@ -196,15 +206,26 @@ export function runQualityGates(td, measurement = null, opts = {}) {
 
     const totalDv = td.dvTotal_lambert ?? td.dvTotal;
     if (totalDv != null && isFinite(totalDv)) {
-      const ok = totalDv > 0 && totalDv <= 30000;
       const frame = td.planetRelative ? 'Planet-relative' : 'Heliocentric';
+      let level = 'ok';
+      let message = `${frame} Δv ${(totalDv / 1000).toFixed(2)} km/s within sanity bound.`;
+      if (!(totalDv > 0) || totalDv > MAX_DV_SANE_M_S) {
+        level = 'fail';
+        message = `${frame} Δv ${(totalDv / 1000).toFixed(2)} km/s exceeds ${MAX_DV_SANE_M_S / 1000} km/s sanity bound.`;
+      } else if (totalDv > WARN_DV_M_S) {
+        level = 'warn';
+        message = `${frame} Δv ${(totalDv / 1000).toFixed(2)} km/s is high-energy (warn > ${WARN_DV_M_S / 1000} km/s).`;
+      }
       gates.push({
         code: 'G_DV_SANE',
-        level: ok ? 'ok' : 'fail',
-        message: ok
-          ? `${frame} Δv ${(totalDv / 1000).toFixed(2)} km/s within sanity bound.`
-          : `${frame} Δv ${(totalDv / 1000).toFixed(2)} km/s exceeds 30 km/s sanity bound.`,
-        detail: { total_dv_m_s: totalDv, planetRelative: !!td.planetRelative },
+        level,
+        message,
+        detail: {
+          total_dv_m_s: totalDv,
+          planetRelative: !!td.planetRelative,
+          max_m_s: MAX_DV_SANE_M_S,
+          warn_m_s: WARN_DV_M_S,
+        },
       });
     }
   }
@@ -230,10 +251,15 @@ export function runQualityGates(td, measurement = null, opts = {}) {
 
   if (margin && cap?.applicable !== false) {
     if (margin.feasible === false) {
+      const needDv = measurement?.need?.need_dv_m_s;
+      const highEnergy = isFinite(needDv) && needDv > 12000;
       gates.push({
         code: 'G_VEHICLE_FEASIBLE',
         level: strictVehicle ? 'fail' : 'warn',
-        message: margin.reason || 'Vehicle margin negative — cannot meet Need.',
+        message: margin.reason
+          || (highEnergy
+            ? 'Vehicle margin negative — high-energy Need (try abstract budget, tanker-n, or lower cargo).'
+            : 'Vehicle margin negative — cannot meet Need.'),
         detail: {
           kind: margin.kind,
           margin_dv_m_s: margin.margin_dv_m_s,

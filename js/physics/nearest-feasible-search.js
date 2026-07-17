@@ -4,7 +4,7 @@
  */
 
 import { AU, DAY, PI, G_CONST } from '../constants.js';
-import { SUN_DATA } from '../data/bodies.js';
+import { BODIES, SUN_DATA } from '../data/bodies.js';
 import { solveLambertBestBranch } from './lambert.js';
 import {
   getPlanningPosition3D,
@@ -12,15 +12,27 @@ import {
 } from './ephemeris-provider.js';
 
 export const MIN_PERIHELION_AU = 0.3;
+/** Pathological recovery / gate alignment — high-energy inner→outer is real. */
+export const MAX_DV_SANE_M_S = 50000;
 export const DEFAULT_N_DEP = 40;
 export const DEFAULT_N_TOF = 35;
 
+/** Heliocentric orbital period (moons co-orbit with parent). */
+function helioPeriod(body) {
+  if (!body) return 365.25 * DAY;
+  if (body.parent) {
+    const p = BODIES.find((b) => b.name === body.parent);
+    if (p?.period) return p.period;
+  }
+  return body.period || 365.25 * DAY;
+}
+
 function synodicPeriod(b1, b2) {
   const TWO_PI = 2 * PI;
-  const n1 = TWO_PI / b1.period;
-  const n2 = TWO_PI / b2.period;
+  const n1 = TWO_PI / helioPeriod(b1);
+  const n2 = TWO_PI / helioPeriod(b2);
   const dn = Math.abs(n1 - n2);
-  return dn > 1e-20 ? TWO_PI / dn : b1.period;
+  return dn > 1e-20 ? TWO_PI / dn : helioPeriod(b1);
 }
 
 /**
@@ -70,6 +82,8 @@ export function evaluateNearestFeasibleCell(body1, body2, dep, tof, pOpts, mu) {
   if (!sol) return null;
   const periAU = (sol.orb.a * (1 - sol.orb.e)) / AU;
   if (!isFinite(periAU) || periAU < MIN_PERIHELION_AU) return null;
+  // Reject absurd Δv cells (still allow high-energy up to MAX)
+  if (!isFinite(sol.cost) || sol.cost <= 0 || sol.cost > MAX_DV_SANE_M_S) return null;
   return {
     departureSimTime: dep,
     transferTime: tof,

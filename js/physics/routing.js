@@ -187,21 +187,38 @@ function solvePlanetRelativeTransferOrbit(tData) {
   const r1vP = [depP.x * AU, depP.y * AU, depP.z * AU];
   const r2vP = [arrP.x * AU, arrP.y * AU, arrP.z * AU];
 
-  // Prefer Lambert; near-180° parent↔moon geometry is singular — fall back
-  // to analytic coplanar Hohmann (standard LEO↔lunar educational transfer).
+  // Prefer Lambert. Analytic coplanar Hohmann only for parent↔moon parking
+  // endpoints (~180° singular geometry) — never for moon↔moon, where a fixed
+  // Hohmann TOF at the wrong phase would invent a non-intercepting arc.
+  const allowAnalytic = !!(st1.isParking || st2.isParking);
   let bestP = solveLambertBestBranch(
     r1vP, r2vP, tData.transferTime, mu, vBody1, vBody2,
   );
   let usedAnalyticHohmann = false;
-  if (bestP && !planetRelativePeriapsisOk(bestP.orb, central)) {
-    bestP = null;
+
+  function lambertMissOk(orb, tof, r2) {
+    if (!orb) return false;
+    try {
+      const hit = propagateOrbit(orb, tof);
+      if (!hit) return false;
+      return v3mag(v3sub(hit, r2)) < 1e6; // 1000 km
+    } catch {
+      return false;
+    }
   }
-  if (!bestP) {
+
+  if (bestP) {
+    if (!planetRelativePeriapsisOk(bestP.orb, central)
+        || !lambertMissOk(bestP.orb, tData.transferTime, r2vP)) {
+      bestP = null;
+    }
+  }
+  if (!bestP && allowAnalytic) {
     const analytic = analyticCoplanarHohmann(r1vP, r2vP, mu, vBody1, vBody2);
-    if (analytic && planetRelativePeriapsisOk(analytic.orb, central)) {
+    if (analytic && planetRelativePeriapsisOk(analytic.orb, central)
+        && lambertMissOk(analytic.orb, analytic.transferTime, r2vP)) {
       bestP = { sol: { v1: analytic.v1, v2: analytic.v2 }, orb: analytic.orb, longWay: false };
       usedAnalyticHohmann = true;
-      // Align TOF with Hohmann half-period for this (r1,r2)
       if (analytic.transferTime > 0) {
         tData.transferTime = analytic.transferTime;
         tData.arrivalSimTime = tData.departureSimTime + analytic.transferTime;
@@ -229,6 +246,8 @@ function solvePlanetRelativeTransferOrbit(tData) {
     tData.surfaceDestOffset_m = arrS.offset_m || 0;
     tData.originIsParking = !!st1.isParking;
     tData.destIsParking = !!st2.isParking;
+    tData.hohmannNote = tData.hohmannNote
+      || 'Impulsive parent-centered Hohmann (days-scale for Galilean moons) — not a multi-month gravity-assist tour.';
   }
   tData.lambertOk = physicsOk;
 

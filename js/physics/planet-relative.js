@@ -138,8 +138,19 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
 /**
  * Hohmann-class seed for a planet-relative transfer (TOF + rough Δv).
  * Uses mean orbital radii about the shared parent.
+ *
+ * Galilean moon HOHmann TOFs are short (≈1–3 days) — that is correct for an
+ * impulsive 2-body transfer, not a multi-month gravity-assist tour.
+ * Prefer `preferPhaseWindow` so departure matches the Hohmann phase angle
+ * (otherwise fixed-TOF Lambert at a random date can be multi× more expensive
+ * or fall into dishonest analytic fallbacks).
+ *
+ * @param {object} body1
+ * @param {object} body2
+ * @param {number} departureSimTime
+ * @param {{ preferPhaseWindow?: boolean }} [opts]
  */
-export function planetRelativeTransferSeed(body1, body2, departureSimTime) {
+export function planetRelativeTransferSeed(body1, body2, departureSimTime, opts = {}) {
   const central = resolvePlanetRelativeCentral(body1, body2);
   if (!central) {
     throw new Error('planetRelativeTransferSeed: not a planet-relative pair');
@@ -161,24 +172,42 @@ export function planetRelativeTransferSeed(body1, body2, departureSimTime) {
   const phaseAngle = PI * (1 - Math.pow((r1 + r2) / (2 * r2), 1.5));
 
   // Approximate current phase from parent-relative positions at departure.
-  const s1 = parentRelativeState(body1, central, departureSimTime, { towardBody: body2 });
-  const s2 = parentRelativeState(body2, central, departureSimTime, { towardBody: body1 });
-  const angle1 = Math.atan2(s1.posAU.z, s1.posAU.x);
-  const angle2 = Math.atan2(s2.posAU.z, s2.posAU.x);
-  const currentPhase = ((angle2 - angle1) % TWO_PI + TWO_PI) % TWO_PI;
+  let dep = departureSimTime;
+  const s1_0 = parentRelativeState(body1, central, dep, { towardBody: body2 });
+  const s2_0 = parentRelativeState(body2, central, dep, { towardBody: body1 });
+  const angle1_0 = Math.atan2(s1_0.posAU.z, s1_0.posAU.x);
+  const angle2_0 = Math.atan2(s2_0.posAU.z, s2_0.posAU.x);
+  const currentPhase0 = ((angle2_0 - angle1_0) % TWO_PI + TWO_PI) % TWO_PI;
 
   // Mean motions from orbital radii (circular).
   const n1 = Math.sqrt(mu / (r1 * r1 * r1));
   const n2 = Math.sqrt(mu / (r2 * r2 * r2));
   const relativeRate = n2 - n1;
-  const phaseDiff = ((phaseAngle - currentPhase) % TWO_PI + TWO_PI) % TWO_PI;
+  const phaseDiff0 = ((phaseAngle - currentPhase0) % TWO_PI + TWO_PI) % TWO_PI;
   const timeToWindow = Math.abs(relativeRate) > 1e-20
-    ? phaseDiff / Math.abs(relativeRate)
+    ? phaseDiff0 / Math.abs(relativeRate)
     : Infinity;
 
-  const arrivalSimTime = departureSimTime + transferTime;
-  const pos1 = getBodyPosition3D(body1, departureSimTime);
-  const pos2 = getBodyPosition3D(body2, departureSimTime);
+  let phaseSnapped = false;
+  // Auto-snap to Hohmann phase window for moon↔moon (and parent↔moon when useful).
+  // Impulsive Galilean transfers only make sense near the correct relative phase.
+  if (opts.preferPhaseWindow !== false
+      && isFinite(timeToWindow)
+      && timeToWindow > 60
+      && timeToWindow < 100 * DAY) {
+    dep = departureSimTime + timeToWindow;
+    phaseSnapped = true;
+  }
+
+  const s1 = parentRelativeState(body1, central, dep, { towardBody: body2 });
+  const s2 = parentRelativeState(body2, central, dep, { towardBody: body1 });
+  const angle1 = Math.atan2(s1.posAU.z, s1.posAU.x);
+  const angle2 = Math.atan2(s2.posAU.z, s2.posAU.x);
+  const currentPhase = ((angle2 - angle1) % TWO_PI + TWO_PI) % TWO_PI;
+
+  const arrivalSimTime = dep + transferTime;
+  const pos1 = getBodyPosition3D(body1, dep);
+  const pos2 = getBodyPosition3D(body2, dep);
   const posArrival = getBodyPosition3D(body2, arrivalSimTime);
 
   return {
@@ -191,19 +220,24 @@ export function planetRelativeTransferSeed(body1, body2, departureSimTime) {
     r2,
     phaseAngle,
     currentPhase,
-    timeToWindow,
+    timeToWindow: phaseSnapped ? 0 : timeToWindow,
+    timeToWindowFromRequest: timeToWindow,
+    phaseSnapped,
+    requestedDepartureSimTime: departureSimTime,
     pos1,
     pos2,
     posArrival,
     body1,
     body2,
-    departureSimTime,
+    departureSimTime: dep,
     arrivalSimTime,
     planetRelative: true,
     centralBody: central,
     centralBodyName: central.name,
     // Rough circular period of intermediate orbit (for UI).
     periodHint_d: (2 * transferTime) / DAY,
+    // Educational note for UI
+    hohmannNote: 'Impulsive parent-centered Hohmann (days-scale for Galilean moons) — not a multi-month gravity-assist tour.',
   };
 }
 

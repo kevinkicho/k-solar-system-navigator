@@ -53,6 +53,15 @@ check('Moon sources include sats page', msrc.sources.some((s) => /sats/i.test(s.
 const selJs = readFileSync(resolve(ROOT, 'js/ui/selection.js'), 'utf8');
 check('selectBody opens dossier', /openBodyDossier/.test(selJs));
 
+const media = await import(pathToFileURL(resolve(ROOT, 'js/data/body-media.js')).href);
+check('body-media module loads', !!media.TEX_BASE);
+check('Earth has texture file', !!media.BODY_TEXTURE_FILE.Earth);
+check('Io has curated NASA images', (media.BODY_NASA_GALLERY.Io || []).length >= 1);
+const dossierJs = readFileSync(resolve(ROOT, 'js/ui/body-dossier-modal.js'), 'utf8');
+check('dossier mounts 3D globe', /mountBodyGlobePreview/.test(dossierJs));
+check('dossier has NASA gallery', /curatedNasaImages|bd-gallery/.test(dossierJs));
+check('globe preview module exists', existsSync(resolve(ROOT, 'js/ui/body-globe-preview.js')));
+
 if (failed) {
   console.error(`\n${failed} body picker/dossier check(s) failed`);
   process.exit(1);

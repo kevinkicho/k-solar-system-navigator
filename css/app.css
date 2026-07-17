@@ -426,12 +426,66 @@
 }
 #body-dossier-overlay[hidden] { display: none !important; }
 #body-dossier-overlay .bd-modal {
-  width: min(560px, 96vw); max-height: min(88vh, 820px);
+  width: min(720px, 96vw); max-height: min(90vh, 900px);
   display: flex; flex-direction: column;
   background: var(--bg-panel); border: 1px solid var(--border-bright);
   border-radius: 8px; box-shadow: 0 16px 56px rgba(0,0,0,0.6);
   overflow: hidden;
 }
+#body-dossier-overlay .bd-media {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) 1fr;
+  gap: 12px;
+  align-items: start;
+}
+@media (max-width: 560px) {
+  #body-dossier-overlay .bd-media { grid-template-columns: 1fr; }
+}
+#body-dossier-overlay .bd-globe-wrap {
+  display: flex; flex-direction: column; gap: 6px;
+}
+#body-dossier-overlay .bd-globe {
+  width: 100%; aspect-ratio: 1;
+  min-height: 180px;
+  border-radius: 8px;
+  background: radial-gradient(ellipse at 30% 20%, rgba(40,70,110,0.5), rgba(4,8,16,0.95));
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+#body-dossier-overlay .bd-globe canvas {
+  width: 100% !important; height: 100% !important;
+  display: block;
+}
+#body-dossier-overlay .bd-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+#body-dossier-overlay .bd-img-card {
+  display: flex; flex-direction: column; gap: 4px;
+  text-decoration: none; color: var(--text);
+  background: rgba(0,0,0,0.28);
+  border: 1px solid var(--border);
+  border-radius: 4px; overflow: hidden;
+  font-size: 9px; line-height: 1.25;
+  transition: border-color 0.15s;
+}
+#body-dossier-overlay .bd-img-card:hover {
+  border-color: var(--cyan); color: var(--cyan);
+}
+#body-dossier-overlay .bd-img-card img {
+  width: 100%; aspect-ratio: 4/3; object-fit: cover;
+  background: #0a1018; display: block;
+}
+#body-dossier-overlay .bd-img-card span {
+  padding: 4px 6px 6px; display: block;
+}
+#body-dossier-overlay .bd-media-cap {
+  font-size: 9px; color: var(--text-dim); margin: 0; line-height: 1.35;
+}
+#body-dossier-overlay .bd-media-cap a { color: var(--cyan); }
 #body-dossier-overlay .bd-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; padding: 16px 18px 12px; border-bottom: 1px solid var(--border);

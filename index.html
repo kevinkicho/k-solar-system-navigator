@@ -1241,7 +1241,8 @@ input[type="range"]::-webkit-slider-thumb {
       <tr><td>Branch selection</td><td>Both short-arc and long-arc evaluated; cheaper Δv kept</td></tr>
       <tr><td>Validation</td><td>Every solution propagated back to target; rejected if miss &gt; 1,000 km</td></tr>
       <tr><td>Multi-leg routes</td><td>Lambert per leg; patched-conic gravity assist between legs</td></tr>
-      <tr><td>Planet-relative (same SOI)</td><td>Parent-centered Lambert (e.g. Europa→Io about Jupiter; Earth→Moon about Earth). Concept-grade patched-conic — not CR3BP / n-body</td></tr>
+      <tr><td>Planet-relative (same SOI)</td><td>Parent-centered Lambert with Hohmann phase-window snap (e.g. Io→Ganymede ~2 d impulsive — correct for 2-body, not a multi-month tour). Earth→Moon analytic when 180° singular</td></tr>
+      <tr><td>High-energy Δv gate</td><td>Warn above 30 km/s; fail only above 50 km/s (Mercury-class departures are real)</td></tr>
     </table>
 
     <h3>Gravity assist (patched-conic)</h3>
