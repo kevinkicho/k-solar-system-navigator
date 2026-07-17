@@ -6,11 +6,18 @@ import {
   isSurfacePointActive, normalizeSurfacePoint, surfaceBodyFixedMeters,
   surfaceOffsetSceneAU, surfaceVelocitySceneMps, getSpinModel,
   surfacePointMeta,
+  bodySurfaceKind, isFluidGiant, defaultParkingAlt_m, defaultSurfacePointForBody,
+  resolveParkingAlt_m, referenceSphereLabel, COORD_SYSTEM_ID,
+  coordinateSystemBadge, longitudeSystem, planetocentricRadius_m,
+  geographicEndpointPackage,
 } from '../js/physics/surface-point.js';
 import { solveTransferOrbit } from '../js/physics/routing.js';
 import { hohmannTransfer } from '../js/physics/kepler.js';
 import { v3mag } from '../js/physics/vec3.js';
 import { AU } from '../js/constants.js';
+import { computeMissionBudget } from '../js/physics/mission-budget.js';
+import { buildPlanDossier } from '../js/ui/plan-dossier.js';
+import { state } from '../js/state.js';
 
 let failed = 0;
 function check(label, ok, detail = '') {
@@ -83,11 +90,6 @@ const meta = surfacePointMeta(earth, pt);
 check('meta body Earth', meta?.body === 'Earth');
 
 // ── Gas / ice giant 1-bar spherical model ──────────────────────────
-import {
-  bodySurfaceKind, isFluidGiant, defaultParkingAlt_m, defaultSurfacePointForBody,
-  resolveParkingAlt_m, referenceSphereLabel,
-} from '../js/physics/surface-point.js';
-
 const jupiter = BODIES.find((b) => b.name === 'Jupiter');
 const saturn = BODIES.find((b) => b.name === 'Saturn');
 const neptune = BODIES.find((b) => b.name === 'Neptune');
@@ -121,11 +123,42 @@ check('Jupiter surface meta 1-bar', tdJ.surfaceOriginMeta?.referenceSphere === '
 check('Jupiter spin speed large (fast rotator)', v3mag(surfaceVelocitySceneMps(jupiter, 0, jPt)) > 1000);
 
 // Mission budget parking phrase path
-import { computeMissionBudget } from '../js/physics/mission-budget.js';
 const bud = computeMissionBudget(tdJ);
 check('mission budget from Jupiter', !!bud && bud.totalMission > 0);
 check('originSurfaceKind gas-giant', bud.originSurfaceKind === 'gas-giant');
 check('dep phase mentions 1-bar', /1-bar|cloud/i.test(bud.departure.phases[0]?.label || ''));
+
+// ── Geographic coordinate system packaging ────────────────────────
+check('COORD_SYSTEM_ID canonical', COORD_SYSTEM_ID === 'planetocentric+eastlon+h_above_ref');
+const earthBadge = coordinateSystemBadge(earth);
+check('Earth badge mean R', earthBadge.reference === 'mean-radius');
+check('Earth badge id', earthBadge.id === COORD_SYSTEM_ID);
+const jBadge = coordinateSystemBadge(jupiter);
+check('Jupiter badge 1-bar', jBadge.reference === '1-bar');
+check('Jupiter lon System III', longitudeSystem(jupiter).id === 'system-III');
+check('Earth lon geographic', longitudeSystem(earth).id === 'geographic');
+
+const r = planetocentricRadius_m(earth, 200e3);
+check('r = R + h', Math.abs(r - (earth.radius + 200e3)) < 1);
+
+const gMeta = surfacePointMeta(earth, pt);
+check('meta has coordinateSystem', gMeta.coordinateSystem === COORD_SYSTEM_ID);
+check('meta has radius_from_center', gMeta.radius_from_center_m > earth.radius);
+check('meta lat planetocentric', gMeta.latitudeConvention === 'planetocentric');
+check('meta lon east-positive', gMeta.longitudeConvention === 'east-positive');
+
+const inactivePkg = geographicEndpointPackage(earth, emptySurfacePoint(earth));
+check('inactive geographic package', inactivePkg.active === false);
+const activePkg = geographicEndpointPackage(jupiter, jPt);
+check('active geographic package', activePkg.active === true && activePkg.longitudeSystem === 'system-III');
+
+// Plan dossier stamps geographic endpoints
+state.vehicleId = 'abstract';
+state.abstractBudget_m_s = 50000;
+const dossier = buildPlanDossier(tdJ, {});
+check('dossier has coordinate_system', dossier?.inputs?.coordinate_system === COORD_SYSTEM_ID);
+check('dossier geographic origin active', dossier?.inputs?.geographic_origin?.active === true);
+check('dossier geometry has geographic', !!dossier?.geometry?.geographic_origin);
 
 if (failed) {
   console.error(`\n${failed} surface-point check(s) failed`);

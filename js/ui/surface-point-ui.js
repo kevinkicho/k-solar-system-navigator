@@ -1,13 +1,15 @@
 /**
- * Origin / destination spherical reference-point controls (lat/lon/alt).
- * Gas/ice giants: 1-bar cloud-deck sphere (no solid surface).
+ * Origin / destination geographic site controls (lat / lon / alt).
+ * Planetocentric east-positive; height above reference; r = R_ref + h readout.
+ * Gas/ice giants: 1-bar cloud deck + System III–class longitude label.
  */
 import { state } from '../state.js';
 import {
   emptySurfacePoint, formatSurfacePointShort, isSurfacePointActive,
   normalizeSurfacePoint, presetsForBody, isFluidGiant,
   referenceSphereLabel, altitudeFieldLabel, surfacePanelTitle,
-  defaultParkingAlt_m,
+  defaultParkingAlt_m, coordinateSystemBadge, longitudeSystem,
+  formatRadiusFromCenter, planetocentricRadius_m,
 } from '../physics/surface-point.js';
 
 function ensureState() {
@@ -45,34 +47,60 @@ function fillPresets(selectEl, body) {
     + presets.map((p) => `<option value="${p.id}">${p.label}</option>`).join('');
 }
 
+function updateRadiusReadout(prefix, body, altKm) {
+  const readout = el(`${prefix}-radius-readout`);
+  if (!readout) return;
+  if (!body) {
+    readout.textContent = 'Radius from center: —';
+    return;
+  }
+  const alt_m = (parseFloat(altKm) || 0) * 1000;
+  const rLabel = formatRadiusFromCenter(body, alt_m);
+  const r_m = planetocentricRadius_m(body, alt_m);
+  const R = body.radius || 0;
+  readout.textContent = `Radius from center: ${rLabel}  ·  R_ref ${(R / 1000).toFixed(0)} km + h`;
+  readout.title = `r = R_ref + h = ${(r_m / 1000).toFixed(3)} km (planetocentric)`;
+}
+
 function updatePanelChrome(prefix, body) {
   const panel = el(`${prefix}-surface-panel`);
   const summary = panel?.querySelector('summary');
   const hint = el(`${prefix}-surface-hint`);
-  const altLabel = panel?.querySelector(`label[for="${prefix}-alt"]`)
-    || el(`${prefix}-alt`)?.closest('.route-field-row')?.querySelector('label');
+  const badge = el(`${prefix}-geo-badge`);
+  const lonEl = el(`${prefix}-lon-system`);
+  const altLabel = el(`${prefix}-alt`)?.closest('.route-field-row')?.querySelector('label');
   const enableLabel = el(`${prefix}-surface-enabled`)?.closest('label');
+
   if (summary) summary.textContent = surfacePanelTitle(body, prefix === 'dest' ? 'dest' : 'origin');
   if (hint) hint.textContent = referenceSphereLabel(body);
   if (altLabel) altLabel.textContent = altitudeFieldLabel(body);
+
+  const cs = coordinateSystemBadge(body);
+  if (badge) {
+    badge.textContent = cs.short;
+    badge.title = cs.full;
+    badge.dataset.cs = cs.id;
+    badge.dataset.ref = cs.reference;
+  }
+
+  const lonSys = longitudeSystem(body);
+  if (lonEl) {
+    lonEl.textContent = isFluidGiant(body)
+      ? `Longitude system: ${lonSys.label}`
+      : `Longitude: ${lonSys.label}`;
+    lonEl.title = lonSys.note || lonSys.label;
+  }
+
   if (enableLabel) {
-    const span = enableLabel.childNodes[enableLabel.childNodes.length - 1];
-    if (span && span.nodeType === Node.TEXT_NODE) {
-      span.textContent = isFluidGiant(body)
-        ? ' Enable 1-bar / cloud-deck spherical endpoint'
-        : ' Enable spherical surface endpoint';
-    } else {
-      // structure: <input> text
-      const input = enableLabel.querySelector('input');
-      if (input) {
-        enableLabel.innerHTML = '';
-        enableLabel.appendChild(input);
-        enableLabel.appendChild(document.createTextNode(
-          isFluidGiant(body)
-            ? ' Enable 1-bar / cloud-deck spherical endpoint'
-            : ' Enable spherical surface endpoint',
-        ));
-      }
+    const input = enableLabel.querySelector('input');
+    if (input) {
+      enableLabel.innerHTML = '';
+      enableLabel.appendChild(input);
+      enableLabel.appendChild(document.createTextNode(
+        isFluidGiant(body)
+          ? ' Enable geographic site (1-bar lat / lon / alt)'
+          : ' Enable geographic site (lat / lon / alt)',
+      ));
     }
   }
 }
@@ -92,10 +120,11 @@ function bindEndpoint(prefix, getPoint, setPoint, getBody) {
       enabled: enabled.checked,
       lat_deg: parseFloat(lat.value),
       lon_deg: parseFloat(lon.value),
-      alt_m: parseFloat(alt.value) * 1000, // UI in km
+      alt_m: parseFloat(alt.value) * 1000,
     }, body);
     setPoint(p);
     if (wrap) wrap.hidden = !p.enabled;
+    updateRadiusReadout(prefix, body, alt.value);
     syncSlotLabels();
   };
 
@@ -110,6 +139,7 @@ function bindEndpoint(prefix, getPoint, setPoint, getBody) {
     alt.value = String(altM / 1000);
     if (wrap) wrap.hidden = !p.enabled;
     fillPresets(preset, body);
+    updateRadiusReadout(prefix, body, alt.value);
     syncSlotLabels();
   };
 
@@ -117,6 +147,7 @@ function bindEndpoint(prefix, getPoint, setPoint, getBody) {
   lat.addEventListener('change', readToState);
   lon.addEventListener('change', readToState);
   alt.addEventListener('change', readToState);
+  alt.addEventListener('input', () => updateRadiusReadout(prefix, getBody(), alt.value));
   if (preset) {
     preset.addEventListener('change', () => {
       const id = preset.value;
@@ -164,7 +195,6 @@ export function refreshSurfacePointUi() {
   const dPanel = el('dest-surface-panel');
   if (oPanel) oPanel.hidden = !state.routeOrigin;
   if (dPanel) dPanel.hidden = !state.routeDestination;
-  // Auto-open details for fluid giants so spherical planning is obvious
   if (oPanel && state.routeOrigin && isFluidGiant(state.routeOrigin)) oPanel.open = true;
   if (dPanel && state.routeDestination && isFluidGiant(state.routeDestination)) dPanel.open = true;
   if (writeOrigin) writeOrigin();

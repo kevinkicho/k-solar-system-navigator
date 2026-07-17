@@ -297,6 +297,28 @@
 .surface-hint {
   font-size: 9px; color: var(--text-dim); line-height: 1.35; margin-top: 4px;
 }
+.geo-cs-badge {
+  display: inline-block; margin-bottom: 6px;
+  font-family: var(--font-display); font-size: 7px; font-weight: 700;
+  letter-spacing: 0.8px; text-transform: uppercase;
+  padding: 3px 7px; border-radius: 3px;
+  color: var(--cyan); background: rgba(0,212,255,0.08);
+  border: 1px solid rgba(0,212,255,0.28);
+  max-width: 100%; line-height: 1.3;
+}
+.geo-cs-badge[data-ref="1-bar"] {
+  color: var(--amber); border-color: rgba(255,152,0,0.35);
+  background: rgba(255,152,0,0.08);
+}
+.geo-radius-readout {
+  font-size: 10px; color: var(--green); margin: 4px 0 2px;
+  padding: 4px 6px; background: rgba(0,230,118,0.06);
+  border: 1px solid rgba(0,230,118,0.2); border-radius: 3px;
+  font-family: var(--font-mono); letter-spacing: 0.3px;
+}
+.geo-lon-system {
+  font-size: 9px; color: var(--text-dim); margin: 2px 0 4px; line-height: 1.3;
+}
 .results-hero-surface {
   font-size: 10px; color: var(--cyan); margin-top: 8px; line-height: 1.35;
   padding: 5px 8px; background: rgba(0,212,255,0.06);

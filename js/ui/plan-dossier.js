@@ -16,6 +16,9 @@ import { buildMeasurementCard } from './measurement-card.js';
 import { buildVehicleEngineeringReport } from '../physics/vehicle-performance.js';
 import { formatVelocity, simTimeToDate } from './format.js';
 import { trustCardHtml } from './trust-card.js';
+import {
+  COORD_SYSTEM_ID, geographicEndpointPackage,
+} from '../physics/surface-point.js';
 
 /**
  * Build full dossier and attach to td.dossier.
@@ -112,10 +115,16 @@ export function buildPlanDossier(td, opts = {}) {
       classroomMode: !!state.classroomMode,
       launch_site_id: site.id,
       ascent_loss_m_s: state.ascentLossBudget_m_s || 0,
+      coordinate_system: COORD_SYSTEM_ID,
+      geographic_origin: geographicEndpointPackage(td.body1, td.surfaceOriginPoint),
+      geographic_destination: geographicEndpointPackage(td.body2, td.surfaceDestPoint),
     },
     geometry: {
       lambertOk: !!td.lambertOk,
       longWay: td.longWay ?? null,
+      coordinate_system: COORD_SYSTEM_ID,
+      geographic_origin: td.surfaceOriginMeta || geographicEndpointPackage(td.body1, td.surfaceOriginPoint),
+      geographic_destination: td.surfaceDestMeta || geographicEndpointPackage(td.body2, td.surfaceDestPoint),
       departure_iso: td.departureSimTime != null
         ? simTimeToDate(td.departureSimTime).toISOString() : null,
       arrival_iso: td.arrivalSimTime != null

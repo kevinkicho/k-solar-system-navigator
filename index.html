@@ -890,10 +890,11 @@ input[type="range"]::-webkit-slider-thumb {
       </div>
 
       <details class="surface-point-panel" id="origin-surface-panel" hidden>
-        <summary>Origin exact point · lat / lon / alt</summary>
+        <summary>Origin geographic site · lat / lon / alt</summary>
         <div class="surface-point-body">
+          <div class="geo-cs-badge" id="origin-geo-badge" title="Coordinate system">Planetocentric · east lon · h</div>
           <label class="surface-check">
-            <input type="checkbox" id="origin-surface-enabled"> Enable spherical surface endpoint
+            <input type="checkbox" id="origin-surface-enabled"> Enable geographic site (lat / lon / alt)
           </label>
           <div id="origin-surface-fields" hidden>
             <div class="route-field-row">
@@ -902,27 +903,30 @@ input[type="range"]::-webkit-slider-thumb {
             </div>
             <div class="surface-ll-row">
               <div class="route-field-row">
-                <label>Latitude °N</label>
+                <label>Latitude °N (planetocentric)</label>
                 <input type="number" id="origin-lat" min="-90" max="90" step="0.01" value="0">
               </div>
               <div class="route-field-row">
-                <label>Longitude °E</label>
+                <label>Longitude °E (east +)</label>
                 <input type="number" id="origin-lon" min="-180" max="180" step="0.01" value="0">
               </div>
             </div>
             <div class="route-field-row">
-              <label for="origin-alt">Altitude (km above radius)</label>
+              <label for="origin-alt">Altitude (km above mean radius)</label>
               <input type="number" id="origin-alt" min="0" max="100000" step="1" value="100">
             </div>
-            <p class="surface-hint" id="origin-surface-hint">Planetocentric spherical · concept-grade spin · not SPICE. Gas giants use 1-bar cloud-deck reference (no solid surface).</p>
+            <div class="geo-radius-readout" id="origin-radius-readout" aria-live="polite">Radius from center: —</div>
+            <div class="geo-lon-system" id="origin-lon-system"></div>
+            <p class="surface-hint" id="origin-surface-hint">Geographic site: planetocentric lat/lon + height above reference. Derived r = R_ref + h. Concept-grade · not SPICE.</p>
           </div>
         </div>
       </details>
       <details class="surface-point-panel" id="dest-surface-panel" hidden>
-        <summary>Destination exact point · lat / lon / alt</summary>
+        <summary>Destination geographic site · lat / lon / alt</summary>
         <div class="surface-point-body">
+          <div class="geo-cs-badge" id="dest-geo-badge" title="Coordinate system">Planetocentric · east lon · h</div>
           <label class="surface-check">
-            <input type="checkbox" id="dest-surface-enabled"> Enable spherical surface endpoint
+            <input type="checkbox" id="dest-surface-enabled"> Enable geographic site (lat / lon / alt)
           </label>
           <div id="dest-surface-fields" hidden>
             <div class="route-field-row">
@@ -931,19 +935,21 @@ input[type="range"]::-webkit-slider-thumb {
             </div>
             <div class="surface-ll-row">
               <div class="route-field-row">
-                <label>Latitude °N</label>
+                <label>Latitude °N (planetocentric)</label>
                 <input type="number" id="dest-lat" min="-90" max="90" step="0.01" value="0">
               </div>
               <div class="route-field-row">
-                <label>Longitude °E</label>
+                <label>Longitude °E (east +)</label>
                 <input type="number" id="dest-lon" min="-180" max="180" step="0.01" value="0">
               </div>
             </div>
             <div class="route-field-row">
-              <label for="dest-alt">Altitude (km above radius)</label>
+              <label for="dest-alt">Altitude (km above mean radius)</label>
               <input type="number" id="dest-alt" min="0" max="100000" step="1" value="100">
             </div>
-            <p class="surface-hint" id="dest-surface-hint">Planetocentric spherical · concept-grade spin · not SPICE. Gas giants use 1-bar cloud-deck reference (no solid surface).</p>
+            <div class="geo-radius-readout" id="dest-radius-readout" aria-live="polite">Radius from center: —</div>
+            <div class="geo-lon-system" id="dest-lon-system"></div>
+            <p class="surface-hint" id="dest-surface-hint">Geographic site: planetocentric lat/lon + height above reference. Derived r = R_ref + h. Concept-grade · not SPICE.</p>
           </div>
         </div>
       </details>

@@ -111,9 +111,22 @@ function surfaceNoteHtml(td) {
   const d = td.surfaceDestMeta;
   if (!o && !d) return '';
   const lines = [];
-  if (o) lines.push(`Origin site: ${o.label}`);
-  if (d) lines.push(`Dest site: ${d.label}`);
-  return `<p class="results-hero-surface" title="Planetocentric spherical endpoints (concept-grade spin)">📍 ${lines.join(' · ')}</p>`;
+  if (o) {
+    const r = o.radius_from_center_km != null
+      ? ` · r=${Number(o.radius_from_center_km).toFixed(0)} km`
+      : '';
+    const sys = o.longitudeSystem === 'system-III' ? ' · Sys.III' : '';
+    lines.push(`Origin: ${o.label}${r}${sys}`);
+  }
+  if (d) {
+    const r = d.radius_from_center_km != null
+      ? ` · r=${Number(d.radius_from_center_km).toFixed(0)} km`
+      : '';
+    const sys = d.longitudeSystem === 'system-III' ? ' · Sys.III' : '';
+    lines.push(`Dest: ${d.label}${r}${sys}`);
+  }
+  const cs = o?.coordinateSystemLabel || d?.coordinateSystemLabel || 'Planetocentric geographic';
+  return `<p class="results-hero-surface" title="${cs} · r = R_ref + h · concept-grade">📍 ${lines.join(' · ')}<br><span style="opacity:0.75;font-size:9px">${cs}</span></p>`;
 }
 
 function actionsHtml(missionReady) {

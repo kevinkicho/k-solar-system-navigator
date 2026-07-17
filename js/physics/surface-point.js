@@ -69,33 +69,101 @@ export function defaultParkingAlt_m(body) {
   return 100e3;
 }
 
-/** Human-readable reference sphere note for UI. */
-export function referenceSphereLabel(body) {
-  const kind = bodySurfaceKind(body);
-  if (kind === 'gas-giant') {
-    return '1-bar / cloud-deck reference (no solid surface) · lat/lon on spinning sphere · alt above 1-bar';
+/**
+ * Canonical HELIOS geographic coordinate system id (IAU-style planetocentric).
+ * UI: lat / lon / height above reference; math: planetocentric spherical (φ,λ,r).
+ */
+export const COORD_SYSTEM_ID = 'planetocentric+eastlon+h_above_ref';
+
+/**
+ * Longitude system for body-fixed meridians (educational labels).
+ * Gas/ice giants: System III magnetic-field clock (IAU W for giants).
+ * Rocky: geographic / cartographic prime meridian.
+ */
+export function longitudeSystem(body) {
+  if (!body) return { id: 'geographic', label: 'Geographic (east lon)' };
+  if (isFluidGiant(body)) {
+    return {
+      id: 'system-III',
+      label: 'System III (magnetic / IAU-class · educational)',
+      note: 'Giant-planet longitudes use a System III–class clock; not cloud-belt System I/II.',
+    };
   }
-  if (kind === 'ice-giant') {
-    return '1-bar reference sphere (ice giant, no solid surface) · lat/lon + alt above 1-bar';
+  if (body.name === 'Earth') {
+    return { id: 'geographic', label: 'Geographic east lon (Greenwich-class)' };
+  }
+  return { id: 'geographic', label: 'Planetocentric east lon (cartographic prime meridian)' };
+}
+
+/** Compact badge for UI (coordinate system strip). */
+export function coordinateSystemBadge(body) {
+  const kind = bodySurfaceKind(body);
+  const lon = longitudeSystem(body);
+  if (kind === 'gas-giant' || kind === 'ice-giant') {
+    return {
+      short: 'Planetocentric · east lon · 1-bar · h',
+      full: `Planetocentric geographic (lat/lon east-positive) · height above 1-bar cloud deck · ${lon.label} · concept-grade (not SPICE)`,
+      id: COORD_SYSTEM_ID,
+      longitudeSystem: lon.id,
+      reference: '1-bar',
+    };
   }
   if (kind === 'thick-atmosphere') {
-    return 'Mean radius / atmosphere reference · lat/lon + alt above mean radius';
+    return {
+      short: 'Planetocentric · east lon · mean R · h',
+      full: 'Planetocentric geographic · height above mean radius (thick atmosphere) · concept-grade',
+      id: COORD_SYSTEM_ID,
+      longitudeSystem: lon.id,
+      reference: 'mean-radius',
+    };
   }
-  return 'Mean spherical radius · lat/lon on surface · alt above radius';
+  return {
+    short: 'Planetocentric · east lon · mean R · h',
+    full: 'Planetocentric geographic (lat/lon east-positive) · height above mean spherical radius · concept-grade (not SPICE / not WGS84 ops)',
+    id: COORD_SYSTEM_ID,
+    longitudeSystem: lon.id,
+    reference: 'mean-radius',
+  };
+}
+
+/** Human-readable reference sphere note for UI. */
+export function referenceSphereLabel(body) {
+  const badge = coordinateSystemBadge(body);
+  return badge.full;
 }
 
 export function altitudeFieldLabel(body) {
   return isFluidGiant(body)
     ? 'Altitude (km above 1-bar reference)'
-    : 'Altitude (km above radius)';
+    : 'Altitude (km above mean radius)';
 }
 
 export function surfacePanelTitle(body, role = 'origin') {
   const who = role === 'dest' ? 'Destination' : 'Origin';
   if (isFluidGiant(body)) {
-    return `${who} cloud-deck point · lat / lon / alt (1-bar)`;
+    return `${who} geographic site · lat / lon / alt (1-bar)`;
   }
-  return `${who} exact point · lat / lon / alt`;
+  return `${who} geographic site · lat / lon / alt`;
+}
+
+/** Reference sphere radius (m) used for h → r conversion. */
+export function referenceRadius_m(body) {
+  return body?.radius || 0;
+}
+
+/**
+ * Planetocentric radius from center (m): r = R_ref + h.
+ * Primary physics third coordinate; altitude h is the practical UI field.
+ */
+export function planetocentricRadius_m(body, alt_m = 0) {
+  return referenceRadius_m(body) + (Number(alt_m) || 0);
+}
+
+export function formatRadiusFromCenter(body, alt_m) {
+  const r = planetocentricRadius_m(body, alt_m);
+  if (!(r > 0)) return '—';
+  if (r >= 1e6) return `${(r / 1000).toFixed(0)} km from center`;
+  return `${(r / 1000).toFixed(1)} km from center`;
 }
 
 /** Default empty surface point (disabled). Body-aware parking default. */
@@ -151,6 +219,13 @@ export function formatSurfacePointShort(p, body = null) {
   const altKm = (p.alt_m / 1000).toFixed(p.alt_m >= 1000 ? 0 : 1);
   const ref = isFluidGiant(body) ? '1-bar+' : 'h';
   return `${Math.abs(p.lat_deg).toFixed(2)}°${ns} ${Math.abs(p.lon_deg).toFixed(2)}°${ew} · ${ref}${altKm} km`;
+}
+
+/** Lon in [0, 360) east for dossiers that prefer 0–360. */
+export function lonEast_0_360(lon_deg) {
+  let L = Number(lon_deg) || 0;
+  L = ((L % 360) + 360) % 360;
+  return L;
 }
 
 /**
@@ -361,19 +436,46 @@ export function applySurfaceEndpoint(posAU, velMps, body, timeSec, point) {
 export function surfacePointMeta(body, point) {
   if (!isSurfacePointActive(point) || !body) return null;
   const kind = bodySurfaceKind(body);
+  const badge = coordinateSystemBadge(body);
+  const lonSys = longitudeSystem(body);
+  const r_m = planetocentricRadius_m(body, point.alt_m);
   return {
     body: body.name,
     bodyId: body.id || null,
     lat_deg: point.lat_deg,
     lon_deg: point.lon_deg,
+    lon_east_0_360: lonEast_0_360(point.lon_deg),
     alt_m: point.alt_m,
+    radius_from_center_m: r_m,
+    radius_from_center_km: r_m / 1000,
+    reference_radius_m: referenceRadius_m(body),
     label: formatSurfacePointShort(point, body),
     surfaceKind: kind,
-    referenceSphere: isFluidGiant(body) ? '1-bar' : 'mean-radius',
+    referenceSphere: badge.reference,
+    coordinateSystem: badge.id,
+    coordinateSystemLabel: badge.short,
+    longitudeSystem: lonSys.id,
+    longitudeSystemLabel: lonSys.label,
+    latitudeConvention: 'planetocentric',
+    longitudeConvention: 'east-positive',
     model: isFluidGiant(body)
-      ? 'planetocentric spherical on 1-bar reference + concept-grade spin (no solid surface; not SPICE)'
-      : 'planetocentric spherical + concept-grade spin (not SPICE)',
+      ? 'Geographic (planetocentric lat/lon + h above 1-bar) · concept-grade spin · no solid surface · not SPICE'
+      : 'Geographic (planetocentric lat/lon + h above mean radius) · concept-grade spin · not SPICE / not WGS84 ops',
   };
+}
+
+/** Full geographic endpoint package for plan dossier (null if inactive). */
+export function geographicEndpointPackage(body, point) {
+  const meta = surfacePointMeta(body, point);
+  if (!meta) {
+    return {
+      active: false,
+      coordinateSystem: COORD_SYSTEM_ID,
+      body: body?.name || null,
+      note: 'Body-center endpoint (no geographic site)',
+    };
+  }
+  return { active: true, ...meta };
 }
 
 /** Clamp user inputs to valid spherical ranges. */
