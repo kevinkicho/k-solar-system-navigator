@@ -103,7 +103,7 @@ node tests/ephemeris_check.mjs
 node tests/horizons_mock.mjs          # Horizons adapter (mocked fetch only)
 ```
 
-Design docs: `docs/trip-planner-design.md`, cargo / fidelity / reliability / concept-grade / **post-landing-hardening**.
+Design docs: `docs/trip-planner-design.md`, cargo / fidelity / reliability / concept-grade / post-landing-hardening / **geographic-site-coordinates**.
 
 ## Performance baselines
 
@@ -220,4 +220,5 @@ hyg_v42.csv               — full HYG source (optional; not on critical path)
 tests/                    — offline physics + soft perf_budgets + server + Playwright
 LICENSE                   — MIT
 docs/trip-planner-design.md — product redesign + PR plan
+docs/geographic-site-coordinates-design.md — body-fixed geographic sites (lat/lon/h, 1-bar giants)
 ```
