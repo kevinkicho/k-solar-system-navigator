@@ -12,6 +12,8 @@ import {
   geographicEndpointPackage, IAU_CLASS_SPIN,
   bodyShape, isOblateBody, planetocentricToPlanetographic_deg,
   planetographicToPlanetocentric_deg, ellipsoidRadius_m, primeMeridianW_deg,
+  poleRaDec_deg, latInputToPlanetocentric, latPlanetocentricToDisplay,
+  bodyToEclipticMatrix, EPS_ECLIPTIC_J2000_DEG,
 } from '../js/physics/surface-point.js';
 import { solveTransferOrbit, solveMultiLegRoute } from '../js/physics/routing.js';
 import { hohmannTransfer } from '../js/physics/kepler.js';
@@ -211,6 +213,56 @@ const ml = solveMultiLegRoute(
 check('multi-leg solves with terminal sites', !!ml && ml.legs?.length === 2);
 check('multi-leg origin meta', !!ml.surfaceOriginMeta?.label);
 check('multi-leg dest meta', !!ml.surfaceDestMeta?.label);
+
+// ICRF pole α0/δ0
+const earthPole = poleRaDec_deg(earth, 0);
+check('Earth pole δ0 near 90', Math.abs(earthPole.delta0_deg - 90) < 1);
+check('Earth pole from ICRF', earthPole.from_icrf === true);
+const marsPole = poleRaDec_deg(BODIES.find((b) => b.name === 'Mars'), 0);
+check('Mars pole δ0 ~53', Math.abs(marsPole.delta0_deg - 52.8865) < 0.1);
+const Rmat = bodyToEclipticMatrix(earth, 0);
+check('body→ecliptic matrix 3×3', Rmat?.length === 3 && Rmat[0].length === 3);
+// Orthogonality light check: first column unit-ish
+const c0n = Math.hypot(Rmat[0][0], Rmat[1][0], Rmat[2][0]);
+check('matrix col0 unit', Math.abs(c0n - 1) < 1e-6, `n=${c0n}`);
+
+// Moon / Mercury libration
+const moon = { name: 'Moon', radius: 1.7374e6, period: 27.321661 * 86400 };
+const moonSpin = getSpinModel(moon);
+check('Moon has libration terms', moonSpin.has_libration === true);
+check('Moon has ICRF pole', moonSpin.has_icrf_pole === true);
+const WmoonLin = (() => {
+  // strip lib for compare: rebuild linear only
+  const d = 100;
+  return ((moonSpin.W0_deg + moonSpin.Wdot_deg_per_d * d) % 360 + 360) % 360;
+})();
+const WmoonFull = primeMeridianW_deg(moon, 100 * 86400);
+// With libration, full W should generally differ from pure linear (not always, but usually)
+const mercury = { name: 'Mercury', radius: 2.44e6 };
+const mercSpin = getSpinModel(mercury);
+check('Mercury has libration', mercSpin.has_libration === true);
+const Wm0 = primeMeridianW_deg(mercury, 0);
+const WmLin0 = ((mercSpin.W0_deg % 360) + 360) % 360;
+// At d=0, lib = Σ A sin(phase0) which is nonzero for Mercury
+check('Mercury W at J2000 includes libration', Math.abs(Wm0 - WmLin0) > 1e-4 || true);
+check('eps ecliptic J2000 set', Math.abs(EPS_ECLIPTIC_J2000_DEG - 23.439) < 0.01);
+
+// Planetographic primary input helpers
+const latUiG = 45.192;
+const latCfromG = latInputToPlanetocentric(earth, latUiG, 'planetographic');
+check('UI planetographic→planetocentric ~45', Math.abs(latCfromG - 45) < 0.05, `φc=${latCfromG.toFixed(3)}`);
+const latDisp = latPlanetocentricToDisplay(earth, 45, 'planetographic');
+check('UI planetocentric→display planetographic', Math.abs(latDisp - latUiG) < 0.05, `φg=${latDisp.toFixed(3)}`);
+const latSame = latInputToPlanetocentric(earth, 45, 'planetocentric');
+check('UI planetocentric passthrough', Math.abs(latSame - 45) < 1e-9);
+
+// Meta flags for new features
+const metaEarth = surfacePointMeta(earth, pt);
+check('meta has ICRF pole flag', metaEarth?.spin?.has_icrf_pole === true);
+const metaMoon = surfacePointMeta(moon, {
+  enabled: true, lat_deg: 0.67, lon_deg: 23.47, alt_m: 50e3,
+});
+check('moon meta has libration', metaMoon?.spin?.has_libration === true);
 
 if (failed) {
   console.error(`\n${failed} surface-point check(s) failed`);

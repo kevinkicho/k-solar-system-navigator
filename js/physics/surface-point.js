@@ -378,39 +378,147 @@ export function presetsForBody(body) {
 }
 
 /**
- * IAU-class rotational elements (educational linear W(t)).
+ * IAU / WGCCRE-class rotational elements (Archinal et al. 2011/2015 class).
  *
- * W(d) = W0 + Wdot·d   (degrees; d = Julian days from J2000.0 TT ≈ HELIOS sim days)
- * Wdot in deg/day. Negative Wdot ⇒ retrograde prime meridian advance.
+ * Pole in ICRF equatorial: α0(T), δ0(T) with T = Julian centuries from J2000.
+ * Prime meridian: W(d) = W0 + Ẇ·d [+ Σ Aᵢ sin(θᵢ(d))]  (d = days from J2000).
  *
- * Values aligned with Archinal et al. WGCCRE reports (2011/2015 class) + SSD
- * sidereal periods for ω. Linear term only — no libration / nutation harmonics.
- * Not SPICE PCK kernels.
+ * HELIOS converts ICRF → mean ecliptic of J2000 via mean obliquity ε.
+ * Concept-grade: not SPICE PCK, not full 100+ lunar terms.
  *
- * period_d: 360/|Wdot| with sign of Wdot (for ω magnitude).
- * obliquity_deg: mean ecliptic obliquity of spin axis (HELIOS ecliptic frame).
+ * lib_terms: optional [{ amp_deg, rate_deg_per_d, phase0_deg }]
+ *   contribution A·sin(phase0 + rate·d)
+ * lib_quad_d2: optional quadratic term W₂·d² (deg)
  */
+// Mean obliquity of the ecliptic at J2000 (IAU), deg — ICRF equator → ecliptic.
+export const EPS_ECLIPTIC_J2000_DEG = 23.4392911;
+
 export const IAU_CLASS_SPIN = {
-  // W0, Wdot from Archinal et al. 2011 Table 1 (representative); period from SSD
-  Mercury: { W0_deg: 329.5469, Wdot_deg_per_d: 6.1385025, period_d: 58.6462, obliquity_deg: 0.034 },
-  Venus: { W0_deg: 160.20, Wdot_deg_per_d: -1.4813688, period_d: -243.018, obliquity_deg: 177.36 },
-  Earth: { W0_deg: 190.147, Wdot_deg_per_d: 360.9856235, period_d: 0.99726968, obliquity_deg: 23.4392911 },
-  Mars: { W0_deg: 176.630, Wdot_deg_per_d: 350.89198226, period_d: 1.02595676, obliquity_deg: 25.19 },
-  Jupiter: { W0_deg: 284.95, Wdot_deg_per_d: 870.5360000, period_d: 0.41354, obliquity_deg: 3.13 }, // Sys.III
-  Saturn: { W0_deg: 38.90, Wdot_deg_per_d: 810.7939024, period_d: 0.44401, obliquity_deg: 26.73 },
-  Uranus: { W0_deg: 203.81, Wdot_deg_per_d: -501.1600928, period_d: -0.71833, obliquity_deg: 97.77 },
-  Neptune: { W0_deg: 253.18, Wdot_deg_per_d: 536.3128492, period_d: 0.67125, obliquity_deg: 28.32 },
-  Moon: { W0_deg: 38.3213, Wdot_deg_per_d: 13.17635815, period_d: 27.321661, obliquity_deg: 6.68 },
-  Pluto: { W0_deg: 302.695, Wdot_deg_per_d: -56.3623195, period_d: -6.3872, obliquity_deg: 119.61 },
-  Ceres: { W0_deg: 291.4, Wdot_deg_per_d: 952.1532, period_d: 0.37809042, obliquity_deg: 4 },
-  Eris: { W0_deg: 0, Wdot_deg_per_d: 333.6, period_d: 1.079, obliquity_deg: 0 },
-  Haumea: { W0_deg: 0, Wdot_deg_per_d: 2206.1, period_d: 0.1631, obliquity_deg: 0 },
-  Makemake: { W0_deg: 0, Wdot_deg_per_d: 384.2, period_d: 0.937, obliquity_deg: 0 },
+  // α0, δ0, Ẇ from Archinal et al. 2011 Table 1 (J2000 constants; linear T when given)
+  Mercury: {
+    alpha0_deg: 281.0097, delta0_deg: 61.4143,
+    alpha0_dot_deg_per_cy: -0.0328, delta0_dot_deg_per_cy: -0.0049,
+    W0_deg: 329.5469, Wdot_deg_per_d: 6.1385025, period_d: 58.6462,
+    obliquity_deg: 0.034, // legacy tip fallback
+    // Leading physical libration terms (Archinal 2011 style educational subset)
+    lib_terms: [
+      { amp_deg: 0.00993822, rate_deg_per_d: 4.092335, phase0_deg: 174.791086 },
+      { amp_deg: -0.00104581, rate_deg_per_d: 8.184670, phase0_deg: 349.582172 },
+      { amp_deg: -0.00010280, rate_deg_per_d: 12.277005, phase0_deg: 164.373258 },
+    ],
+  },
+  Venus: {
+    alpha0_deg: 272.76, delta0_deg: 67.16,
+    alpha0_dot_deg_per_cy: 0, delta0_dot_deg_per_cy: 0,
+    W0_deg: 160.20, Wdot_deg_per_d: -1.4813688, period_d: -243.018,
+    obliquity_deg: 177.36,
+  },
+  Earth: {
+    alpha0_deg: 0.00, delta0_deg: 90.00,
+    alpha0_dot_deg_per_cy: -0.641, delta0_dot_deg_per_cy: -0.557,
+    W0_deg: 190.147, Wdot_deg_per_d: 360.9856235, period_d: 0.99726968,
+    obliquity_deg: 23.4392911,
+  },
+  Mars: {
+    alpha0_deg: 317.68143, delta0_deg: 52.88650,
+    alpha0_dot_deg_per_cy: -0.1061, delta0_dot_deg_per_cy: -0.0609,
+    W0_deg: 176.630, Wdot_deg_per_d: 350.89198226, period_d: 1.02595676,
+    obliquity_deg: 25.19,
+  },
+  Jupiter: {
+    alpha0_deg: 268.056595, delta0_deg: 64.495303,
+    alpha0_dot_deg_per_cy: -0.006499, delta0_dot_deg_per_cy: 0.002413,
+    W0_deg: 284.95, Wdot_deg_per_d: 870.5360000, period_d: 0.41354,
+    obliquity_deg: 3.13,
+  },
+  Saturn: {
+    alpha0_deg: 40.589, delta0_deg: 83.537,
+    alpha0_dot_deg_per_cy: -0.036, delta0_dot_deg_per_cy: -0.004,
+    W0_deg: 38.90, Wdot_deg_per_d: 810.7939024, period_d: 0.44401,
+    obliquity_deg: 26.73,
+  },
+  Uranus: {
+    alpha0_deg: 257.311, delta0_deg: -15.175,
+    alpha0_dot_deg_per_cy: 0, delta0_dot_deg_per_cy: 0,
+    W0_deg: 203.81, Wdot_deg_per_d: -501.1600928, period_d: -0.71833,
+    obliquity_deg: 97.77,
+  },
+  Neptune: {
+    alpha0_deg: 299.36, delta0_deg: 43.46,
+    alpha0_dot_deg_per_cy: 0, delta0_dot_deg_per_cy: 0,
+    W0_deg: 253.18, Wdot_deg_per_d: 536.3128492, period_d: 0.67125,
+    obliquity_deg: 28.32,
+  },
+  // Moon: linear + leading physical libration terms (subset of Archinal Table)
+  Moon: {
+    alpha0_deg: 269.9949, delta0_deg: 66.5392,
+    alpha0_dot_deg_per_cy: 0, delta0_dot_deg_per_cy: 0, // pole also has series; constants at J2000
+    W0_deg: 38.3213, Wdot_deg_per_d: 13.17635815, period_d: 27.321661,
+    obliquity_deg: 6.68,
+    lib_quad_d2: -1.4e-12, // deg · d⁻²
+    // E1, E2, E3, E4, E5 style arguments → rate & phase0 (deg)
+    lib_terms: [
+      { amp_deg: 3.5610, rate_deg_per_d: -0.0529921, phase0_deg: 125.045 }, // E1
+      { amp_deg: 0.1208, rate_deg_per_d: -0.1059842, phase0_deg: 250.089 }, // E2
+      { amp_deg: -0.0642, rate_deg_per_d: 13.0120009, phase0_deg: 260.008 }, // E3
+      { amp_deg: 0.0158, rate_deg_per_d: 13.3407154, phase0_deg: 176.625 }, // E4
+      { amp_deg: 0.0252, rate_deg_per_d: 0.9856003, phase0_deg: 357.529 }, // E5 (Sun)
+    ],
+  },
+  Pluto: {
+    alpha0_deg: 132.993, delta0_deg: -6.163,
+    alpha0_dot_deg_per_cy: 0, delta0_dot_deg_per_cy: 0,
+    W0_deg: 302.695, Wdot_deg_per_d: -56.3623195, period_d: -6.3872,
+    obliquity_deg: 119.61,
+  },
+  Ceres: {
+    alpha0_deg: 291.418, delta0_deg: 66.764,
+    alpha0_dot_deg_per_cy: 0, delta0_dot_deg_per_cy: 0,
+    W0_deg: 170.650, Wdot_deg_per_d: 952.1532, period_d: 0.37809042,
+    obliquity_deg: 4,
+  },
+  Eris: {
+    alpha0_deg: 0, delta0_deg: 90,
+    W0_deg: 0, Wdot_deg_per_d: 333.6, period_d: 1.079, obliquity_deg: 0,
+  },
+  Haumea: {
+    alpha0_deg: 0, delta0_deg: 90,
+    W0_deg: 0, Wdot_deg_per_d: 2206.1, period_d: 0.1631, obliquity_deg: 0,
+  },
+  Makemake: {
+    alpha0_deg: 0, delta0_deg: 90,
+    W0_deg: 0, Wdot_deg_per_d: 384.2, period_d: 0.937, obliquity_deg: 0,
+  },
 };
+
+/** Julian centuries T from J2000 for pole rates. */
+export function julianCenturiesFromJ2000(timeSec) {
+  return (timeSec / DAY) / 36525;
+}
+
+/**
+ * ICRF pole (α0, δ0) in degrees at epoch.
+ */
+export function poleRaDec_deg(body, timeSec = 0) {
+  const table = body?.name && IAU_CLASS_SPIN[body.name];
+  if (!table || table.alpha0_deg == null) {
+    // Fallback: ecliptic-north tip ≈ α undefined, δ=90−ε
+    const obl = table?.obliquity_deg ?? 0;
+    return { alpha0_deg: 0, delta0_deg: 90 - obl, from_icrf: false };
+  }
+  const T = julianCenturiesFromJ2000(timeSec);
+  const aDot = table.alpha0_dot_deg_per_cy || 0;
+  const dDot = table.delta0_dot_deg_per_cy || 0;
+  return {
+    alpha0_deg: table.alpha0_deg + aDot * T,
+    delta0_deg: table.delta0_deg + dDot * T,
+    from_icrf: true,
+  };
+}
 
 /**
  * Prime meridian angle W (deg) at HELIOS sim time (seconds from J2000).
- * W = W0 + Wdot·d  (linear IAU-class polynomial).
+ * W = W0 + Ẇ·d [+ W₂ d²] [+ Σ Aᵢ sin(φᵢ + ωᵢ d)]
  */
 export function primeMeridianW_deg(body, timeSec) {
   const spin = getSpinModel(body);
@@ -419,16 +527,22 @@ export function primeMeridianW_deg(body, timeSec) {
   if (spin.Wdot_deg_per_d != null && isFinite(spin.Wdot_deg_per_d)) {
     W = spin.W0_deg + spin.Wdot_deg_per_d * d;
   } else {
-    // Fallback: 360/P · d
     const period = spin.period_d || 1;
     W = spin.W0_deg + (360 / period) * d;
+  }
+  if (spin.lib_quad_d2) W += spin.lib_quad_d2 * d * d;
+  if (Array.isArray(spin.lib_terms)) {
+    for (const t of spin.lib_terms) {
+      const arg = (t.phase0_deg + t.rate_deg_per_d * d) * DEG;
+      W += t.amp_deg * Math.sin(arg);
+    }
   }
   W = ((W % 360) + 360) % 360;
   return W;
 }
 
 /**
- * Spin / pole model. IAU-class W0+Wdot when tabulated; SSD period preferred for ω.
+ * Spin / pole model. IAU-class W0+Wdot (+ libration) and ICRF pole when tabulated.
  */
 export function getSpinModel(body) {
   const name = body?.name;
@@ -437,21 +551,32 @@ export function getSpinModel(body) {
   const period_d = extra?.siderealRotation_d
     ?? table?.period_d
     ?? (body?.period ? body.period / DAY : 1);
-  // Prefer published Wdot; else derive from period
   let Wdot = table?.Wdot_deg_per_d;
   if (Wdot == null && period_d) {
     Wdot = 360 / period_d;
   }
+  const hasLib = !!(table && (table.lib_terms?.length || table.lib_quad_d2));
+  const hasPole = !!(table && table.alpha0_deg != null && table.delta0_deg != null);
   return {
     period_d: period_d || 1,
     obliquity_deg: table?.obliquity_deg ?? 0,
     W0_deg: table?.W0_deg ?? 0,
     Wdot_deg_per_d: Wdot ?? 360,
+    lib_terms: table?.lib_terms || null,
+    lib_quad_d2: table?.lib_quad_d2 ?? null,
+    alpha0_deg: table?.alpha0_deg ?? null,
+    delta0_deg: table?.delta0_deg ?? null,
+    alpha0_dot_deg_per_cy: table?.alpha0_dot_deg_per_cy ?? 0,
+    delta0_dot_deg_per_cy: table?.delta0_dot_deg_per_cy ?? 0,
     source: table
-      ? 'IAU-class W(t)=W0+Wdot·d (Archinal/WGCCRE class) + SSD period when present — not full PCK / not SPICE'
+      ? (hasLib
+        ? 'IAU-class W(t)=W0+Ẇd+ΣA sin(·) + ICRF pole α0/δ0 (Archinal/WGCCRE class) — not full SPICE PCK'
+        : 'IAU-class W(t)=W0+Ẇd + ICRF pole α0/δ0 (Archinal/WGCCRE class) — not SPICE PCK')
       : 'concept-grade spin fallback',
     iau_class_table: !!table,
     has_W_polynomial: !!(table && table.Wdot_deg_per_d != null),
+    has_libration: hasLib,
+    has_icrf_pole: hasPole,
   };
 }
 
@@ -495,13 +620,38 @@ function matMul(A, B) {
 }
 
 /**
- * Rotation matrix body-fixed → standard ecliptic (X,Y,Z).
- * R = Rx(obliquity) · Rz(W(t)) with IAU-class linear W(t).
+ * Body-fixed → ICRF equatorial (standard IAU cartographic convention):
+ *   R_ICRF = Rz(α0 + 90°) · Rx(90° − δ0) · Rz(W)
+ * Then ICRF equatorial → mean ecliptic of J2000:
+ *   R_ecl = Rx(ε) · R_ICRF
+ * with ε = EPS_ECLIPTIC_J2000_DEG.
+ *
+ * Fallback (no ICRF pole): legacy Rx(obliquity)·Rz(W).
  */
 export function bodyToEclipticMatrix(body, timeSec) {
   const spin = getSpinModel(body);
   const W = primeMeridianW_deg(body, timeSec);
   const Wrad = W * DEG;
+
+  if (spin.has_icrf_pole && spin.alpha0_deg != null) {
+    const pole = poleRaDec_deg(body, timeSec);
+    const a = pole.alpha0_deg * DEG;
+    const d = pole.delta0_deg * DEG;
+    // R_body→ICRF = Rz(α0+90°) Rx(90°−δ0) Rz(W)
+    const R_bf_icrf = matMul(
+      matMul(Rz(a + Math.PI / 2), Rx(Math.PI / 2 - d)),
+      Rz(Wrad),
+    );
+    // ICRF equatorial → ecliptic: Rx(+ε) maps equatorial Z toward ecliptic Z
+    // Standard: x_ecl = x_eq; rotating about X by ε:
+    // Actually common convention: R_eq_to_ecl = Rx(ε) with
+    // y_ecl = y cos ε + z sin ε, z_ecl = -y sin ε + z cos ε
+    // which is Rx(+ε) in active right-handed sense used here.
+    const eps = EPS_ECLIPTIC_J2000_DEG * DEG;
+    return matMul(Rx(eps), R_bf_icrf);
+  }
+
+  // Legacy mean-obliquity tip (no ICRF pole table)
   const obl = spin.obliquity_deg * DEG;
   return matMul(Rx(obl), Rz(Wrad));
 }
@@ -629,14 +779,39 @@ export function surfacePointMeta(body, point) {
       W0_deg: spin.W0_deg,
       Wdot_deg_per_d: spin.Wdot_deg_per_d,
       has_W_polynomial: spin.has_W_polynomial,
+      has_libration: spin.has_libration,
+      has_icrf_pole: spin.has_icrf_pole,
+      alpha0_deg: spin.alpha0_deg,
+      delta0_deg: spin.delta0_deg,
       source: spin.source,
     },
     model: isFluidGiant(body)
-      ? 'Geographic (planetocentric lat/lon + h above 1-bar ellipsoid) · IAU-class W(t) · no solid surface · not SPICE'
+      ? 'Geographic (planetocentric lat/lon + h above 1-bar ellipsoid) · IAU-class W(t)+ICRF pole · no solid surface · not SPICE'
       : shape.isOblate
-        ? 'Geographic (planetocentric lat + dual planetographic display) · oblate R(φ) · IAU-class W(t) · not SPICE / not WGS84 ops'
-        : 'Geographic (planetocentric lat/lon + h) · IAU-class W(t) · not SPICE / not WGS84 ops',
+        ? 'Geographic (planetocentric lat + dual planetographic) · oblate R(φ) · IAU-class W(t)+ICRF pole · not SPICE / not WGS84 ops'
+        : 'Geographic (planetocentric lat/lon + h) · IAU-class W(t)+ICRF pole · not SPICE / not WGS84 ops',
   };
+}
+
+/**
+ * Resolve lat for storage (always planetocentric) from UI mode.
+ * @param {'planetocentric'|'planetographic'} mode
+ */
+export function latInputToPlanetocentric(body, lat_ui_deg, mode = 'planetocentric') {
+  if (mode === 'planetographic' && isOblateBody(body)) {
+    return planetographicToPlanetocentric_deg(body, lat_ui_deg);
+  }
+  return Number(lat_ui_deg) || 0;
+}
+
+/**
+ * Planetocentric lat → display value for UI mode.
+ */
+export function latPlanetocentricToDisplay(body, lat_c_deg, mode = 'planetocentric') {
+  if (mode === 'planetographic' && isOblateBody(body)) {
+    return planetocentricToPlanetographic_deg(body, lat_c_deg);
+  }
+  return Number(lat_c_deg) || 0;
 }
 
 /** Full geographic endpoint package for plan dossier (null if inactive). */

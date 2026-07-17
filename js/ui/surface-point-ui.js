@@ -1,7 +1,7 @@
 /**
  * Origin / destination geographic site controls (lat / lon / alt).
- * Planetocentric east-positive; height above reference; r = R_ref + h readout.
- * Gas/ice giants: 1-bar cloud deck + System III–class longitude label.
+ * Planetocentric storage; optional planetographic input mode for oblate bodies.
+ * IAU-class W(t)+ICRF pole; dual lat / R_ell readout.
  */
 import { state } from '../state.js';
 import {
@@ -11,7 +11,7 @@ import {
   defaultParkingAlt_m, coordinateSystemBadge, longitudeSystem,
   formatRadiusFromCenter, planetocentricRadius_m, isOblateBody,
   bodyShape, planetocentricToPlanetographic_deg, ellipsoidRadius_m,
-  getSpinModel,
+  getSpinModel, latInputToPlanetocentric, latPlanetocentricToDisplay,
 } from '../physics/surface-point.js';
 
 function ensureState() {
@@ -49,7 +49,7 @@ function fillPresets(selectEl, body) {
     + presets.map((p) => `<option value="${p.id}">${p.label}</option>`).join('');
 }
 
-function updateRadiusReadout(prefix, body, altKm, latDeg) {
+function updateRadiusReadout(prefix, body, altKm, latDisplay, latMode) {
   const readout = el(`${prefix}-radius-readout`);
   const pg = el(`${prefix}-pg-readout`);
   if (!readout) return;
@@ -59,23 +59,25 @@ function updateRadiusReadout(prefix, body, altKm, latDeg) {
     return;
   }
   const alt_m = (parseFloat(altKm) || 0) * 1000;
-  const lat = parseFloat(latDeg) || 0;
-  const rLabel = formatRadiusFromCenter(body, alt_m, lat);
-  const r_m = planetocentricRadius_m(body, alt_m, lat);
-  const R_ell = ellipsoidRadius_m(body, lat);
+  const latUi = parseFloat(latDisplay) || 0;
+  // Always evaluate R at planetocentric lat
+  const lat_c = latInputToPlanetocentric(body, latUi, latMode || 'planetocentric');
+  const rLabel = formatRadiusFromCenter(body, alt_m, lat_c);
+  const r_m = planetocentricRadius_m(body, alt_m, lat_c);
+  const R_ell = ellipsoidRadius_m(body, lat_c);
   const shape = bodyShape(body);
   readout.textContent = shape.isOblate
-    ? `Radius from center: ${rLabel}  ·  R_ell(φ)=${(R_ell / 1000).toFixed(0)} km + h`
+    ? `Radius from center: ${rLabel}  ·  R_ell(φc)=${(R_ell / 1000).toFixed(0)} km + h`
     : `Radius from center: ${rLabel}  ·  R_ref ${(shape.mean_m / 1000).toFixed(0)} km + h`;
-  readout.title = `r = R_ref(φ) + h = ${(r_m / 1000).toFixed(3)} km (planetocentric)`;
+  readout.title = `r = R_ref(φ_c) + h = ${(r_m / 1000).toFixed(3)} km · φ_c=${lat_c.toFixed(3)}°`;
 
   if (pg) {
     if (shape.isOblate) {
-      const lat_g = planetocentricToPlanetographic_deg(body, lat);
+      const lat_g = planetocentricToPlanetographic_deg(body, lat_c);
       const f = (shape.flattening * 100).toFixed(2);
       pg.hidden = false;
-      pg.textContent = `Planetographic lat: ${lat_g.toFixed(3)}°  ·  f=${f}%  ·  Re=${(shape.Re_m / 1000).toFixed(0)} km · Rp=${(shape.Rp_m / 1000).toFixed(0)} km`;
-      pg.title = 'Input lat is planetocentric; planetographic is the map/surface-normal latitude (IAU).';
+      pg.textContent = `φ_c=${lat_c.toFixed(3)}°  ·  φ_g=${lat_g.toFixed(3)}°  ·  f=${f}%  ·  Re=${(shape.Re_m / 1000).toFixed(0)} · Rp=${(shape.Rp_m / 1000).toFixed(0)} km`;
+      pg.title = 'Planetocentric (φ_c) is stored for math; planetographic (φ_g) is map/surface-normal latitude (IAU).';
     } else {
       pg.hidden = true;
       pg.textContent = '';
@@ -91,6 +93,9 @@ function updatePanelChrome(prefix, body) {
   const lonEl = el(`${prefix}-lon-system`);
   const altLabel = el(`${prefix}-alt`)?.closest('.route-field-row')?.querySelector('label');
   const enableLabel = el(`${prefix}-surface-enabled`)?.closest('label');
+  const latModeRow = el(`${prefix}-lat-mode-row`);
+  const latModeSel = el(`${prefix}-lat-mode`);
+  const latLabel = el(`${prefix}-lat-label`);
 
   if (summary) summary.textContent = surfacePanelTitle(body, prefix === 'dest' ? 'dest' : 'origin');
   if (hint) hint.textContent = referenceSphereLabel(body);
@@ -107,15 +112,29 @@ function updatePanelChrome(prefix, body) {
   const lonSys = longitudeSystem(body);
   const spin = body ? getSpinModel(body) : null;
   if (lonEl) {
-    let line = isFluidGiant(body)
-      ? `Longitude system: ${lonSys.label}`
-      : `Longitude: ${lonSys.label}`;
+    const bits = [];
+    bits.push(isFluidGiant(body)
+      ? `Lon: ${lonSys.label}`
+      : `Lon: ${lonSys.label}`);
     if (spin?.has_W_polynomial) {
-      line += ` · Ẇ=${Number(spin.Wdot_deg_per_d).toFixed(4)}°/d`;
+      bits.push(`Ẇ=${Number(spin.Wdot_deg_per_d).toFixed(3)}°/d`);
     }
-    lonEl.textContent = line;
+    if (spin?.has_libration) bits.push('lib');
+    if (spin?.has_icrf_pole) bits.push('ICRF pole');
+    lonEl.textContent = bits.join(' · ');
     lonEl.title = (lonSys.note || lonSys.label)
       + (spin?.source ? ` · ${spin.source}` : '');
+  }
+
+  // Lat mode only useful / enabled for oblate bodies
+  const oblate = isOblateBody(body);
+  if (latModeRow) latModeRow.hidden = !oblate;
+  if (latModeSel && !oblate) latModeSel.value = 'planetocentric';
+  if (latLabel) {
+    const mode = latModeSel?.value || 'planetocentric';
+    latLabel.textContent = mode === 'planetographic' && oblate
+      ? 'Latitude °N (planetographic)'
+      : 'Latitude °N (planetocentric)';
   }
 
   if (enableLabel) {
@@ -139,19 +158,26 @@ function bindEndpoint(prefix, getPoint, setPoint, getBody) {
   const alt = el(`${prefix}-alt`);
   const preset = el(`${prefix}-surface-preset`);
   const wrap = el(`${prefix}-surface-fields`);
+  const latMode = el(`${prefix}-lat-mode`);
   if (!enabled || !lat || !lon || !alt) return;
+
+  let prevMode = latMode?.value || 'planetocentric';
+
+  const currentMode = () => latMode?.value || 'planetocentric';
 
   const readToState = () => {
     const body = getBody();
+    const mode = currentMode();
+    const lat_c = latInputToPlanetocentric(body, parseFloat(lat.value), mode);
     const p = normalizeSurfacePoint({
       enabled: enabled.checked,
-      lat_deg: parseFloat(lat.value),
+      lat_deg: lat_c,
       lon_deg: parseFloat(lon.value),
       alt_m: parseFloat(alt.value) * 1000,
     }, body);
     setPoint(p);
     if (wrap) wrap.hidden = !p.enabled;
-    updateRadiusReadout(prefix, body, alt.value, lat.value);
+    updateRadiusReadout(prefix, body, alt.value, lat.value, mode);
     syncSlotLabels();
   };
 
@@ -160,13 +186,14 @@ function bindEndpoint(prefix, getPoint, setPoint, getBody) {
     const p = getPoint() || emptySurfacePoint(body);
     updatePanelChrome(prefix, body);
     enabled.checked = !!p.enabled;
-    lat.value = String(p.lat_deg ?? 0);
+    const mode = currentMode();
+    lat.value = String(latPlanetocentricToDisplay(body, p.lat_deg ?? 0, mode));
     lon.value = String(p.lon_deg ?? 0);
     const altM = Number.isFinite(p.alt_m) ? p.alt_m : defaultParkingAlt_m(body);
     alt.value = String(altM / 1000);
     if (wrap) wrap.hidden = !p.enabled;
     fillPresets(preset, body);
-    updateRadiusReadout(prefix, body, alt.value, lat.value);
+    updateRadiusReadout(prefix, body, alt.value, lat.value, mode);
     syncSlotLabels();
   };
 
@@ -174,20 +201,37 @@ function bindEndpoint(prefix, getPoint, setPoint, getBody) {
   lat.addEventListener('change', readToState);
   lon.addEventListener('change', readToState);
   alt.addEventListener('change', readToState);
-  lat.addEventListener('input', () => updateRadiusReadout(prefix, getBody(), alt.value, lat.value));
-  alt.addEventListener('input', () => updateRadiusReadout(prefix, getBody(), alt.value, lat.value));
+  lat.addEventListener('input', () => updateRadiusReadout(prefix, getBody(), alt.value, lat.value, currentMode()));
+  alt.addEventListener('input', () => updateRadiusReadout(prefix, getBody(), alt.value, lat.value, currentMode()));
+
+  if (latMode) {
+    latMode.addEventListener('change', () => {
+      const body = getBody();
+      const newMode = currentMode();
+      // Convert displayed lat between conventions without changing stored φ_c
+      const p = getPoint() || emptySurfacePoint(body);
+      const lat_c = p.lat_deg ?? 0;
+      lat.value = String(latPlanetocentricToDisplay(body, lat_c, newMode));
+      prevMode = newMode;
+      updatePanelChrome(prefix, body);
+      updateRadiusReadout(prefix, body, alt.value, lat.value, newMode);
+    });
+  }
+
   if (preset) {
     preset.addEventListener('change', () => {
       const id = preset.value;
       if (!id) return;
       const body = getBody();
       const list = presetsForBody(body);
-      const p = list.find((x) => x.id === id);
-      if (!p) return;
+      const pr = list.find((x) => x.id === id);
+      if (!pr) return;
       enabled.checked = true;
-      lat.value = String(p.lat_deg);
-      lon.value = String(p.lon_deg);
-      alt.value = String((p.alt_m ?? defaultParkingAlt_m(body)) / 1000);
+      // Presets are planetocentric
+      if (latMode) latMode.value = 'planetocentric';
+      lat.value = String(latPlanetocentricToDisplay(body, pr.lat_deg, currentMode()));
+      lon.value = String(pr.lon_deg);
+      alt.value = String((pr.alt_m ?? defaultParkingAlt_m(body)) / 1000);
       readToState();
       preset.value = '';
     });

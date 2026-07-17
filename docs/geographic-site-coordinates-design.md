@@ -5,7 +5,7 @@
 | **Document title** | Geographic Site Coordinates & Body-Fixed Endpoints |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | **Implemented on `main`** (v1 sites · gas/ice 1-bar · geographic branding · **PR-G1 share/import · PR-G4 multi-leg terminals · IAU-class spin table**) |
+| **Status** | **Implemented on `main`** (full geographic stack: sites · 1-bar giants · share · multi-leg terminals · oblate · **ICRF pole · W(t) libration · planetographic input**) |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
 | **Branch policy** | **`main` only** — sequential green commits |
 | **Baseline** | Trip planner + dual Lambert visual/physics, Need/Capability/Margin, Plan Dossier, body picker / dossier modal, concept-grade vehicle stack |
@@ -532,11 +532,19 @@ Work landed as sequential main commits (no open PRs required for v1). Residual u
 - **Files:** `route-planner.js`, `routing.js` multi-leg path  
 - **Status:** Landed earlier  
 
-### Residual (optional future)
+### Residual (optional future) — **landed**
 
-- Full IAU pole α₀/δ₀ ICRF → ecliptic matrix (beyond mean obliquity tip)  
-- Periodic libration terms in \(W(t)\) for Moon / Mercury  
-- User toggle: enter planetographic lat as primary (convert to planetocentric for math)  
+| Item | Status |
+|---|---|
+| Full IAU pole α₀/δ₀ ICRF → ecliptic | **Done** — `Rz(α0+90°) Rx(90°−δ0) Rz(W)` then `Rx(ε)` |
+| Periodic libration in \(W(t)\) Moon/Mercury | **Done** — leading Archinal-class sin terms (+ Moon d²) |
+| Planetographic lat as primary UI input | **Done** — lat mode select; storage remains planetocentric |
+
+### Still out of scope (true SPICE)
+
+- Full 100+ lunar physical libration / forced libration series  
+- High-order T polynomials for every body  
+- Nutation / EOP / true-of-date frames  
 
 ---
 
