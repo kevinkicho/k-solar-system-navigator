@@ -43,6 +43,14 @@ export const state = {
     mode: 'cinematic',
   },
 
+  /**
+   * Path rendering (Phase 1 trajectory accuracy).
+   * pathOffsetPolicy: 'time_varying' | 'mid_epoch' | 'none' | 'locked_departure'
+   * pathSampleMode: 'equal_time' | 'equal_nu'
+   */
+  pathOffsetPolicy: 'time_varying',
+  pathSampleMode: 'equal_time',
+
   classroomMode: false,
   /** Reliability: Launch requires vehicle margin feasible (K6). */
   planStrictVehicle: true,

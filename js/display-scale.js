@@ -21,6 +21,8 @@ export function isSchematic() {
 export function setDisplayMode(mode) {
   if (mode !== 'cinematic' && mode !== 'schematic') return;
   state.display.mode = mode;
+  // Path sun-offset day cache is mode-sensitive (Phase 1)
+  import('./physics/transfer-path.js').then((m) => m.clearSunOffsetCache?.()).catch(() => {});
 }
 
 export function displayModeBadge() {

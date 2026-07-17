@@ -9,6 +9,7 @@ import {
   buildTransferOrbit, buildHelioOrbit, propagateOrbit, propagateHelioOrbit,
   propagateOrbitState, propagateHelioOrbitState,
 } from './helio.js';
+import { sampleTransferPathAtTime } from './transfer-path.js';
 import { solveLambertBestBranch, solveLambertProblem } from './lambert.js';
 import { gravityAssistInfo } from './gravity-assist.js';
 import {
@@ -595,152 +596,24 @@ export function findMultiLegWindow(origin, dest, flybyHints, depHint, routeOpts 
   return findMultiLegWindowImpl(origin, dest, flybyHints, depHint, routeOpts, opts);
 }
 
-// Ship position using real orbital mechanics. Handles single-leg (tData.orbit)
-// and multi-leg (tData.legs) routes. Returns heliocentric scene coords (AU);
-// callers add getSunBarycentricOffset(t) for barycentric placement. For multi-leg,
-// the returned object also carries `legIndex` (UI shows "LEG n/N") and `legProgress`.
 /**
- * Ship position (and when possible, Kepler velocity) on the planned transfer.
- * Position is always in heliocentric scene AU. Velocity is the 2-body transfer
- * velocity in the orbit frame (helio or parent-centered) — physical, not a
- * screen scrub rate. Cosine-blend fallback has no true orbital velocity.
+ * Ship position on the planned transfer — **same pipeline as the dashed path**.
  *
- * @returns {object|null} { x,y,z, progress, mode, v_km_s?, r_AU?, vx,vy,vz?, ... }
+ * BREAKING (Phase 1): returns **scene-frame** positions when offset policy is
+ * not `none` (default `time_varying`). Callers must NOT re-add
+ * `getSunBarycentricOffset`. Heliocentric coords are in `r_helio`.
+ * Velocity remains heliocentric 2-body (vis-viva), not scene-tangent.
+ *
+ * @returns {object|null} { x,y,z, r_helio, frame, offsetPolicy, progress, mode, v_* }
  */
 export function getShipPositionOnTransfer(departureSimTime, tData, currentSimTime) {
-  if (tData.isMultiLeg) {
-    const legs = tData.legs;
-    let active = null, activeIdx = -1;
-    const totalTime = tData.transferTime;
-    const totalElapsed = Math.max(0, currentSimTime - departureSimTime);
-    const overallProgress = Math.max(0, Math.min(1, totalElapsed / totalTime));
-
-    for (let i = 0; i < legs.length; i++) {
-      const L = legs[i];
-      if (!L.ok) continue;
-      if (currentSimTime <= L.arriveSimTime) { active = L; activeIdx = i; break; }
-    }
-    if (!active) {
-      const last = [...legs].reverse().find(l => l.ok);
-      if (!last) return null;
-      if (last.orbit) {
-        const st = propagateVisualOrbitState(last.orbit, last.tof);
-        if (st) {
-          return {
-            x: st.r[0] / AU, y: st.r[1] / AU, z: st.r[2] / AU,
-            vx: st.v[0], vy: st.v[1], vz: st.v[2],
-            v_km_s: st.v_mag / 1000,
-            r_AU: st.r_mag / AU,
-            mode: 'kepler',
-            progress: 1, legIndex: legs.length - 1, legProgress: 1, currentLeg: last,
-          };
-        }
-      }
-      const arr = last.arr3D;
-      if (arr) {
-        return {
-          x: arr.x, y: arr.y, z: arr.z, progress: 1, mode: 'endpoint',
-          legIndex: legs.length - 1, legProgress: 1, currentLeg: last,
-        };
-      }
-      return null;
-    }
-
-    const elapsed = Math.max(0, currentSimTime - active.departSimTime);
-    const legProgress = Math.max(0, Math.min(1, elapsed / active.tof));
-    const orb = active.orbit || active.orbitPhysical;
-    if (orb) {
-      const st = propagateVisualOrbitState(orb, elapsed);
-      if (st) {
-        return {
-          x: st.r[0] / AU, y: st.r[1] / AU, z: st.r[2] / AU,
-          vx: st.v[0], vy: st.v[1], vz: st.v[2],
-          v_km_s: st.v_mag / 1000,
-          r_AU: st.r_mag / AU,
-          mode: 'kepler',
-          progress: overallProgress, legIndex: activeIdx, legProgress, currentLeg: active,
-        };
-      }
-    }
-    const dep = active.dep3D, arr = active.arr3D;
-    const blend = 0.5 - 0.5 * Math.cos(PI * legProgress);
-    // Approximate velocity from finite difference of cosine path (non-Kepler)
-    const dBlend = 0.5 * PI * Math.sin(PI * legProgress); // d(blend)/d(progress)
-    const tof = Math.max(1, active.tof);
-    const vx = ((arr.x - dep.x) * dBlend * AU) / tof;
-    const vy = ((arr.y - dep.y) * dBlend * AU) / tof;
-    const vz = ((arr.z - dep.z) * dBlend * AU) / tof;
-    const vmag = Math.hypot(vx, vy, vz);
-    return {
-      x: dep.x + (arr.x - dep.x) * blend,
-      y: dep.y + (arr.y - dep.y) * blend,
-      z: dep.z + (arr.z - dep.z) * blend,
-      vx, vy, vz,
-      v_km_s: vmag / 1000,
-      r_AU: Math.hypot(
-        dep.x + (arr.x - dep.x) * blend,
-        dep.y + (arr.y - dep.y) * blend,
-        dep.z + (arr.z - dep.z) * blend,
-      ),
-      mode: 'cosine',
-      progress: overallProgress, legIndex: activeIdx, legProgress, currentLeg: active,
-    };
+  if (!tData) return null;
+  // Ensure departure epoch is consistent with transfer record
+  if (tData.departureSimTime == null && departureSimTime != null) {
+    tData = { ...tData, departureSimTime };
   }
-
-  const elapsed = currentSimTime - departureSimTime;
-  const progress = Math.max(0, Math.min(1, elapsed / tData.transferTime));
-
-  // Prefer visual orbit (matches drawn path); fall back to physical.
-  const orb = tData.orbit || tData.orbitPhysical;
-  if (orb) {
-    const st = propagateVisualOrbitState(orb, elapsed);
-    if (st) {
-      // Parent-frame orbits live about the central body, not the Sun.
-      if (tData.planetRelative && tData.centralBody) {
-        const helio = parentFrameToHelioAU(
-          st.r, tData.centralBody, currentSimTime, true,
-        );
-        if (helio) {
-          // Velocity stays parent-relative (planetocentric) — still the
-          // burn-relevant frame for moon hops.
-          return {
-            ...helio,
-            vx: st.v[0], vy: st.v[1], vz: st.v[2],
-            v_km_s: st.v_mag / 1000,
-            r_AU: Math.hypot(helio.x, helio.y, helio.z),
-            r_parent_AU: st.r_mag / AU,
-            mode: 'kepler',
-            progress,
-          };
-        }
-      }
-      return {
-        x: st.r[0] / AU, y: st.r[1] / AU, z: st.r[2] / AU,
-        vx: st.v[0], vy: st.v[1], vz: st.v[2],
-        v_km_s: st.v_mag / 1000,
-        r_AU: st.r_mag / AU,
-        mode: 'kepler',
-        progress,
-      };
-    }
-  }
-
-  const dep = tData.dep3D || getBodyPosition3D(tData.body1, departureSimTime);
-  const arr = tData.arr3D || getBodyPosition3D(tData.body2, departureSimTime + tData.transferTime);
-  const blend = 0.5 - 0.5 * Math.cos(PI * progress);
-  const dBlend = 0.5 * PI * Math.sin(PI * progress);
-  const tof = Math.max(1, tData.transferTime);
-  const vx = ((arr.x - dep.x) * dBlend * AU) / tof;
-  const vy = ((arr.y - dep.y) * dBlend * AU) / tof;
-  const vz = ((arr.z - dep.z) * dBlend * AU) / tof;
-  const x = dep.x + (arr.x - dep.x) * blend;
-  const y = dep.y + (arr.y - dep.y) * blend;
-  const z = dep.z + (arr.z - dep.z) * blend;
-  return {
-    x, y, z, vx, vy, vz,
-    v_km_s: Math.hypot(vx, vy, vz) / 1000,
-    r_AU: Math.hypot(x, y, z),
-    mode: 'cosine',
-    progress,
-  };
+  return sampleTransferPathAtTime(tData, currentSimTime, {
+    offsetPolicy: tData.pathOffsetPolicy || 'time_varying',
+    geometry: 'visual',
+  });
 }

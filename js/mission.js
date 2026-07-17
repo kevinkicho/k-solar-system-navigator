@@ -138,10 +138,10 @@ export function launchMission() {
   resetTrail();
   // Place ship at departure *before* showing the CSS2D label — otherwise
   // "SHIP 0%" flashes on the Sun (group default position is origin).
+  // Phase 1: getShipPositionOnTransfer already returns scene-frame (offset applied).
   const launchPos = getShipPositionOnTransfer(m.departureSimTime, td, m.departureSimTime);
   if (launchPos) {
-    const off = getSunBarycentricOffset(m.departureSimTime);
-    shipGroup.position.set(launchPos.x + off.x, launchPos.y + off.y, launchPos.z + off.z);
+    shipGroup.position.set(launchPos.x, launchPos.y, launchPos.z);
   } else if (td.dep3D) {
     const off = getSunBarycentricOffset(m.departureSimTime);
     shipGroup.position.set(td.dep3D.x + off.x, td.dep3D.y + off.y, td.dep3D.z + off.z);
@@ -274,8 +274,8 @@ export function updateMission() {
   if (progress < 1) {
     shipInfo = getShipPositionOnTransfer(m.departureSimTime, td, t);
     if (shipInfo) {
-      const off = getSunBarycentricOffset(t);
-      const sx = shipInfo.x + off.x, sy = shipInfo.y + off.y, sz = shipInfo.z + off.z;
+      // Scene frame already — do NOT add getSunBarycentricOffset again (Phase 1).
+      const sx = shipInfo.x, sy = shipInfo.y, sz = shipInfo.z;
       shipGroup.position.set(sx, sy, sz);
       setShipVelocityDirection(shipInfo.vx, shipInfo.vy, shipInfo.vz, shipInfo.v_km_s);
 
@@ -341,19 +341,29 @@ export function updateMission() {
     }
   }
   if (rEl) {
-    if (shipInfo?.r_AU != null && progress < 1) {
-      rEl.textContent = `${shipInfo.r_AU.toFixed(3)} AU`;
-    } else if (progress >= 1) {
+    if (progress < 1) {
+      // Prefer pure heliocentric radius for educational honesty
+      const rh = shipInfo?.r_helio;
+      const rAu = shipInfo?.r_AU != null
+        ? shipInfo.r_AU
+        : (rh ? Math.hypot(rh.x, rh.y, rh.z) : null);
+      rEl.textContent = rAu != null ? `${rAu.toFixed(3)} AU` : '—';
+    } else {
       rEl.textContent = '—';
     }
   }
   if (modeEl) {
-    const map = {
-      kepler: 'Kepler 2-body (vis-viva)',
-      cosine: 'Geometric blend (no orbit)',
-      endpoint: 'At endpoint',
-    };
-    modeEl.textContent = map[shipInfo?.mode] || (progress >= 1 ? 'arrived' : '—');
+    if (progress >= 1) {
+      modeEl.textContent = 'arrived';
+    } else {
+      const base = shipInfo?.mode === 'kepler'
+        ? 'kepler · 2-body vis-viva'
+        : shipInfo?.mode === 'cosine'
+          ? 'cosine blend (non-Kepler)'
+          : (shipInfo?.mode || '—');
+      const off = shipInfo?.offsetPolicy || td.pathOffsetPolicy || 'time_varying';
+      modeEl.textContent = `${base} · offset=${off} (sun barycenter motion, not third-body gravity)`;
+    }
   }
   if (xEl) {
     xEl.textContent = formatTimeCompression(timeState.timeScale);
