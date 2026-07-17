@@ -41,6 +41,7 @@ import { wireRecentRoutes } from './ui/recent-routes.js';
 import { timeState } from './ui/time-system.js';
 import { buildMeasurementCard } from './ui/measurement-card.js';
 import { wireVehicleLab } from './ui/vehicle-lab.js';
+import { wireAgentChat } from './ui/agent-chat.js';
 
 // Mission + animation.
 import { abortMission, launchMission } from './mission.js';
@@ -77,6 +78,7 @@ wireScenarios();
 wireMissionImport();
 wireRecentRoutes();
 wireVehicleLab();
+wireAgentChat(); // FAB chat + onboard agent C2
 loadStarField();
 updateViewBadge();
 

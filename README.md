@@ -40,7 +40,32 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 
 - **Three.js r0.164** — 3D rendering with UnrealBloom post-processing
 - **CSS2DRenderer** — planet/moon/spacecraft labels
-- **Node.js** — zero-dependency static file server
+- **Node.js** — static file server + Ollama chat proxy + agent C2 bus
+
+## AI assistant (Ollama Cloud)
+
+Floating-action-button chat and a CLI agent drive the planner. The API key never ships to the browser.
+
+1. Copy `.env.example` → `.env` and set `OLLAMA_API_KEY` from [ollama.com/settings/keys](https://ollama.com/settings/keys).
+2. Default model: **`gemma4:31b-cloud`** ([library](https://ollama.com/library/gemma4)).
+3. Start the app: `npm start` → open `http://localhost:8080`.
+4. Use the **AI** FAB (bottom-right) for in-app chat.
+
+### Agentic CLI
+
+```bash
+npm run agent -- help
+npm run agent -- status
+npm run agent -- chat "Explain L1 vs L2-compare fidelity"
+npm run agent -- agent "Set Earth to Mars and compute the route"
+npm run agent -- cmd set_route --origin Earth --destination Mars
+npm run agent -- cmd compute_route
+npm run agent -- repl
+```
+
+Keep a browser tab on HELIOS so the **onboard agent** can execute C2 commands (`set_route`, `compute_route`, `set_vehicle`, …). The CLI queues work on `POST /api/agent/command`; the page polls and returns results.
+
+`.env` is gitignored. Never commit API keys.
 
 ## Physics summary
 

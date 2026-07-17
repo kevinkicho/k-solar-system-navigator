@@ -6,3 +6,8 @@ test.txt
 test2.txt
 .DS_Store
 *.log
+
+# Secrets — never commit API keys
+.env
+.env.local
+.env.*.local
