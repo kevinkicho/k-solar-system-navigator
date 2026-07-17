@@ -1,7 +1,6 @@
 /**
- * Body Dossier modal — full educational dossier for a selected celestial body.
- * Sources: JPL SSD phys_par, Approximate Positions, SBDB, Horizons, NSSDC, etc.
- * Media: Three.js globe (NASA-derived maps) + curated / optional NASA Images gallery.
+ * Body Dossier modal — wide chrome layout (top / side / bottom bars),
+ * 3D globe, and embeddable NASA / Wikimedia stills.
  */
 import { AU, DAY, DEG, G_CONST } from '../constants.js';
 import { BODIES, SUN_DATA } from '../data/bodies.js';
@@ -20,7 +19,7 @@ import {
 } from './body-globe-preview.js';
 
 let overlay = null;
-let modalBody = null;
+let modalMain = null;
 let currentBody = null;
 let mediaGen = 0;
 
@@ -34,18 +33,28 @@ function ensureDom() {
   overlay.hidden = true;
   overlay.innerHTML = `
     <div class="bd-modal" id="body-dossier-modal">
-      <div class="bd-head">
-        <div>
-          <h2 id="body-dossier-title">Body</h2>
-          <div class="bd-sub" id="body-dossier-sub"></div>
+      <header class="bd-topbar">
+        <div class="bd-topbar-left">
+          <div class="bd-brand">DOSSIER</div>
+          <div>
+            <h2 id="body-dossier-title">Body</h2>
+            <div class="bd-sub" id="body-dossier-sub"></div>
+          </div>
         </div>
-        <button type="button" class="btn-tiny" id="body-dossier-close">CLOSE</button>
+        <div class="bd-topbar-right">
+          <a class="bd-top-link" id="bd-nasa-link" href="https://images.nasa.gov/" target="_blank" rel="noopener noreferrer">NASA Images ↗</a>
+          <button type="button" class="btn-tiny" id="body-dossier-close">CLOSE</button>
+        </div>
+      </header>
+      <div class="bd-workbench">
+        <aside class="bd-sidebar bd-sidebar-left" id="bd-sidebar-left"></aside>
+        <main class="bd-main" id="body-dossier-body"></main>
+        <aside class="bd-sidebar bd-sidebar-right" id="bd-sidebar-right"></aside>
       </div>
-      <div class="bd-scroll" id="body-dossier-body"></div>
-      <div class="bd-actions" id="body-dossier-actions"></div>
+      <footer class="bd-bottombar" id="body-dossier-actions"></footer>
     </div>`;
   document.body.appendChild(overlay);
-  modalBody = overlay.querySelector('#body-dossier-body');
+  modalMain = overlay.querySelector('#body-dossier-body');
   overlay.querySelector('#body-dossier-close').onclick = closeBodyDossier;
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closeBodyDossier();
@@ -63,7 +72,19 @@ function section(title, inner) {
   return `<div class="bd-section"><h3>${title}</h3>${inner}</div>`;
 }
 
-function buildHtml(body) {
+function imgCard(img) {
+  return `
+    <a class="bd-img-card" href="${img.page}" target="_blank" rel="noopener noreferrer" title="${img.title}">
+      <div class="bd-img-frame">
+        <img src="${img.thumb}" alt="${img.title}" loading="lazy" decoding="async"
+          referrerpolicy="no-referrer" data-bd-img="1" />
+        <div class="bd-img-fallback" hidden>Image unavailable</div>
+      </div>
+      <span>${img.title}</span>
+    </a>`;
+}
+
+function buildPanels(body) {
   const { extra, sources, registries } = resolveBodySources(body);
   const isMoon = !!(body.parent);
   const kind = body.kind || (isMoon ? 'moon' : 'planet');
@@ -138,7 +159,6 @@ function buildHtml(body) {
     orbital += row('Semi-major (AU)', `${body.a.toFixed(6)} AU`, 'highlight');
     if (body.e != null) orbital += row('Eccentricity', body.e.toFixed(6));
     if (body.I != null) {
-      // Planets store I in radians; moons/dwarfs may store degrees — catalog planets use rad.
       const shown = Math.abs(body.I) <= Math.PI + 0.1 ? (body.I / DEG) : body.I;
       orbital += row('Inclination', `${shown.toFixed(4)}°`);
     }
@@ -171,73 +191,84 @@ function buildHtml(body) {
     sats = `<div class="bd-sat-list">${sats}</div>`;
   }
 
-  let srcHtml = sources.map((s) =>
+  const srcHtml = sources.map((s) =>
     `<li><a href="${s.url}" target="_blank" rel="noopener noreferrer">${s.label}</a></li>`).join('');
-  let regHtml = registries.map((r) =>
+  const regHtml = registries.map((r) =>
     `<li><a href="${r.url}" target="_blank" rel="noopener noreferrer"><strong>${r.name}</strong></a>
       <span class="bd-reg-scope"> — ${r.scope}</span></li>`).join('');
 
   const curated = curatedNasaImages(body);
   const galleryHtml = curated.length
-    ? curated.map((img) => `
-        <a class="bd-img-card" href="${img.page}" target="_blank" rel="noopener noreferrer" title="${img.title}">
-          <img src="${img.thumb}" alt="${img.title}" loading="lazy" referrerpolicy="no-referrer" />
-          <span>${img.title}</span>
-        </a>`).join('')
-    : '<p class="bd-reg-intro">No curated NASA stills for this body — try the live search below.</p>';
+    ? curated.map(imgCard).join('')
+    : '<p class="bd-reg-intro">No curated stills for this body yet. Use NASA Images link in the top bar.</p>';
 
   const hasTex = !!textureUrlForBody(body);
-  const media = `
-    <div class="bd-media">
-      <div class="bd-globe-wrap">
-        <div class="bd-globe" id="bd-globe" role="img" aria-label="3D preview of ${body.name}"></div>
-        <p class="bd-media-cap">${hasTex
-    ? 'Educational 3D globe · NASA-derived map (threex.planets / public domain)'
-    : 'Educational 3D globe · solid color (no equirectangular map in HELIOS catalog)'}</p>
-      </div>
-      <div class="bd-gallery-wrap">
-        <div class="bd-gallery" id="bd-gallery">${galleryHtml}</div>
-        <p class="bd-media-cap">
-          NASA public-domain stills ·
-          <a href="${nasaSearchPageUrl(body)}" target="_blank" rel="noopener noreferrer">images.nasa.gov</a>
-          <span id="bd-gallery-live-status"></span>
-        </p>
-      </div>
-    </div>`;
-
-  return `
-    ${section('3D model & NASA images', media)}
+  const left = `
+    <div class="bd-globe-panel">
+      <div class="bd-globe" id="bd-globe" role="img" aria-label="3D preview of ${body.name}"></div>
+      <p class="bd-media-cap">${hasTex
+    ? 'Educational 3D globe · NASA-derived map (CDN)'
+    : 'Educational 3D globe · catalog color (no map texture)'}</p>
+    </div>
     ${section('Identity', identity)}
+    ${sats ? section(`Satellites in HELIOS (${moonList.length})`, sats) : ''}
+  `;
+
+  const main = `
     ${physical ? section('Physical parameters', physical) : ''}
     ${orbital ? section('Orbital elements', orbital) : ''}
     ${current ? section('Current state (sim)', current) : ''}
-    ${sats ? section(`Known satellites in HELIOS (${moonList.length})`, sats) : ''}
     ${section('Sources for this body', `<ul class="bd-links">${srcHtml}</ul>`)}
     ${section('Public data registries', `
-      <p class="bd-reg-intro">Authoritative open registries used across planetary science (concept-grade links):</p>
+      <p class="bd-reg-intro">Authoritative open registries (concept-grade links):</p>
       <ul class="bd-links bd-registry">${regHtml}</ul>
-    `)}`;
+    `)}
+  `;
+
+  const right = `
+    ${section('Gallery', `
+      <div class="bd-gallery" id="bd-gallery">${galleryHtml}</div>
+      <p class="bd-media-cap">
+        Embeddable public-domain / educational stills ·
+        <a href="${nasaSearchPageUrl(body)}" target="_blank" rel="noopener noreferrer">images.nasa.gov</a>
+        <span id="bd-gallery-live-status"></span>
+      </p>
+    `)}
+  `;
+
+  return { left, main, right };
+}
+
+function wireBrokenImages(root) {
+  root?.querySelectorAll('img[data-bd-img]').forEach((img) => {
+    img.addEventListener('error', () => {
+      const frame = img.closest('.bd-img-frame');
+      const card = img.closest('.bd-img-card');
+      if (frame) {
+        img.hidden = true;
+        const fb = frame.querySelector('.bd-img-fallback');
+        if (fb) fb.hidden = false;
+      }
+      if (card) card.classList.add('bd-img-broken');
+    }, { once: true });
+  });
 }
 
 function fillLiveNasaGallery(body, gen) {
-  const status = modalBody?.querySelector('#bd-gallery-live-status');
-  const gallery = modalBody?.querySelector('#bd-gallery');
+  const status = overlay?.querySelector('#bd-gallery-live-status');
+  const gallery = overlay?.querySelector('#bd-gallery');
   if (!gallery) return;
-  searchNasaImages(body, 6).then((live) => {
+  searchNasaImages(body, 8).then((live) => {
     if (gen !== mediaGen || !live.length) return;
     const existing = new Set(
       [...gallery.querySelectorAll('img')].map((img) => img.getAttribute('src')),
     );
-    const extra = live.filter((x) => x.thumb && !existing.has(x.thumb)).slice(0, 4);
+    const extra = live.filter((x) => x.thumb && !existing.has(x.thumb)).slice(0, 6);
     if (!extra.length) return;
-    const html = extra.map((img) => `
-      <a class="bd-img-card bd-img-live" href="${img.page}" target="_blank" rel="noopener noreferrer" title="${img.title}">
-        <img src="${img.thumb}" alt="${img.title}" loading="lazy" referrerpolicy="no-referrer" />
-        <span>${img.title}</span>
-      </a>`).join('');
-    gallery.insertAdjacentHTML('beforeend', html);
+    gallery.insertAdjacentHTML('beforeend', extra.map(imgCard).join(''));
+    wireBrokenImages(gallery);
     if (status) status.textContent = ' · + live NASA Images API';
-  }).catch(() => { /* offline / CORS soft-fail */ });
+  }).catch(() => { /* soft-fail */ });
 }
 
 export function openBodyDossier(body) {
@@ -254,25 +285,39 @@ export function openBodyDossier(body) {
   sub.textContent = body.parent
     ? `${kind} · satellite of ${body.parent}`
     : kind;
-  modalBody.innerHTML = buildHtml(body);
 
-  // 3D globe (after DOM mount)
-  const globeEl = modalBody.querySelector('#bd-globe');
+  const nasaLink = overlay.querySelector('#bd-nasa-link');
+  if (nasaLink) nasaLink.href = nasaSearchPageUrl(body);
+
+  const panels = buildPanels(body);
+  overlay.querySelector('#bd-sidebar-left').innerHTML = panels.left;
+  modalMain.innerHTML = panels.main;
+  overlay.querySelector('#bd-sidebar-right').innerHTML = panels.right;
+
+  const globeEl = overlay.querySelector('#bd-globe');
   if (globeEl) {
     try {
-      mountBodyGlobePreview(globeEl, body);
+      // Defer one frame so CSS grid sizes the globe cell
+      requestAnimationFrame(() => {
+        if (gen !== mediaGen) return;
+        mountBodyGlobePreview(globeEl, body);
+      });
     } catch (err) {
       console.warn('Body globe preview failed', err);
       globeEl.innerHTML = '<p class="bd-reg-intro">3D preview unavailable</p>';
     }
   }
+  wireBrokenImages(overlay);
   fillLiveNasaGallery(body, gen);
 
   const actions = overlay.querySelector('#body-dossier-actions');
   actions.innerHTML = `
-    <button type="button" class="route-btn secondary" id="bd-set-origin">Set as Origin</button>
-    <button type="button" class="route-btn secondary" id="bd-set-dest">Set as Destination</button>
-    <button type="button" class="route-btn secondary" id="bd-follow">Follow</button>
+    <div class="bd-bottom-hint">Educational dossier · use route actions to plan</div>
+    <div class="bd-bottom-actions">
+      <button type="button" class="route-btn secondary" id="bd-set-origin">Set as Origin</button>
+      <button type="button" class="route-btn secondary" id="bd-set-dest">Set as Destination</button>
+      <button type="button" class="route-btn secondary" id="bd-follow">Follow in scene</button>
+    </div>
   `;
   actions.querySelector('#bd-set-origin').onclick = () => {
     setRouteOrigin(body);
@@ -287,7 +332,7 @@ export function openBodyDossier(body) {
     closeBodyDossier();
   };
 
-  modalBody.querySelectorAll('.bd-sat').forEach((btn) => {
+  overlay.querySelectorAll('.bd-sat').forEach((btn) => {
     btn.onclick = () => {
       import('../data/catalog.js').then(({ findByName }) => {
         const m = findByName(btn.dataset.name);
@@ -313,7 +358,6 @@ export function wireBodyDossier() {
   ensureDom();
 }
 
-/** Whether the dossier is currently open. */
 export function isBodyDossierOpen() {
   return !!(overlay && !overlay.hidden);
 }

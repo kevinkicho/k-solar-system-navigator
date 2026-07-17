@@ -402,12 +402,53 @@ html, body {
 /* BOTTOM BAR */
 #bottom-bar {
   position: fixed; bottom: 0; left: 0; right: 0;
-  height: 64px; z-index: 10;
-  display: flex; align-items: center; justify-content: center; gap: 16px;
-  padding: 0 20px;
-  background: linear-gradient(0deg, rgba(6,14,28,0.95) 0%, rgba(6,14,28,0.7) 80%, transparent 100%);
+  min-height: 64px; z-index: 10;
+  display: flex; flex-direction: column; align-items: stretch; justify-content: center;
+  gap: 0; padding: 0;
+  background: linear-gradient(0deg, rgba(6,14,28,0.97) 0%, rgba(6,14,28,0.82) 70%, transparent 100%);
   border-top: 1px solid var(--border);
 }
+#bottom-bar .bottom-time-row {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  padding: 10px 20px 12px; flex-wrap: wrap;
+}
+#bottom-bar.mission-study-active { min-height: 96px; }
+.mission-study-bar {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 8px 16px 4px; flex-wrap: wrap;
+  border-bottom: 1px solid rgba(0,160,220,0.12);
+  background: rgba(0, 40, 60, 0.35);
+}
+.mission-study-bar[hidden] { display: none !important; }
+.ms-badge {
+  font-family: var(--font-display); font-size: 9px; font-weight: 700;
+  letter-spacing: 1.5px; color: var(--amber);
+  border: 1px solid rgba(255,152,0,0.45); padding: 3px 8px; border-radius: 3px;
+}
+.ms-route {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text);
+  min-width: 140px; max-width: 280px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ms-btn {
+  font-family: var(--font-display); font-size: 9px; letter-spacing: 1px;
+  padding: 5px 10px; border-radius: 3px; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(0,0,0,0.35); color: var(--text);
+}
+.ms-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.ms-btn.ms-play { border-color: rgba(0,230,118,0.4); color: var(--green); }
+.ms-scrub {
+  width: min(280px, 36vw); accent-color: var(--cyan);
+  cursor: pointer;
+}
+.ms-pct {
+  font-family: var(--font-mono); font-size: 12px; color: var(--cyan);
+  min-width: 36px; text-align: right;
+}
+.mission-study-hint {
+  font-size: 10px; color: var(--text-dim); margin: 8px 0 0; line-height: 1.35;
+}
+.mission-study-hint strong { color: var(--cyan); font-weight: 500; }
 .time-btn {
   width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border); background: rgba(0,0,0,0.3);
@@ -1132,18 +1173,30 @@ input[type="range"]::-webkit-slider-thumb {
 </div>
 
 <div id="bottom-bar">
-  <button class="time-btn" id="btn-rev-fast" title="Reverse fast">&#x23EA;</button>
-  <button class="time-btn" id="btn-rev" title="Reverse">&#x25C0;</button>
-  <button class="time-btn active" id="btn-pause" title="Pause">&#x23F8;</button>
-  <button class="time-btn" id="btn-play" title="Play">&#x25B6;</button>
-  <button class="time-btn" id="btn-fwd-fast" title="Fast forward">&#x23E9;</button>
-  <div class="time-speed" id="time-speed">PAUSED</div>
-  <div class="time-date" id="time-display">2026-04-14 00:00 UTC</div>
-  <div style="display:flex;align-items:center;gap:8px;">
-    <span style="font-size:10px;color:var(--text-dim);">SPEED</span>
-    <input type="range" id="speed-slider" min="0" max="10" step="1" value="3">
+  <div id="mission-study-bar" class="mission-study-bar" hidden aria-hidden="true">
+    <span class="ms-badge" title="Mission study mode">MISSION</span>
+    <span class="ms-route" id="ms-route-label">—</span>
+    <button type="button" class="ms-btn" id="ms-jump-dep" title="Jump to departure">DEP</button>
+    <input type="range" id="ms-scrub" class="ms-scrub" min="0" max="1000" value="0"
+      title="Scrub transit progress (pause while dragging)" aria-label="Mission transit scrubber" />
+    <button type="button" class="ms-btn" id="ms-jump-arr" title="Jump to arrival">ARR</button>
+    <span class="ms-pct" id="ms-pct">0%</span>
+    <button type="button" class="ms-btn ms-play" id="ms-play-study" title="Play from current (mission-aware speed)">▶ STUDY</button>
   </div>
-  <button class="time-btn" id="btn-today" title="Reset to today" style="font-size:10px;font-family:var(--font-display);letter-spacing:1px;">NOW</button>
+  <div class="bottom-time-row">
+    <button class="time-btn" id="btn-rev-fast" title="Reverse fast">&#x23EA;</button>
+    <button class="time-btn" id="btn-rev" title="Reverse">&#x25C0;</button>
+    <button class="time-btn active" id="btn-pause" title="Pause">&#x23F8;</button>
+    <button class="time-btn" id="btn-play" title="Play">&#x25B6;</button>
+    <button class="time-btn" id="btn-fwd-fast" title="Fast forward">&#x23E9;</button>
+    <div class="time-speed" id="time-speed">PAUSED</div>
+    <div class="time-date" id="time-display">2026-04-14 00:00 UTC</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:10px;color:var(--text-dim);">SPEED</span>
+      <input type="range" id="speed-slider" min="0" max="10" step="1" value="3">
+    </div>
+    <button class="time-btn" id="btn-today" title="Reset to today" style="font-size:10px;font-family:var(--font-display);letter-spacing:1px;">NOW</button>
+  </div>
 </div>
 
 <div id="vehicle-lab-backdrop" aria-hidden="true"></div>

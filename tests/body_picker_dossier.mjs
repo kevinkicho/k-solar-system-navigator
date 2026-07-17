@@ -60,7 +60,17 @@ check('Io has curated NASA images', (media.BODY_NASA_GALLERY.Io || []).length >=
 const dossierJs = readFileSync(resolve(ROOT, 'js/ui/body-dossier-modal.js'), 'utf8');
 check('dossier mounts 3D globe', /mountBodyGlobePreview/.test(dossierJs));
 check('dossier has NASA gallery', /curatedNasaImages|bd-gallery/.test(dossierJs));
+check('dossier workbench chrome', /bd-workbench|bd-topbar|bd-bottombar/.test(dossierJs));
 check('globe preview module exists', existsSync(resolve(ROOT, 'js/ui/body-globe-preview.js')));
+check('globe fitCamera present', readFileSync(resolve(ROOT, 'js/ui/body-globe-preview.js'), 'utf8').includes('fitCamera'));
+check('mission study bar in HTML', /mission-study-bar|ms-scrub/.test(indexHtml));
+check('mission wires study bar', /wireMissionStudyBar|pickMissionStudySpeed/.test(
+  readFileSync(resolve(ROOT, 'js/mission.js'), 'utf8'),
+));
+// Gallery thumbs should be embeddable (CDN / Wikimedia), not photojournal jpeg hotlinks alone
+const mediaSrc = readFileSync(resolve(ROOT, 'js/data/body-media.js'), 'utf8');
+check('gallery prefers wikimedia or threex CDN',
+  /upload\.wikimedia\.org|threex\.planets/.test(mediaSrc));
 
 if (failed) {
   console.error(`\n${failed} body picker/dossier check(s) failed`);

@@ -7,11 +7,113 @@ import {
 import {
   flybyMarkers, hideArrivalGhost, hideDepartureGhost, transferMarkers,
 } from './scene/transfer-visual.js';
+import { DAY, MAX_TRAIL_POINTS } from './constants.js';
 import { formatDateShort, formatTimePrecise, notify, simTimeToDate } from './ui/format.js';
 import { renderRouteUI } from './ui/route-display.js';
 import { timeState } from './ui/time-system.js';
-import { MAX_TRAIL_POINTS } from './constants.js';
 import { canLaunchMission } from './mission-gates.js';
+
+/** Pick bottom-bar speed index suited to transit length (study, not blur). */
+export function pickMissionStudySpeed(transferTime) {
+  if (!(transferTime > 0)) return 4;
+  if (transferTime < 2 * DAY) return 4;       // 1 day/s — short moon hops
+  if (transferTime < 14 * DAY) return 4;      // still day/s for Galilean
+  if (transferTime < 60 * DAY) return 5;      // 1 week/s
+  if (transferTime < 400 * DAY) return 6;     // 1 month/s
+  if (transferTime < 5 * 365.25 * DAY) return 7; // 3 months/s
+  return 8; // 1 year/s for outer multi-year legs
+}
+
+export function showMissionStudyBar(visible) {
+  const bar = document.getElementById('mission-study-bar');
+  const bottom = document.getElementById('bottom-bar');
+  if (!bar) return;
+  bar.hidden = !visible;
+  bar.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  if (bottom) bottom.classList.toggle('mission-study-active', !!visible);
+}
+
+export function syncMissionStudyBar() {
+  const m = state.mission;
+  const scrub = document.getElementById('ms-scrub');
+  const pctEl = document.getElementById('ms-pct');
+  const label = document.getElementById('ms-route-label');
+  if (!m.active || !m.transferData) {
+    showMissionStudyBar(false);
+    return;
+  }
+  showMissionStudyBar(true);
+  const td = m.transferData;
+  const span = Math.max(1, m.arrivalSimTime - m.departureSimTime);
+  const t = timeState.simTime;
+  const p = Math.max(0, Math.min(1, (t - m.departureSimTime) / span));
+  if (scrub && document.activeElement !== scrub) {
+    scrub.value = String(Math.round(p * 1000));
+  }
+  if (pctEl) pctEl.textContent = `${Math.round(p * 100)}%`;
+  if (label) {
+    const phase = m.arrived ? 'ARRIVED' : (t < m.departureSimTime ? 'PRE-DEPART' : 'IN TRANSIT');
+    label.textContent = `${td.body1?.name || '?'} → ${td.body2?.name || '?'} · ${phase}`;
+  }
+}
+
+export function wireMissionStudyBar() {
+  const scrub = document.getElementById('ms-scrub');
+  const depBtn = document.getElementById('ms-jump-dep');
+  const arrBtn = document.getElementById('ms-jump-arr');
+  const playStudy = document.getElementById('ms-play-study');
+  if (scrub) {
+    scrub.addEventListener('input', () => {
+      const m = state.mission;
+      if (!m.active || !m.transferData) return;
+      const u = Number(scrub.value) / 1000;
+      const span = m.arrivalSimTime - m.departureSimTime;
+      timeState.simTime = m.departureSimTime + u * span;
+      timeState.setSpeed(3); // pause while scrubbing
+      timeState.updateDisplay();
+      m.arrived = timeState.simTime >= m.arrivalSimTime;
+      syncMissionStudyBar();
+    });
+  }
+  if (depBtn) {
+    depBtn.onclick = () => {
+      const m = state.mission;
+      if (!m.active) return;
+      timeState.simTime = m.departureSimTime;
+      timeState.setSpeed(3);
+      timeState.updateDisplay();
+      m.arrived = false;
+      syncMissionStudyBar();
+      notify('JUMPED TO DEPARTURE');
+    };
+  }
+  if (arrBtn) {
+    arrBtn.onclick = () => {
+      const m = state.mission;
+      if (!m.active) return;
+      timeState.simTime = m.arrivalSimTime;
+      timeState.setSpeed(3);
+      timeState.updateDisplay();
+      m.arrived = true;
+      syncMissionStudyBar();
+      notify('JUMPED TO ARRIVAL');
+    };
+  }
+  if (playStudy) {
+    playStudy.onclick = () => {
+      const m = state.mission;
+      if (!m.active || !m.transferData) return;
+      if (timeState.simTime >= m.arrivalSimTime) {
+        timeState.simTime = m.departureSimTime;
+        m.arrived = false;
+      }
+      timeState.setSpeed(pickMissionStudySpeed(m.transferData.transferTime));
+      timeState.updateDisplay();
+      notify('MISSION STUDY PLAY · use bottom bar speed to fine-tune');
+    };
+  }
+  showMissionStudyBar(false);
+}
 
 export function launchMission() {
   const td = state.transferData;
@@ -33,10 +135,13 @@ export function launchMission() {
   m.flybysTriggered = new Set();
 
   timeState.simTime = m.departureSimTime;
-  timeState.setSpeed(6); // 1 month/s — good default for interplanetary
+  // Adaptive speed: moon hops stay slow enough to study on the bottom bar
+  timeState.setSpeed(pickMissionStudySpeed(td.transferTime));
 
   resetTrail();
   shipGroup.visible = true;
+  showMissionStudyBar(true);
+  syncMissionStudyBar();
 
   const isMulti = !!td.isMultiLeg;
   const legRow = isMulti
@@ -55,6 +160,7 @@ export function launchMission() {
       <div class="progress-bar-wrap"><div class="progress-bar" id="mission-progress" style="width:0%"></div></div>
       <div class="info-row"><span class="key">Progress</span><span class="val" id="mission-pct">0%</span></div>
       <div class="info-row"><span class="key">Time remaining</span><span class="val highlight" id="mission-remaining">--</span></div>
+      <p class="mission-study-hint">Study transit with the <strong>bottom bar</strong>: scrub, DEP/ARR, play/speed.</p>
     </div>
     <button class="route-btn abort" id="btn-abort">Abort Mission</button>
   `;
@@ -89,6 +195,7 @@ export function abortMission() {
     if (fm.material) fm.material.opacity = 0.85;
     delete fm.userData.pulseStart;
   }
+  showMissionStudyBar(false);
   if (state.transferData) renderRouteUI();
   else document.getElementById('mission-controls').innerHTML = '';
   notify('MISSION ABORTED');
@@ -181,6 +288,7 @@ export function updateMission() {
     const remaining = Math.max(0, td.transferTime - elapsed);
     remEl.textContent = remaining > 0 ? formatTimePrecise(remaining) : 'ARRIVED';
   }
+  syncMissionStudyBar();
 }
 
 // Animate any flyby marker with a pulseStart timestamp set by updateMission.

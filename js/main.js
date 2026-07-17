@@ -48,13 +48,14 @@ import { wireBodyDossier } from './ui/body-dossier-modal.js';
 import { wireSurfacePointUi } from './ui/surface-point-ui.js';
 
 // Mission + animation.
-import { abortMission, launchMission } from './mission.js';
+import { abortMission, launchMission, wireMissionStudyBar } from './mission.js';
 import { animate } from './animation.js';
 
 // Wire dependency-injected handlers (breaks the route ↔ mission cycle).
 bindMissionHandlers({ launch: launchMission });
 bindAbortHandler(abortMission);
 bindRouteSetters({ origin: setRouteOrigin, destination: setRouteDestination });
+wireMissionStudyBar();
 
 // Classroom mode: ?mode=classroom → schematic + abstract budget (offline, methodology-first).
 const params = new URLSearchParams(location.search);
