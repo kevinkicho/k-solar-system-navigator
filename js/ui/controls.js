@@ -285,6 +285,65 @@ export function wireControls() {
       : 'CINEMATIC VIEW — exaggerated inclinations');
   };
 
+  // Path accuracy UI (PR5–10)
+  const pathGeomSel = document.getElementById('path-geometry-select');
+  const flightModeSel = document.getElementById('flight-path-mode');
+  const flagAdaptive = document.getElementById('flag-adaptive-path');
+  const flagMultiRev = document.getElementById('flag-multirev');
+  const flagNbody = document.getElementById('flag-nbody');
+  const flagNbodyWrap = document.getElementById('flag-nbody-wrap');
+
+  function syncPathAccuracyUI() {
+    if (pathGeomSel) pathGeomSel.value = state.pathGeometry || 'visual';
+    if (flightModeSel) flightModeSel.value = state.flightPathMode || 'static';
+    if (flagAdaptive) flagAdaptive.checked = !!state.pathAccuracy?.adaptiveSampling;
+    if (flagMultiRev) flagMultiRev.checked = !!state.pathAccuracy?.multiRevLambert;
+    if (flagNbody) flagNbody.checked = !!state.pathAccuracy?.nbodyOverlay;
+    if (flagNbodyWrap) flagNbodyWrap.style.display = state.classroomMode ? 'none' : 'flex';
+  }
+  syncPathAccuracyUI();
+
+  function refreshPathVisual() {
+    if (state.showTransferOrbit && state.transferData) {
+      import('./route-orbit-visual.js').then(({ updateTransferOrbitVisual }) => {
+        updateTransferOrbitVisual();
+      });
+    }
+  }
+
+  if (pathGeomSel) pathGeomSel.onchange = () => {
+    state.pathGeometry = pathGeomSel.value;
+    refreshPathVisual();
+    notify(`PATH GEOMETRY: ${state.pathGeometry.toUpperCase()}`);
+  };
+  if (flightModeSel) flightModeSel.onchange = () => {
+    state.flightPathMode = flightModeSel.value;
+    refreshPathVisual();
+    notify(`FLIGHT PATH: ${state.flightPathMode}`);
+  };
+  if (flagAdaptive) flagAdaptive.onchange = () => {
+    state.pathAccuracy.adaptiveSampling = flagAdaptive.checked;
+    refreshPathVisual();
+    notify(flagAdaptive.checked ? 'ADAPTIVE PATH SAMPLING ON' : 'ADAPTIVE PATH SAMPLING OFF');
+  };
+  if (flagMultiRev) flagMultiRev.onchange = () => {
+    state.pathAccuracy.multiRevLambert = flagMultiRev.checked;
+    notify(flagMultiRev.checked
+      ? 'MULTI-REV LAMBERT ON · recompute transfer'
+      : 'MULTI-REV LAMBERT OFF · recompute transfer');
+  };
+  if (flagNbody) flagNbody.onchange = () => {
+    if (state.classroomMode) {
+      flagNbody.checked = false;
+      return;
+    }
+    state.pathAccuracy.nbodyOverlay = flagNbody.checked;
+    refreshPathVisual();
+    notify(flagNbody.checked
+      ? 'N-BODY OVERLAY ON · educational residual only (Need unchanged)'
+      : 'N-BODY OVERLAY OFF');
+  };
+
   document.getElementById('fx-potential').onclick = (e) => {
     FX.potential = !FX.potential;
     // Reduced-motion: keep the toggle visible but soft-disable heavy rebuilds

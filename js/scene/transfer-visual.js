@@ -10,6 +10,14 @@ export function setTransferLine(line) {
   if (line) scene.add(line);
 }
 
+/** Optional second line for physical-geometry overlay (pathGeometry === 'both'). */
+export let physicalTransferLine = null;
+export function setPhysicalTransferLine(line) {
+  if (physicalTransferLine) scene.remove(physicalTransferLine);
+  physicalTransferLine = line;
+  if (line) scene.add(line);
+}
+
 // Multi-leg route: one dashed line per leg, plus ring markers per intermediate flyby.
 export const extraLegLines = [];
 export const flybyMarkers = [];
@@ -24,6 +32,7 @@ export function clearMultiLegVisuals() {
   flybyMarkers.length = 0;
   clearFlybyGhosts();
   clearDateMarkers();
+  setPhysicalTransferLine(null);
 }
 
 // Persistent depart/arrive ring markers (visibility toggled by route logic).

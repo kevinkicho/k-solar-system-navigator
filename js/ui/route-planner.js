@@ -40,6 +40,11 @@ export function stampPlanningEphemeris(td) {
     : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx');
   td.ephemerisBackend = backend;
   td.classroomMode = !!state.classroomMode;
+  // Multi-rev Lambert (PR7b) — opt-in via pathAccuracy flag
+  td.maxRevolutions = (state.pathAccuracy?.multiRevLambert && !state.classroomMode)
+    ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
+    : 0;
+  td.pathOffsetPolicy = state.pathOffsetPolicy || 'time_varying';
   return td;
 }
 

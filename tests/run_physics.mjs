@@ -50,6 +50,9 @@ const SUITE = [
   'tests/transfer_path_smooth.mjs',
   'tests/ship_velocity.mjs',
   'tests/path_frame_consistency.mjs',
+  'tests/lambert_multirev.mjs',
+  'tests/adaptive_path.mjs',
+  'tests/nbody_cowell_smoke.mjs',
   'tests/perf_budgets.mjs',
 ];
 

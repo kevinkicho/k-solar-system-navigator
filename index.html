@@ -1143,6 +1143,35 @@ input[type="range"]::-webkit-slider-thumb {
             </select>
           </div>
           <div class="route-field-row">
+            <label>Path geometry</label>
+            <select id="path-geometry-select" title="Scene (visual) vs physical inclination path">
+              <option value="visual">Scene (visual / cinematic twin)</option>
+              <option value="physical">Physical (real inclination)</option>
+              <option value="both">Both (overlay)</option>
+            </select>
+          </div>
+          <div class="route-field-row">
+            <label>Flight path mode</label>
+            <select id="flight-path-mode" title="How dashed path updates during mission study">
+              <option value="static">Static (build on compute)</option>
+              <option value="rebuild">Rebuild on scrub (≥2s)</option>
+              <option value="trail_only">Trail only while flying</option>
+            </select>
+          </div>
+          <div class="route-field-row" id="path-flags-row">
+            <label>Path accuracy flags</label>
+            <label style="font-size:10px;display:flex;gap:6px;align-items:center">
+              <input type="checkbox" id="flag-adaptive-path"> Adaptive sampling (worker)
+            </label>
+            <label style="font-size:10px;display:flex;gap:6px;align-items:center">
+              <input type="checkbox" id="flag-multirev"> Multi-rev Lambert (N≤1)
+            </label>
+            <label style="font-size:10px;display:flex;gap:6px;align-items:center" id="flag-nbody-wrap">
+              <input type="checkbox" id="flag-nbody"> n-body residual overlay
+            </label>
+            <p class="surface-hint" style="margin-top:4px">n-body is educational residual only — never changes Need/Δv.</p>
+          </div>
+          <div class="route-field-row">
             <label>Multi-leg window density</label>
             <select id="ml-search-mode" title="Local seed density only — not a global mission optimizer">
               <option value="coarse">Coarse local seed (default · faster)</option>

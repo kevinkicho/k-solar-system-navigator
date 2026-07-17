@@ -205,6 +205,7 @@ function resolvePathOpts(td, opts = {}) {
   const parentPolicy = opts.parentPolicy
     ?? td.parentPolicy
     ?? defaultParentPolicy(td, tof);
+  const adaptive = !!opts.adaptive;
   return {
     offsetPolicy,
     sampleMode,
@@ -217,7 +218,60 @@ function resolvePathOpts(td, opts = {}) {
     tof,
     longWay,
     parentPolicy,
+    adaptive,
   };
+}
+
+/**
+ * Chord-error densify of equal-time samples (heliocentric before offset).
+ * @returns {Array|null}
+ */
+export function adaptivelyDensify(td, orb, seedPoints, cfg, offsetCtx, maxSamples = 1024) {
+  if (!orb || !seedPoints?.length) return null;
+  const epsInner = 0.02;
+  const epsOuter = 0.05;
+  const Lmax = 0.25;
+  let pts = seedPoints.map((p) => ({ ...p, r_helio: { ...p.r_helio } }));
+
+  for (let pass = 0; pass < 8 && pts.length < maxSamples; pass++) {
+    const next = [pts[0]];
+    let added = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      const ha = a.r_helio, hb = b.r_helio;
+      const chord = Math.hypot(hb.x - ha.x, hb.y - ha.y, hb.z - ha.z);
+      const rMean = 0.5 * (
+        Math.hypot(ha.x, ha.y, ha.z) + Math.hypot(hb.x, hb.y, hb.z)
+      );
+      const eps = rMean > 5 ? epsOuter : epsInner;
+      if (chord > Lmax || chord > eps) {
+        const tMid = 0.5 * (a.t_sec + b.t_sec);
+        const dt = tMid - cfg.tDep;
+        const h = helioAtDt(td, orb, dt, tMid, cfg.parentPolicy, cfg.exaggerate);
+        if (h) {
+          // Midpoint error vs linear chord
+          const mx = 0.5 * (ha.x + hb.x), my = 0.5 * (ha.y + hb.y), mz = 0.5 * (ha.z + hb.z);
+          const err = Math.hypot(h.x - mx, h.y - my, h.z - mz);
+          if (err > eps * 0.5 || chord > Lmax) {
+            const scene = applySunOffset(h, tMid, offsetCtx);
+            next.push({
+              t_sec: tMid,
+              x: scene.x, y: scene.y, z: scene.z,
+              r_helio: { x: h.x, y: h.y, z: h.z },
+              nu: h.nu,
+              mode: 'kepler',
+            });
+            added++;
+          }
+        }
+      }
+      next.push(b);
+      if (next.length >= maxSamples) break;
+    }
+    pts = next;
+    if (!added) break;
+  }
+  return pts;
 }
 
 /**
@@ -344,6 +398,17 @@ export function buildTransferPathSamples(td, opts = {}) {
           nu: h.nu,
           mode: 'kepler',
         });
+      }
+    }
+
+    // Adaptive densify in heliocentric frame (PR6; flag usually off until PR8)
+    if (points.length >= 2 && (opts.adaptive || cfg.adaptive)) {
+      const dense = adaptivelyDensify(
+        td, orb, points, cfg, offsetCtx, opts.maxSamples ?? 1024,
+      );
+      if (dense?.length >= 2) {
+        points.length = 0;
+        points.push(...dense);
       }
     }
   }

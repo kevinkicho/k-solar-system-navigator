@@ -44,16 +44,28 @@ export const state = {
   },
 
   /**
-   * Path rendering (trajectory accuracy design Phases 1–2).
-   * pathOffsetPolicy: 'time_varying' | 'mid_epoch' | 'none' | 'locked_departure'
-   * pathSampleMode: 'equal_time' | 'equal_nu'
-   * endpointMarkerPolicy: 'epoch_true' | 'match_path_end'
-   * pathGeometry: 'visual' | 'physical' | 'both' (PR5; default visual)
+   * Path rendering (trajectory accuracy design Phases 1–4).
+   * Convenience mirrors under pathAccuracy; top-level keys kept for PR1 call sites.
    */
   pathOffsetPolicy: 'time_varying',
   pathSampleMode: 'equal_time',
   endpointMarkerPolicy: 'epoch_true',
+  /** 'visual' | 'physical' | 'both' — dual overlay when both */
   pathGeometry: 'visual',
+  /** 'static' | 'rebuild' | 'trail_only' during mission */
+  flightPathMode: 'static',
+  pathAccuracy: {
+    forceVisualLongWay: true,
+    sharedPathBuilder: true,
+    adaptiveSampling: false, // ON only after worker (PR8) optional soak
+    multiRevLambert: false,
+    multiRevMax: 1,
+    preferSampleDeOuter: true, // banner only, no silent switch
+    nbodyOverlay: false,
+  },
+  /** Monotonic id to cancel path-refine / n-body workers */
+  pathRefineRequestId: 0,
+  lastPathRebuildWallMs: 0,
 
   classroomMode: false,
   /** Reliability: Launch requires vehicle margin feasible (K6). */
@@ -87,4 +99,16 @@ export function applyProductVehicleDefaults() {
 export function forceOfflineL1Ephemeris() {
   state.fidelityLevel = 'L1';
   state.ephemerisBackend = 'approx';
+  if (state.pathAccuracy) {
+    state.pathAccuracy.preferSampleDeOuter = false;
+    state.pathAccuracy.nbodyOverlay = false;
+  }
+  // Classroom: label path as physical (incl. factor = 1)
+  state.pathGeometry = 'physical';
+}
+
+/** Bump refine/n-body request id (stale worker results ignored). */
+export function bumpPathRefineRequestId() {
+  state.pathRefineRequestId = (state.pathRefineRequestId || 0) + 1;
+  return state.pathRefineRequestId;
 }

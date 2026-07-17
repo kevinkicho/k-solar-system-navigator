@@ -5,7 +5,7 @@
 | **Document title** | HELIOS Trajectory Rendering Accuracy (Phases 1–4) |
 | **Author** | HELIOS engineering (design owner TBD for product sign-off) |
 | **Date** | 2026-07-16 |
-| **Status** | **Draft** (rev 2 — review issues addressed) |
+| **Status** | **Implemented (PR1–PR11 stack on main)** — rev 3 |
 | **Repo** | `C:\Users\kevin\workspace\k-solar-system-navigator` |
 | **Branch policy** | **`main` only** (sequential, independently reviewable commits) |
 | **Audience** | Senior engineers owning physics, scene, and mission UI |

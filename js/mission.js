@@ -70,6 +70,10 @@ export function wireMissionStudyBar() {
       timeState.updateDisplay();
       m.arrived = timeState.simTime >= m.arrivalSimTime;
       syncMissionStudyBar();
+      // PR5 flightPathMode=rebuild
+      import('./ui/route-orbit-visual.js').then(({ maybeRebuildPathOnScrub }) => {
+        maybeRebuildPathOnScrub?.();
+      }).catch(() => {});
     });
   }
   if (depBtn) {
@@ -362,7 +366,9 @@ export function updateMission() {
           ? 'cosine blend (non-Kepler)'
           : (shipInfo?.mode || '—');
       const off = shipInfo?.offsetPolicy || td.pathOffsetPolicy || 'time_varying';
-      modeEl.textContent = `${base} · offset=${off} (sun barycenter motion, not third-body gravity)`;
+      const geom = state.pathGeometry || 'visual';
+      const flight = state.flightPathMode || 'static';
+      modeEl.textContent = `${base} · ${geom}/${off} · flight=${flight} · v=helio2body`;
     }
   }
   if (xEl) {

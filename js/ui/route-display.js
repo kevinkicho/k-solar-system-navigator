@@ -182,7 +182,38 @@ function visualWarnHtml(td) {
   if (offsetPol === 'time_varying' && !hasCosine) {
     parts.push(`<div class="visual-fallback-note" role="status">Path offset=time_varying: includes sun barycenter motion (educational) — not third-body gravity on the coast.</div>`);
   }
+  if (td.revolutions > 0) {
+    parts.push(`<div class="visual-fallback-note" role="status">Multi-rev Lambert N=${td.revolutions} (feature-flagged educational branch).</div>`);
+  }
+  if (state.pathAccuracy?.nbodyOverlay && !state.classroomMode) {
+    parts.push(`<div class="visual-fallback-note" role="status">n-body coast overlay = educational residual under Approximate Positions — not navigation OD. Need/Δv unchanged.</div>`);
+  }
+  // PR9: outer-system sample-DE recommend (no silent switch)
+  const outerBanner = outerSampleDeBanner(td);
+  if (outerBanner) parts.push(outerBanner);
   return parts.join('');
+}
+
+/** Bodies beyond Jupiter semi-major (~5 AU class) — educational outer list. */
+function isOuterBody(body) {
+  if (!body) return false;
+  const a = body.a;
+  if (a != null && a > 5) return true;
+  const outer = new Set(['Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto', 'Eris', 'Haumea']);
+  return outer.has(body.name);
+}
+
+function outerSampleDeBanner(td) {
+  if (state.classroomMode) return '';
+  if (!state.pathAccuracy?.preferSampleDeOuter) return '';
+  if (state.ephemerisBackend === 'sample-de') return '';
+  const b1 = td.body1, b2 = td.body2;
+  if (!isOuterBody(b1) && !isOuterBody(b2)) return '';
+  return `<div class="visual-fallback-note" role="status">
+    Outer-system endpoints: consider <strong>L2-plan sample-de</strong> ephemeris for better positions
+    (never auto-switched).
+    <button type="button" class="btn-tiny" id="btn-upgrade-sample-de">Use sample-de</button>
+  </div>`;
 }
 
 function fidelityPill(dossier) {
@@ -337,6 +368,30 @@ function renderSingleLegRouteUI(td) {
   if (designBtn) {
     designBtn.onclick = () => {
       import('./vehicle-lab.js').then(({ openVehicleLab }) => openVehicleLab({ focusDesign: true }));
+    };
+  }
+  const sampleDeBtn = document.getElementById('btn-upgrade-sample-de');
+  if (sampleDeBtn) {
+    sampleDeBtn.onclick = () => {
+      if (state.classroomMode) {
+        notify('CLASSROOM MODE FORCES L1 APPROX');
+        return;
+      }
+      state.ephemerisBackend = 'sample-de';
+      state.fidelityLevel = 'L2-plan';
+      const ephSel = document.getElementById('ephemeris-backend');
+      if (ephSel) ephSel.value = 'sample-de';
+      import('./route-planner.js').then(({ stampPlanningEphemeris }) => {
+        import('../physics/routing.js').then(({ solveTransferOrbit }) => {
+          if (state.transferData && !state.transferData.isMultiLeg) {
+            stampPlanningEphemeris(state.transferData);
+            solveTransferOrbit(state.transferData);
+            renderRouteUI();
+            updateTransferOrbitVisual();
+          }
+          notify('EPHEMERIS → SAMPLE-DE (L2-plan) · recompute for multi-leg');
+        });
+      });
     };
   }
   const absBtn = document.getElementById('btn-apply-abstract-need');

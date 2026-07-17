@@ -386,13 +386,17 @@ export function solveTransferOrbit(tData) {
   const vBody2 = arrS.vel;
   const r1vP = [depP.x * AU, depP.y * AU, depP.z * AU];
   const r2vP = [arrP.x * AU, arrP.y * AU, arrP.z * AU];
-  const bestP = solveLambertBestBranch(r1vP, r2vP, tData.transferTime, mu, vBody1, vBody2);
+  const maxRev = Math.max(0, Math.min(2, Math.floor(tData.maxRevolutions ?? 0)));
+  const bestP = solveLambertBestBranch(
+    r1vP, r2vP, tData.transferTime, mu, vBody1, vBody2, { maxRevolutions: maxRev },
+  );
 
   let physicsOk = false, chosenLongWay = null;
   if (bestP) {
     physicsOk = true;
     chosenLongWay = bestP.longWay;
     tData.orbitPhysical = bestP.orb;
+    tData.revolutions = bestP.revolutions ?? 0;
     // Store the raw Lambert velocity vectors (heliocentric, m/s) so the
     // mission-budget calculator can compute V∞ relative to each SOI parent
     // (= V_lambert − V_parent_helio).  Required when an endpoint is a moon
