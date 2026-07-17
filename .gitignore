@@ -21,7 +21,11 @@ ui-debug.log
 *.cache
 # Accidental firebase init SPA stub (hosting public is project root ".")
 public/
-# Service account keys (never commit)
+# Service account keys (never commit) — Admin SDK private keys for local agent use only
+# e.g. k-solar-system-navigator-firebase-adminsdk-*.json at repo root
 *-firebase-adminsdk-*.json
+*firebase-adminsdk*.json
 serviceAccount*.json
+**/service-account*.json
 google-services.json
+GoogleService-Info.plist
