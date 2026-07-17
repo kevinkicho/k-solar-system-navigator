@@ -17,6 +17,8 @@ import { timeState } from './time-system.js';
 import { updateBodyList } from './body-list.js';
 import { syncShareHash } from './share-sync.js';
 import { buildPlanDossier } from './plan-dossier.js';
+import { emptySurfacePoint, cloneSurfacePoint, isSurfacePointActive } from '../physics/surface-point.js';
+import { refreshSurfacePointUi, syncSurfaceSlotLabels } from './surface-point-ui.js';
 
 // Mission abort handler — injected by main.js so route-planner can cancel an
 // in-flight mission without importing mission.js (which would create a cycle).
@@ -103,24 +105,43 @@ export function setRouteOrigin(body) {
   // If a mission was in flight (or arrived), changing the origin invalidates
   // it — the "From X" label and progress bar would be stale.  Bail cleanly.
   if (state.mission.active) _abortMission();
+  const prev = state.routeOrigin;
   state.routeOrigin = body;
+  // Reset surface point when body changes; keep when re-selecting same body
+  if (!body || !prev || prev.name !== body.name) {
+    state.routeOriginPoint = emptySurfacePoint();
+  } else if (!state.routeOriginPoint) {
+    state.routeOriginPoint = emptySurfacePoint();
+  }
   state.flybys = [];
   state.transferData = null;
   state.showTransferOrbit = false;
   updateTransferOrbitVisual();   // tear down dashed line + ghost target
   document.getElementById('origin-name').textContent = body ? body.name : 'Click, drag or right-click';
   document.getElementById('origin-name').classList.toggle('empty', !body);
-  if (body) notify(`ORIGIN: ${body.name.toUpperCase()}`);
+  if (body) {
+    const s = isSurfacePointActive(state.routeOriginPoint)
+      ? ` @ surface` : '';
+    notify(`ORIGIN: ${body.name.toUpperCase()}${s}`);
+  }
   document.getElementById('transfer-results').innerHTML = '';
   document.getElementById('mission-controls').innerHTML = '';
   renderFlybyList();
-  selectBody(state.selectedBody);
+  selectBody(state.selectedBody, { openDossier: false });
   updateBodyList();
+  try { refreshSurfacePointUi(); } catch { /* */ }
+  try { syncSurfaceSlotLabels(); } catch { /* */ }
 }
 
 export function setRouteDestination(body) {
   if (state.mission.active) _abortMission();
+  const prev = state.routeDestination;
   state.routeDestination = body;
+  if (!body || !prev || prev.name !== body.name) {
+    state.routeDestPoint = emptySurfacePoint();
+  } else if (!state.routeDestPoint) {
+    state.routeDestPoint = emptySurfacePoint();
+  }
   state.flybys = [];
   state.transferData = null;
   state.showTransferOrbit = false;
@@ -131,8 +152,10 @@ export function setRouteDestination(body) {
   document.getElementById('transfer-results').innerHTML = '';
   document.getElementById('mission-controls').innerHTML = '';
   renderFlybyList();
-  selectBody(state.selectedBody);
+  selectBody(state.selectedBody, { openDossier: false });
   updateBodyList();
+  try { refreshSurfacePointUi(); } catch { /* */ }
+  try { syncSurfaceSlotLabels(); } catch { /* */ }
 }
 
 export function clearRoute() {
@@ -412,6 +435,9 @@ export function computeRoute() {
   state.transferData = stampPlanningEphemeris(
     hohmannTransfer(originBody, destBody, departureSimTime),
   );
+  // Attach optional planetocentric surface endpoints (lat/lon/alt).
+  state.transferData.surfaceOriginPoint = cloneSurfacePoint(state.routeOriginPoint);
+  state.transferData.surfaceDestPoint = cloneSurfacePoint(state.routeDestPoint);
   solveTransferOrbit(state.transferData);
 
   const orb = state.transferData.orbitPhysical;
@@ -458,6 +484,8 @@ export function computeRoute() {
       );
       state.transferData.transferTime = fix.transferTime;
       state.transferData.arrivalSimTime = fix.arrivalSimTime;
+      state.transferData.surfaceOriginPoint = cloneSurfacePoint(state.routeOriginPoint);
+      state.transferData.surfaceDestPoint = cloneSurfacePoint(state.routeDestPoint);
       solveTransferOrbit(state.transferData);
       dateInput.value = dateToInputValue(simTimeToDate(fix.departureSimTime));
       timeState.simTime = fix.departureSimTime;

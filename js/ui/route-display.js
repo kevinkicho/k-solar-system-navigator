@@ -87,7 +87,7 @@ function bindMissionControlButtons(td, { canLaunch }) {
 }
 
 function heroCardHtml({
-  title, b1, b2, transitLabel, needLabel, feasible, feasibleLabel, fidelityPill, visualWarn,
+  title, b1, b2, transitLabel, needLabel, feasible, feasibleLabel, fidelityPill, visualWarn, surfaceNote,
 }) {
   const feasCls = feasible ? 'green' : 'red-val';
   return `
@@ -100,9 +100,20 @@ function heroCardHtml({
         <div class="hero-metric"><span class="hm-k">Feasible</span><span class="hm-v ${feasCls}">${feasibleLabel}</span></div>
         <div class="hero-metric"><span class="hm-k">Fidelity</span><span class="hm-v">${fidelityPill}</span></div>
       </div>
+      ${surfaceNote || ''}
       <p class="results-hero-note">Green/orange ghosts = planet positions <em>at burn times</em>, not “now”. Use Jump to Departure to align the scene.</p>
       ${visualWarn || ''}
     </div>`;
+}
+
+function surfaceNoteHtml(td) {
+  const o = td.surfaceOriginMeta;
+  const d = td.surfaceDestMeta;
+  if (!o && !d) return '';
+  const lines = [];
+  if (o) lines.push(`Origin site: ${o.label}`);
+  if (d) lines.push(`Dest site: ${d.label}`);
+  return `<p class="results-hero-surface" title="Planetocentric spherical endpoints (concept-grade spin)">📍 ${lines.join(' · ')}</p>`;
 }
 
 function actionsHtml(missionReady) {
@@ -232,6 +243,7 @@ function renderSingleLegRouteUI(td) {
         feasibleLabel: missionReady ? 'YES' : 'NO',
         fidelityPill: fidelityPill(dossier),
         visualWarn: visualWarnHtml(td),
+        surfaceNote: surfaceNoteHtml(td),
       })}
       ${actionsHtml(missionReady)}
       ${detailsBlock('det-lambert', 'Transfer detail', false, lambertBlock)}

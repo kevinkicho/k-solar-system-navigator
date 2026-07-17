@@ -44,6 +44,7 @@ const SUITE = [
   'tests/porkchop_refine.mjs',
   'tests/ui_split_static.mjs',
   'tests/body_picker_dossier.mjs',
+  'tests/surface_point.mjs',
   'tests/perf_budgets.mjs',
 ];
 

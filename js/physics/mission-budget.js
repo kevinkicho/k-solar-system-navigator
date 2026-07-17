@@ -29,8 +29,17 @@ import { G_CONST } from '../constants.js';
 import { BODIES } from '../data/bodies.js';
 import { v3mag, v3sub } from './vec3.js';
 import { getPlanningVelocity3D } from './ephemeris-provider.js';
+import { isSurfacePointActive } from './surface-point.js';
 
 const PARKING_ALT_M = 100e3;
+
+function parkingAltFor(td, end /* 'origin'|'dest' */) {
+  const pt = end === 'origin' ? td.surfaceOriginPoint : td.surfaceDestPoint;
+  if (isSurfacePointActive(pt) && Number.isFinite(pt.alt_m) && pt.alt_m >= 0) {
+    return pt.alt_m;
+  }
+  return PARKING_ALT_M;
+}
 
 /**
  * Δv from low circular parking orbit to hyperbolic escape with V∞ (m/s).
@@ -114,9 +123,16 @@ export function computeMissionBudget(td) {
     dep.phases.push({ label: `Escape ${parent.name} from ${origin.name} orbit (V∞ = ${(vInfDep/1000).toFixed(2)} km/s)`, dv: dvParentEscape });
     dep.total = dvLift + dvParentEscape;
   } else {
-    // From low planet parking orbit.
-    const dv = escapeFromLowOrbitDV(G_CONST * origin.mass, origin.radius, vInfDep);
-    dep.phases.push({ label: `Escape ${origin.name} from low parking orbit (V∞ = ${(vInfDep/1000).toFixed(2)} km/s)`, dv });
+    // From parking orbit at surface-point altitude (or default 100 km).
+    const altDep = parkingAltFor(td, 'origin');
+    const dv = escapeFromLowOrbitDV(G_CONST * origin.mass, origin.radius, vInfDep, altDep);
+    const site = isSurfacePointActive(td.surfaceOriginPoint)
+      ? ` @ ${td.surfaceOriginPoint.lat_deg.toFixed(1)}°,${td.surfaceOriginPoint.lon_deg.toFixed(1)}°`
+      : '';
+    dep.phases.push({
+      label: `Escape ${origin.name}${site} from ${(altDep / 1000).toFixed(0)} km parking (V∞ = ${(vInfDep / 1000).toFixed(2)} km/s)`,
+      dv,
+    });
     dep.total = dv;
   }
 
@@ -130,13 +146,24 @@ export function computeMissionBudget(td) {
     arr.phases.push({ label: `Insert into low ${dest.name} parking orbit`, dv: dvMoonCapture });
     arr.total = dvParentCapture + dvMoonCapture;
   } else {
-    const dv = escapeFromLowOrbitDV(G_CONST * dest.mass, dest.radius, vInfArr);
-    arr.phases.push({ label: `Capture into low ${dest.name} parking orbit (V∞ = ${(vInfArr/1000).toFixed(2)} km/s)`, dv });
+    const altArr = parkingAltFor(td, 'dest');
+    const dv = escapeFromLowOrbitDV(G_CONST * dest.mass, dest.radius, vInfArr, altArr);
+    const site = isSurfacePointActive(td.surfaceDestPoint)
+      ? ` @ ${td.surfaceDestPoint.lat_deg.toFixed(1)}°,${td.surfaceDestPoint.lon_deg.toFixed(1)}°`
+      : '';
+    arr.phases.push({
+      label: `Capture into ${dest.name}${site} ${(altArr / 1000).toFixed(0)} km parking (V∞ = ${(vInfArr / 1000).toFixed(2)} km/s)`,
+      dv,
+    });
     arr.total = dv;
   }
 
+  const parkDep = parkingAltFor(td, 'origin');
+  const parkArr = parkingAltFor(td, 'dest');
   return {
-    parkingAlt_m: PARKING_ALT_M,
+    parkingAlt_m: parkDep,
+    parkingAltDep_m: parkDep,
+    parkingAltArr_m: parkArr,
     departure: dep,
     arrival: arr,
     totalMission: dep.total + arr.total,

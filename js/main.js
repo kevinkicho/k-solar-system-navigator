@@ -45,6 +45,7 @@ import { wireAgentChat } from './ui/agent-chat.js';
 import { wireRailUi } from './ui/rail-ui.js';
 import { wireBodyPicker } from './ui/body-picker.js';
 import { wireBodyDossier } from './ui/body-dossier-modal.js';
+import { wireSurfacePointUi } from './ui/surface-point-ui.js';
 
 // Mission + animation.
 import { abortMission, launchMission } from './mission.js';
@@ -84,6 +85,7 @@ wireVehicleLab();
 wireRailUi();
 wireBodyPicker();
 wireBodyDossier();
+wireSurfacePointUi();
 try {
   wireAgentChat(); // FAB chat + onboard agent C2 — never block app boot
 } catch (err) {

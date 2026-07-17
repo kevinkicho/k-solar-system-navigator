@@ -10,6 +10,9 @@ import {
 } from './helio.js';
 import { solveLambertBestBranch, solveLambertProblem } from './lambert.js';
 import { gravityAssistInfo } from './gravity-assist.js';
+import {
+  applySurfaceEndpoint, isSurfacePointActive, surfacePointMeta,
+} from './surface-point.js';
 
 /** Propagate visual transfer (ellipse or hyperbola). */
 export function propagateVisualOrbit(orb, dt) {
@@ -98,17 +101,26 @@ export {
 //   (2) VISUAL geometry (exaggerated inclinations) → orbit used for the drawn
 //       trajectory line and ship animation, so the ship lines up with the
 //       visually-tilted planets.
+// Optional surface points (lat/lon/alt) offset r and v at each endpoint.
 // Each solve is rejected if propagating the orbit to tof misses r2 by > 1000 km.
 export function solveTransferOrbit(tData) {
   const mu  = G_CONST * SUN_DATA.mass;
   const pOpts = planOpts(tData);
+  const originPt = tData.surfaceOriginPoint || null;
+  const destPt = tData.surfaceDestPoint || null;
 
-  const depP = getPlanningPosition3D(tData.body1, tData.departureSimTime, pOpts);
-  const arrP = getPlanningPosition3D(tData.body2, tData.arrivalSimTime, pOpts);
+  const depP0 = getPlanningPosition3D(tData.body1, tData.departureSimTime, pOpts);
+  const arrP0 = getPlanningPosition3D(tData.body2, tData.arrivalSimTime, pOpts);
+  const vBody1_0 = getPlanningVelocity3D(tData.body1, tData.departureSimTime, pOpts);
+  const vBody2_0 = getPlanningVelocity3D(tData.body2, tData.arrivalSimTime, pOpts);
+  const depS = applySurfaceEndpoint(depP0, vBody1_0, tData.body1, tData.departureSimTime, originPt);
+  const arrS = applySurfaceEndpoint(arrP0, vBody2_0, tData.body2, tData.arrivalSimTime, destPt);
+  const depP = depS.pos;
+  const arrP = arrS.pos;
+  const vBody1 = depS.vel;
+  const vBody2 = arrS.vel;
   const r1vP = [depP.x * AU, depP.y * AU, depP.z * AU];
   const r2vP = [arrP.x * AU, arrP.y * AU, arrP.z * AU];
-  const vBody1 = getPlanningVelocity3D(tData.body1, tData.departureSimTime, pOpts);
-  const vBody2 = getPlanningVelocity3D(tData.body2, tData.arrivalSimTime, pOpts);
   const bestP = solveLambertBestBranch(r1vP, r2vP, tData.transferTime, mu, vBody1, vBody2);
 
   let physicsOk = false, chosenLongWay = null;
@@ -123,15 +135,25 @@ export function solveTransferOrbit(tData) {
     // rather than just the heliocentric leg.
     tData.v1_lambert = bestP.sol.v1;
     tData.v2_lambert = bestP.sol.v2;
+    // Δv vs surface-inertial velocity when surface points active (includes spin),
+    // else classic body-center velocity.
     tData.dv1_lambert = v3mag(v3sub(bestP.sol.v1, vBody1));
     tData.dv2_lambert = v3mag(v3sub(bestP.sol.v2, vBody2));
     tData.dvTotal_lambert = tData.dv1_lambert + tData.dv2_lambert;
     tData.longWay = chosenLongWay;
+    tData.surfaceOriginMeta = surfacePointMeta(tData.body1, originPt);
+    tData.surfaceDestMeta = surfacePointMeta(tData.body2, destPt);
+    tData.surfaceOriginOffset_m = depS.offset_m || 0;
+    tData.surfaceDestOffset_m = arrS.offset_m || 0;
   }
   tData.lambertOk = physicsOk;
 
-  const depV = getBodyPosition3D(tData.body1, tData.departureSimTime, true);
-  const arrV = getBodyPosition3D(tData.body2, tData.arrivalSimTime, true);
+  const depV0 = getBodyPosition3D(tData.body1, tData.departureSimTime, true);
+  const arrV0 = getBodyPosition3D(tData.body2, tData.arrivalSimTime, true);
+  const depVs = applySurfaceEndpoint(depV0, [0, 0, 0], tData.body1, tData.departureSimTime, originPt);
+  const arrVs = applySurfaceEndpoint(arrV0, [0, 0, 0], tData.body2, tData.arrivalSimTime, destPt);
+  const depV = depVs.pos;
+  const arrV = arrVs.pos;
   tData.dep3D = depV;
   tData.arr3D = arrV;
   tData.orbit = null;
@@ -139,8 +161,14 @@ export function solveTransferOrbit(tData) {
   if (physicsOk) {
     const r1vV = [depV.x * AU, depV.y * AU, depV.z * AU];
     const r2vV = [arrV.x * AU, arrV.y * AU, arrV.z * AU];
-    const vBody1v = getBodyVelocity3D(tData.body1, tData.departureSimTime, true);
-    const vBody2v = getBodyVelocity3D(tData.body2, tData.arrivalSimTime, true);
+    const v1vis0 = getBodyVelocity3D(tData.body1, tData.departureSimTime, true);
+    const v2vis0 = getBodyVelocity3D(tData.body2, tData.arrivalSimTime, true);
+    const vBody1v = applySurfaceEndpoint(
+      depV0, v1vis0, tData.body1, tData.departureSimTime, originPt,
+    ).vel;
+    const vBody2v = applySurfaceEndpoint(
+      arrV0, v2vis0, tData.body2, tData.arrivalSimTime, destPt,
+    ).vel;
     // Independent visual branch (not forced physical longWay) + hyperbola-safe
     const vis = tryBuildVisualOrbit(
       r1vV, r2vV, tData.transferTime, mu, vBody1v, vBody2v, chosenLongWay,

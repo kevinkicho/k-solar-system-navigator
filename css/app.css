@@ -271,6 +271,38 @@
   }
 }
 
+/* ── Surface point (lat/lon/alt) panels ─────────────────────────── */
+.surface-point-panel {
+  margin: 6px 0 8px; border: 1px solid var(--border); border-radius: 4px;
+  background: rgba(0,0,0,0.18);
+}
+.surface-point-panel[hidden] { display: none !important; }
+.surface-point-panel > summary {
+  font-family: var(--font-display); font-size: 8px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-dim);
+  padding: 7px 10px; cursor: pointer; list-style: none;
+}
+.surface-point-panel > summary::-webkit-details-marker { display: none; }
+.surface-point-panel > summary::before { content: '▸ '; color: var(--cyan-dim); }
+.surface-point-panel[open] > summary::before { content: '▾ '; }
+.surface-point-panel[open] > summary { color: var(--cyan); border-bottom: 1px solid var(--border); }
+.surface-point-body { padding: 6px 10px 10px; }
+.surface-check {
+  display: flex; align-items: center; gap: 8px; font-size: 11px;
+  color: var(--text); cursor: pointer; margin-bottom: 6px;
+}
+.surface-ll-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.surface-hint {
+  font-size: 9px; color: var(--text-dim); line-height: 1.35; margin-top: 4px;
+}
+.results-hero-surface {
+  font-size: 10px; color: var(--cyan); margin-top: 8px; line-height: 1.35;
+  padding: 5px 8px; background: rgba(0,212,255,0.06);
+  border: 1px solid rgba(0,212,255,0.2); border-radius: 3px;
+}
+
 /* ── Route slot chevron (body picker affordance) ───────────────── */
 .route-slot .slot-chevron {
   margin-left: auto;

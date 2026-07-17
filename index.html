@@ -888,6 +888,66 @@ input[type="range"]::-webkit-slider-thumb {
         <span class="slot-value empty" id="dest-name">Click, drag or right-click</span>
         <span class="slot-chevron" aria-hidden="true">▾</span>
       </div>
+
+      <details class="surface-point-panel" id="origin-surface-panel" hidden>
+        <summary>Origin exact point · lat / lon / alt</summary>
+        <div class="surface-point-body">
+          <label class="surface-check">
+            <input type="checkbox" id="origin-surface-enabled"> Enable spherical surface endpoint
+          </label>
+          <div id="origin-surface-fields" hidden>
+            <div class="route-field-row">
+              <label>Preset</label>
+              <select id="origin-surface-preset"><option value="">Site preset…</option></select>
+            </div>
+            <div class="surface-ll-row">
+              <div class="route-field-row">
+                <label>Latitude °N</label>
+                <input type="number" id="origin-lat" min="-90" max="90" step="0.01" value="0">
+              </div>
+              <div class="route-field-row">
+                <label>Longitude °E</label>
+                <input type="number" id="origin-lon" min="-180" max="180" step="0.01" value="0">
+              </div>
+            </div>
+            <div class="route-field-row">
+              <label>Altitude (km above radius)</label>
+              <input type="number" id="origin-alt" min="0" max="50000" step="1" value="100">
+            </div>
+            <p class="surface-hint">Planetocentric spherical · concept-grade spin model · not SPICE / not range safety</p>
+          </div>
+        </div>
+      </details>
+      <details class="surface-point-panel" id="dest-surface-panel" hidden>
+        <summary>Destination exact point · lat / lon / alt</summary>
+        <div class="surface-point-body">
+          <label class="surface-check">
+            <input type="checkbox" id="dest-surface-enabled"> Enable spherical surface endpoint
+          </label>
+          <div id="dest-surface-fields" hidden>
+            <div class="route-field-row">
+              <label>Preset</label>
+              <select id="dest-surface-preset"><option value="">Site preset…</option></select>
+            </div>
+            <div class="surface-ll-row">
+              <div class="route-field-row">
+                <label>Latitude °N</label>
+                <input type="number" id="dest-lat" min="-90" max="90" step="0.01" value="0">
+              </div>
+              <div class="route-field-row">
+                <label>Longitude °E</label>
+                <input type="number" id="dest-lon" min="-180" max="180" step="0.01" value="0">
+              </div>
+            </div>
+            <div class="route-field-row">
+              <label>Altitude (km above radius)</label>
+              <input type="number" id="dest-alt" min="0" max="50000" step="1" value="100">
+            </div>
+            <p class="surface-hint">Planetocentric spherical · concept-grade spin model · not SPICE / not range safety</p>
+          </div>
+        </div>
+      </details>
+
       <div class="date-group">
         <label>Departure Date/Time (UTC)</label>
         <div class="date-input-row">
