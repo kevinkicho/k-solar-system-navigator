@@ -7,10 +7,14 @@ import { orbitLines, planetLabels } from '../scene/planets.js';
 import { selectionRing } from '../scene/selection-ring.js';
 import { updateInfoPanel } from './info-panel.js';
 import { openBodyDossier } from './body-dossier-modal.js';
+import { activateRailTab } from './rail-ui.js';
 
 /**
  * @param {object|null} body
- * @param {{ openDossier?: boolean }} [opts] — openDossier defaults true when body set
+ * @param {{ openDossier?: boolean, railTab?: 'inspect'|'plan'|'results'|null }} [opts]
+ *   openDossier defaults true when body set.
+ *   railTab: which right-rail tab to show (default 'plan' when picking a body —
+ *   Results is often empty until Compute Transfer).
  */
 export function selectBody(body, opts = {}) {
   state.selectedBody = body;
@@ -38,6 +42,11 @@ export function selectBody(body, opts = {}) {
     }
     const openDossier = opts.openDossier !== false;
     if (openDossier) openBodyDossier(body);
+    // Prefer Plan over empty Results when choosing bodies for routing
+    const tab = opts.railTab !== undefined ? opts.railTab : 'plan';
+    if (tab) {
+      try { activateRailTab(tab); } catch { /* non-DOM */ }
+    }
   } else {
     selectionRing.visible = false;
     if (state.followMode) state.followMode = false;

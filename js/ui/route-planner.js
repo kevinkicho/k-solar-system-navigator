@@ -26,6 +26,7 @@ import {
   defaultSurfacePointForBody, formatSurfacePointShort, normalizeSurfacePoint,
 } from '../physics/surface-point.js';
 import { refreshSurfacePointUi, syncSurfaceSlotLabels } from './surface-point-ui.js';
+import { activateRailTab } from './rail-ui.js';
 
 // Mission abort handler — injected by main.js so route-planner can cancel an
 // in-flight mission without importing mission.js (which would create a cycle).
@@ -139,7 +140,8 @@ export function setRouteOrigin(body) {
   document.getElementById('transfer-results').innerHTML = '';
   document.getElementById('mission-controls').innerHTML = '';
   renderFlybyList();
-  selectBody(state.selectedBody, { openDossier: false });
+  selectBody(state.selectedBody, { openDossier: false, railTab: null });
+  try { activateRailTab('plan'); } catch { /* */ }
   updateBodyList();
   try { refreshSurfacePointUi(); } catch { /* */ }
   try { syncSurfaceSlotLabels(); } catch { /* */ }
@@ -168,7 +170,8 @@ export function setRouteDestination(body) {
   document.getElementById('transfer-results').innerHTML = '';
   document.getElementById('mission-controls').innerHTML = '';
   renderFlybyList();
-  selectBody(state.selectedBody, { openDossier: false });
+  selectBody(state.selectedBody, { openDossier: false, railTab: null });
+  try { activateRailTab('plan'); } catch { /* */ }
   updateBodyList();
   try { refreshSurfacePointUi(); } catch { /* */ }
   try { syncSurfaceSlotLabels(); } catch { /* */ }
@@ -186,6 +189,7 @@ export function clearRoute() {
   document.getElementById('transfer-results').innerHTML = '';
   document.getElementById('mission-controls').innerHTML = '';
   document.getElementById('depart-date').value = '';
+  try { activateRailTab('plan'); } catch { /* */ }
   notify('ROUTE CLEARED');
 }
 

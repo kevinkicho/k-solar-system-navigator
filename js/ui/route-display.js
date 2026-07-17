@@ -225,18 +225,20 @@ function fidelityPill(dossier) {
 export function renderRouteUI() {
   const td = state.transferData;
   if (!td) return;
-  // Switch right-rail tab to Results when a plan is ready (sync — tests + share btn visibility)
+  // Results tab only when we actually have transfer content to show
   try {
-    activateRailTab('results');
-    if (document.body.classList.contains('mob-sheet-plan')
-        || document.body.classList.contains('mob-sheet-bodies')
-        || document.body.classList.contains('mob-sheet-results')
-        || window.matchMedia?.('(max-width: 768px)')?.matches) {
-      document.body.classList.remove('mob-sheet-bodies', 'mob-sheet-plan');
-      document.body.classList.add('mob-sheet-results');
-      document.querySelectorAll('#mobile-chips .mob-chip').forEach((c) => {
-        c.setAttribute('aria-pressed', c.dataset.sheet === 'results' ? 'true' : 'false');
-      });
+    if (td) {
+      activateRailTab('results');
+      if (document.body.classList.contains('mob-sheet-plan')
+          || document.body.classList.contains('mob-sheet-bodies')
+          || document.body.classList.contains('mob-sheet-results')
+          || window.matchMedia?.('(max-width: 768px)')?.matches) {
+        document.body.classList.remove('mob-sheet-bodies', 'mob-sheet-plan');
+        document.body.classList.add('mob-sheet-results');
+        document.querySelectorAll('#mobile-chips .mob-chip').forEach((c) => {
+          c.setAttribute('aria-pressed', c.dataset.sheet === 'results' ? 'true' : 'false');
+        });
+      }
     }
   } catch { /* */ }
 
