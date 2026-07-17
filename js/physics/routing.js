@@ -87,50 +87,87 @@ export function propagateVisualOrbitState(orb, dt) {
 }
 
 /**
- * Build visual-orbit state from Lambert solution on exaggerated geometry.
- * Uses independent best branch + hyperbola-safe propagation.
- * @returns {{ orbit, visualFallback: null|'cosine' }}
+ * Build orbit from Lambert v1; prefer hyperbola-safe build, validate hit.
+ * @returns {object|null} orbit
+ */
+function orbitFromLambertV1(r1v, r2v, tof, mu, v1) {
+  try {
+    const orbH = buildHelioOrbit(r1v, v1, mu);
+    const hitH = propagateHelioOrbit(orbH, tof);
+    if (hitH && v3mag(v3sub(hitH, r2v)) < 1e6) return orbH;
+  } catch { /* fall through */ }
+  try {
+    const orbE = buildTransferOrbit(r1v, v1, mu);
+    const hitE = propagateOrbit(orbE, tof);
+    if (hitE && v3mag(v3sub(hitE, r2v)) < 1e6) return orbE;
+  } catch { /* fall through */ }
+  return null;
+}
+
+/**
+ * Build visual-orbit state from Lambert on exaggerated geometry.
+ *
+ * Phase 1 PR2: force visual longWay = physical when possible, so transfer-angle
+ * story matches Δv numbers. Only fall back to free best if forced fails.
+ *
+ * @returns {{
+ *   orbit: object|null,
+ *   visualFallback: null|'cosine',
+ *   visualLongWay: boolean|null,
+ *   visualBranchDiverged: boolean,
+ * }}
  */
 function tryBuildVisualOrbit(r1v, r2v, tof, mu, vBody1, vBody2, preferredLongWay = null) {
-  // Prefer free best branch for visuals; fall back to preferred longWay if needed.
-  let best = solveLambertBestBranch(r1v, r2v, tof, mu, vBody1, vBody2);
-  if (!best && preferredLongWay != null) {
+  // 1) Forced physical longWay first (PR2)
+  if (preferredLongWay != null) {
     const sol = solveLambertProblem(r1v, r2v, tof, mu, preferredLongWay);
     if (sol) {
-      const orbEll = buildTransferOrbit(r1v, sol.v1, mu);
-      const hit = propagateOrbit(orbEll, tof);
-      if (v3mag(v3sub(hit, r2v)) < 1e6) {
-        return { orbit: orbEll, visualFallback: null };
+      const orb = orbitFromLambertV1(r1v, r2v, tof, mu, sol.v1);
+      if (orb) {
+        return {
+          orbit: orb,
+          visualFallback: null,
+          visualLongWay: preferredLongWay,
+          visualBranchDiverged: false,
+        };
       }
-      const orbH = buildHelioOrbit(r1v, sol.v1, mu);
-      const hitH = propagateHelioOrbit(orbH, tof);
-      if (v3mag(v3sub(hitH, r2v)) < 1e6) {
-        return { orbit: orbH, visualFallback: null };
-      }
     }
-    return { orbit: null, visualFallback: 'cosine' };
   }
-  if (!best) return { orbit: null, visualFallback: 'cosine' };
-  // Hyperbola-safe first (covers e>1 and energy>0 edge cases)
-  try {
-    const orbH = buildHelioOrbit(r1v, best.sol.v1, mu);
-    const hitH = propagateHelioOrbit(orbH, tof);
-    if (v3mag(v3sub(hitH, r2v)) < 1e6) {
-      return { orbit: orbH, visualFallback: null };
+
+  // 2) Free best branch (may diverge from physical longWay)
+  const best = solveLambertBestBranch(r1v, r2v, tof, mu, vBody1, vBody2);
+  if (best?.sol?.v1) {
+    const orb = orbitFromLambertV1(r1v, r2v, tof, mu, best.sol.v1)
+      || best.orb
+      || null;
+    // Validate best.orb if orbitFromLambertV1 failed but best.orb exists
+    let useOrb = orb;
+    if (!useOrb && best.orb) {
+      try {
+        const hit = best.orb.hyperbolic
+          ? propagateHelioOrbit(best.orb, tof)
+          : propagateOrbit(best.orb, tof);
+        if (hit && v3mag(v3sub(hit, r2v)) < 1e6) useOrb = best.orb;
+      } catch { /* */ }
     }
-  } catch {
-    /* fall through */
-  }
-  try {
-    const orbE = buildTransferOrbit(r1v, best.sol.v1, mu);
-    const hitE = propagateOrbit(orbE, tof);
-    if (v3mag(v3sub(hitE, r2v)) < 1e6) {
-      return { orbit: orbE, visualFallback: null };
+    if (useOrb) {
+      const diverged = preferredLongWay != null && best.longWay !== preferredLongWay;
+      return {
+        orbit: useOrb,
+        visualFallback: null,
+        visualLongWay: best.longWay,
+        visualBranchDiverged: !!diverged,
+      };
     }
-  } catch {
-    /* fall through */
   }
-  return { orbit: null, visualFallback: 'cosine' };
+
+  // 3) Cosine fallback
+  return {
+    orbit: null,
+    visualFallback: 'cosine',
+    visualLongWay: preferredLongWay,
+    visualBranchDiverged: preferredLongWay != null,
+  };
 }
 
 /** Planning opts: backend 'approx'|'sample-de', classroomMode. Visual path always Kepler. */
@@ -274,6 +311,8 @@ function solvePlanetRelativeTransferOrbit(tData) {
   tData.arr3D = arrVs.pos;
   tData.orbit = null;
   tData.visualFallback = null;
+  tData.visualLongWay = null;
+  tData.visualBranchDiverged = false;
 
   if (physicsOk) {
     // Visual: same parent-frame construction (exaggerated central heliocentric
@@ -295,12 +334,16 @@ function solvePlanetRelativeTransferOrbit(tData) {
       const aVis = analyticCoplanarHohmann(r1vV, r2vV, mu, depSv.vel, arrSv.vel);
       tData.orbit = aVis?.orb || tData.orbitPhysical;
       tData.visualFallback = aVis ? null : 'cosine';
+      tData.visualLongWay = false;
+      tData.visualBranchDiverged = false;
     } else {
       const vis = tryBuildVisualOrbit(
         r1vV, r2vV, tData.transferTime, mu, depSv.vel, arrSv.vel, chosenLongWay,
       );
       tData.orbit = vis.orbit;
       tData.visualFallback = vis.visualFallback;
+      tData.visualLongWay = vis.visualLongWay;
+      tData.visualBranchDiverged = !!vis.visualBranchDiverged;
     }
   }
 }
@@ -382,6 +425,8 @@ export function solveTransferOrbit(tData) {
   tData.arr3D = arrV;
   tData.orbit = null;
   tData.visualFallback = null;
+  tData.visualLongWay = null;
+  tData.visualBranchDiverged = false;
   if (physicsOk) {
     const r1vV = [depV.x * AU, depV.y * AU, depV.z * AU];
     const r2vV = [arrV.x * AU, arrV.y * AU, arrV.z * AU];
@@ -393,12 +438,14 @@ export function solveTransferOrbit(tData) {
     const vBody2v = applySurfaceEndpoint(
       arrV0, v2vis0, tData.body2, tData.arrivalSimTime, destPt,
     ).vel;
-    // Independent visual branch (not forced physical longWay) + hyperbola-safe
+    // PR2: force visual longWay = physical when valid
     const vis = tryBuildVisualOrbit(
       r1vV, r2vV, tData.transferTime, mu, vBody1v, vBody2v, chosenLongWay,
     );
     tData.orbit = vis.orbit;
     tData.visualFallback = vis.visualFallback;
+    tData.visualLongWay = vis.visualLongWay;
+    tData.visualBranchDiverged = !!vis.visualBranchDiverged;
   }
 }
 
@@ -491,7 +538,8 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
     if (ptA) pAV = applySurfaceEndpoint(pAV, [0, 0, 0], a.body, a.simTime, ptA).pos;
     if (ptB) pBV = applySurfaceEndpoint(pBV, [0, 0, 0], b.body, b.simTime, ptB).pos;
 
-    let orbP = null, orbV = null, ok = false, v1 = null, v2 = null, visualFallback = null;
+    let orbP = null, orbV = null, ok = false, v1 = null, v2 = null;
+    let visualFallback = null, visualLongWay = null, visualBranchDiverged = false;
     if (bestP) {
       orbP = bestP.orb;
       v1 = bestP.sol.v1; v2 = bestP.sol.v2; ok = true;
@@ -501,9 +549,12 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
       let vBv = getBodyVelocity3D(b.body, b.simTime, true);
       if (ptA) vAv = applySurfaceEndpoint(pAV, vAv, a.body, a.simTime, ptA).vel;
       if (ptB) vBv = applySurfaceEndpoint(pBV, vBv, b.body, b.simTime, ptB).vel;
+      // PR2: force visual longWay = physical leg longWay
       const vis = tryBuildVisualOrbit(r1V, r2V, tof, mu, vAv, vBv, bestP.longWay);
       orbV = vis.orbit;
       visualFallback = vis.visualFallback;
+      visualLongWay = vis.visualLongWay;
+      visualBranchDiverged = !!vis.visualBranchDiverged;
     }
 
     legs.push({
@@ -514,6 +565,8 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
       orbitPhysical: orbP,
       orbit: orbV,
       visualFallback,
+      visualLongWay,
+      visualBranchDiverged,
       dep3D: pAV, arr3D: pBV,
       longWay: bestP ? bestP.longWay : null,
       geoSiteFrom: !!ptA,
@@ -572,7 +625,11 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
     arrivalSimTime:   waypoints[waypoints.length - 1].simTime,
     transferTime:     waypoints[waypoints.length - 1].simTime - waypoints[0].simTime,
     allLegsOk: legs.every(l => l.ok),
-    visualFallback: legs.some((l) => l.ok && l.visualFallback === 'cosine') ? 'cosine' : null,
+    visualFallback: legs.some((l) => l.ok && l.visualFallback === 'cosine')
+      ? 'cosine'
+      : (legs.some((l) => l.ok && l.visualFallback === 'physical') ? 'physical' : null),
+    visualBranchDiverged: legs.some((l) => l.ok && l.visualBranchDiverged),
+    longWay: legs.find((l) => l.ok)?.longWay ?? null,
     surfaceOriginPoint: originPt,
     surfaceDestPoint: destPt,
     surfaceOriginMeta: surfacePointMeta(body1, originPt),

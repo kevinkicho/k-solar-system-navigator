@@ -35,6 +35,19 @@ function parentFrameToHelioAU(orbitPos_m, central, timeSec, exaggerate = true) {
 /** @typedef {'equal_time'|'equal_nu'} SampleMode */
 /** @typedef {'mid_epoch'|'time_varying'} ParentPolicy */
 
+/** Planet-relative: freeze parent at mid-epoch for short hops (PR4). */
+export const PARENT_MID_EPOCH_TOF_MAX_S = 30 * DAY;
+
+/**
+ * Default parent-frame policy for planet-relative arcs (PR4).
+ * TOF &lt; 30 d → mid_epoch freeze; else time_varying (matches ship/path/markers).
+ */
+export function defaultParentPolicy(td, tofSec) {
+  if (!td?.planetRelative) return 'time_varying';
+  const tof = tofSec ?? td.transferTime ?? td.tof ?? 0;
+  return tof < PARENT_MID_EPOCH_TOF_MAX_S ? 'mid_epoch' : 'time_varying';
+}
+
 const _sunOffCache = new Map();
 
 /** Clear sun-offset day-bucket cache (display mode change, tests). */
@@ -184,14 +197,14 @@ function resolvePathOpts(td, opts = {}) {
   const tof = opts.tof ?? td.transferTime ?? td.tof ?? 0;
   const tArr = opts.tArr ?? td.arrivalSimTime ?? (tDep + tof);
   const tMid = opts.tMid ?? (tDep + tof / 2);
-  const longWay = opts.longWay != null ? !!opts.longWay : !!td.longWay;
-  // Planet-relative parent: time_varying for consistency with ship (PR1)
-  let parentPolicy = opts.parentPolicy;
-  if (!parentPolicy) {
-    parentPolicy = (td.planetRelative && tof >= 30 * DAY) ? 'time_varying' : 'mid_epoch';
-    // PR1: always prefer time_varying parent for ship-line identity when PR
-    if (td.planetRelative) parentPolicy = opts.parentPolicy || 'time_varying';
-  }
+  // Prefer visualLongWay after PR2 when stamping draw (matches forced branch)
+  const longWay = opts.longWay != null
+    ? !!opts.longWay
+    : (td.visualLongWay != null ? !!td.visualLongWay : !!td.longWay);
+  // PR4: one parent policy for path, ship, markers
+  const parentPolicy = opts.parentPolicy
+    ?? td.parentPolicy
+    ?? defaultParentPolicy(td, tof);
   return {
     offsetPolicy,
     sampleMode,

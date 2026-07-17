@@ -13,7 +13,7 @@ import { setDisplayMode } from '../js/display-scale.js';
 import { solveTransferOrbit, getShipPositionOnTransfer } from '../js/physics/routing.js';
 import {
   buildTransferPathSamples, sampleTransferPathAtTime, clearSunOffsetCache,
-  getSunOffsetCached,
+  getSunOffsetCached, defaultParentPolicy, PARENT_MID_EPOCH_TOF_MAX_S,
 } from '../js/physics/transfer-path.js';
 import { getSunBarycentricOffset } from '../js/physics/kepler.js';
 
@@ -169,6 +169,46 @@ const c1 = getSunOffsetCached(tMid, true);
 const c2 = getSunOffsetCached(tMid + 100, true); // same day bucket
 check('sun offset cache returns object', c1 && typeof c1.x === 'number');
 check('same-day cache stable', c1.x === c2.x && c1.y === c2.y, 'bucket reuse');
+
+// ——— PR2: visual longWay forced to physical when possible (C7) ———
+if (tdEM.lambertOk) {
+  check(
+    'C7 visualLongWay matches physical longWay when not diverged',
+    tdEM.visualBranchDiverged === true
+      || tdEM.visualLongWay === tdEM.longWay
+      || tdEM.visualLongWay == null,
+    `phys=${tdEM.longWay} vis=${tdEM.visualLongWay} diverged=${tdEM.visualBranchDiverged}`,
+  );
+  check(
+    'C7 visualBranchDiverged is boolean',
+    typeof tdEM.visualBranchDiverged === 'boolean',
+  );
+}
+if (tdEJ.lambertOk) {
+  check(
+    'C7b Earth–Jupiter longWay stamp present',
+    tdEJ.longWay === true || tdEJ.longWay === false,
+    `longWay=${tdEJ.longWay} vis=${tdEJ.visualLongWay}`,
+  );
+  if (!tdEJ.visualBranchDiverged && tdEJ.orbit) {
+    check(
+      'C7b forced match when not diverged',
+      tdEJ.visualLongWay === tdEJ.longWay,
+      `phys=${tdEJ.longWay} vis=${tdEJ.visualLongWay}`,
+    );
+  }
+}
+
+// ——— PR4: parent policy helper ———
+check('parent mid-epoch threshold 30 d', PARENT_MID_EPOCH_TOF_MAX_S === 30 * DAY);
+check(
+  'PR4 short planet-relative → mid_epoch',
+  defaultParentPolicy({ planetRelative: true, transferTime: 2 * DAY }) === 'mid_epoch',
+);
+check(
+  'PR4 long planet-relative → time_varying',
+  defaultParentPolicy({ planetRelative: true, transferTime: 60 * DAY }) === 'time_varying',
+);
 
 // Diagnostic: old midOff bug magnitude (for docs; not a fail)
 const midOff = getSunBarycentricOffset(tdEJ.departureSimTime + tdEJ.transferTime / 2);

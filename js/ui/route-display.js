@@ -159,13 +159,30 @@ function detailsBlock(id, title, open, inner) {
 }
 
 function visualWarnHtml(td) {
-  if (td.visualFallback === 'cosine' || (td.legs || []).some((L) => L.ok && L.visualFallback === 'cosine')) {
-    return `<div class="visual-fallback-warn" role="status">⚠ Scene path uses a non-Keplerian visual fallback (cosine). Numbers still use physical Lambert. Try Schematic view or recompute.</div>`;
+  if (!td) return '';
+  const parts = [];
+  const legs = td.legs || [];
+  const hasCosine = td.visualFallback === 'cosine'
+    || legs.some((L) => L.ok && L.visualFallback === 'cosine');
+  const hasPhysical = td.visualFallback === 'physical'
+    || legs.some((L) => L.ok && L.visualFallback === 'physical');
+  const diverged = !!td.visualBranchDiverged
+    || legs.some((L) => L.ok && L.visualBranchDiverged);
+  const offsetPol = td.pathOffsetPolicy || state.pathOffsetPolicy || 'time_varying';
+
+  if (hasCosine) {
+    parts.push(`<div class="visual-fallback-warn" role="status">⚠ Scene path non-Keplerian cosine blend — numbers still use physical Lambert. Try Schematic view or recompute.</div>`);
   }
-  if (td.visualFallback === 'physical') {
-    return `<div class="visual-fallback-warn" role="status">ℹ Scene path uses physical (non-exaggerated) geometry — high-e visual branch was unstable. Δv numbers unchanged.</div>`;
+  if (hasPhysical) {
+    parts.push(`<div class="visual-fallback-warn" role="status">ℹ Scene path uses physical (non-exaggerated) geometry — high-e visual branch was unstable. Δv unchanged.</div>`);
   }
-  return '';
+  if (diverged) {
+    parts.push(`<div class="visual-fallback-warn" role="status">ℹ Visual longWay could not match physical — path branch diverged; Δv still from physical Lambert.</div>`);
+  }
+  if (offsetPol === 'time_varying' && !hasCosine) {
+    parts.push(`<div class="visual-fallback-note" role="status">Path offset=time_varying: includes sun barycenter motion (educational) — not third-body gravity on the coast.</div>`);
+  }
+  return parts.join('');
 }
 
 function fidelityPill(dossier) {

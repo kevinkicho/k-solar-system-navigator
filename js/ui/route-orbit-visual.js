@@ -23,12 +23,15 @@ import {
 } from '../scene/transfer-visual.js';
 
 function pathOptsFromState(td, extra = {}) {
+  const longWay = extra.longWay != null
+    ? extra.longWay
+    : (td.visualLongWay != null ? td.visualLongWay : td.longWay);
   return {
     offsetPolicy: td.pathOffsetPolicy || state.pathOffsetPolicy || 'time_varying',
     sampleMode: state.pathSampleMode || 'equal_time',
-    geometry: 'visual',
+    geometry: state.pathGeometry === 'physical' ? 'physical' : 'visual',
     nSamples: extra.nSamples ?? 320,
-    longWay: td.longWay,
+    longWay,
     ...extra,
   };
 }
@@ -79,23 +82,33 @@ export function updateTransferOrbitVisual() {
   line.computeLineDistances();
   setTransferLine(line);
 
-  // Ghosts / markers: epoch_true — body at dep/arr + s(dep/arr)
-  // (same exaggerate as scene; matches EndpointMarkerPolicy default)
-  const depOff = getSunBarycentricOffset(depT);
-  const arrOff = getSunBarycentricOffset(arrT);
-  transferMarkers.depart.position.set(dep.x + depOff.x, dep.y + depOff.y, dep.z + depOff.z);
+  // EndpointMarkerPolicy: epoch_true (body+s) or match_path_end (path sample 0/N)
+  const markerPol = state.endpointMarkerPolicy || 'epoch_true';
+  let depMark, arrMark;
+  if (markerPol === 'match_path_end' && drawPts.length >= 2) {
+    const p0 = drawPts[0];
+    const pN = drawPts[drawPts.length - 1];
+    depMark = { x: p0.x, y: p0.y, z: p0.z };
+    arrMark = { x: pN.x, y: pN.y, z: pN.z };
+  } else {
+    const depOff = getSunBarycentricOffset(depT);
+    const arrOff = getSunBarycentricOffset(arrT);
+    depMark = { x: dep.x + depOff.x, y: dep.y + depOff.y, z: dep.z + depOff.z };
+    arrMark = { x: arr.x + arrOff.x, y: arr.y + arrOff.y, z: arr.z + arrOff.z };
+  }
+  transferMarkers.depart.position.set(depMark.x, depMark.y, depMark.z);
   transferMarkers.depart.visible = true;
-  transferMarkers.arrive.position.set(arr.x + arrOff.x, arr.y + arrOff.y, arr.z + arrOff.z);
+  transferMarkers.arrive.position.set(arrMark.x, arrMark.y, arrMark.z);
   transferMarkers.arrive.visible = true;
 
   setDepartureGhost({
-    x: dep.x + depOff.x, y: dep.y + depOff.y, z: dep.z + depOff.z,
+    x: depMark.x, y: depMark.y, z: depMark.z,
     radius: (td.body1.displayRadius || 0.02) * 1.6,
     color: parseInt(String(td.body1.color || '#00e676').replace('#', ''), 16),
     label: 'AT DEPARTURE',
   });
   setArrivalGhost({
-    x: arr.x + arrOff.x, y: arr.y + arrOff.y, z: arr.z + arrOff.z,
+    x: arrMark.x, y: arrMark.y, z: arrMark.z,
     radius: (td.body2.displayRadius || 0.02) * 1.6,
     color: parseInt(String(td.body2.color || '#ff9800').replace('#', ''), 16),
     label: 'AT ARRIVAL',

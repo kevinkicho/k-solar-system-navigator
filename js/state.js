@@ -44,12 +44,16 @@ export const state = {
   },
 
   /**
-   * Path rendering (Phase 1 trajectory accuracy).
+   * Path rendering (trajectory accuracy design Phases 1–2).
    * pathOffsetPolicy: 'time_varying' | 'mid_epoch' | 'none' | 'locked_departure'
    * pathSampleMode: 'equal_time' | 'equal_nu'
+   * endpointMarkerPolicy: 'epoch_true' | 'match_path_end'
+   * pathGeometry: 'visual' | 'physical' | 'both' (PR5; default visual)
    */
   pathOffsetPolicy: 'time_varying',
   pathSampleMode: 'equal_time',
+  endpointMarkerPolicy: 'epoch_true',
+  pathGeometry: 'visual',
 
   classroomMode: false,
   /** Reliability: Launch requires vehicle margin feasible (K6). */
