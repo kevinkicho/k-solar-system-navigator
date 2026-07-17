@@ -3,6 +3,7 @@ import { getSunBarycentricOffset } from './physics/kepler.js';
 import { getShipPositionOnTransfer } from './physics/routing.js';
 import {
   addTrailPoint, resetTrail, shipGroup, shipLabelDiv, trailLine,
+  setShipLabelVisible,
 } from './scene/ship.js';
 import {
   flybyMarkers, hideArrivalGhost, hideDepartureGhost, transferMarkers,
@@ -139,7 +140,19 @@ export function launchMission() {
   timeState.setSpeed(pickMissionStudySpeed(td.transferTime));
 
   resetTrail();
+  // Place ship at departure *before* showing the CSS2D label — otherwise
+  // "SHIP 0%" flashes on the Sun (group default position is origin).
+  const launchPos = getShipPositionOnTransfer(m.departureSimTime, td, m.departureSimTime);
+  if (launchPos) {
+    const off = getSunBarycentricOffset(m.departureSimTime);
+    shipGroup.position.set(launchPos.x + off.x, launchPos.y + off.y, launchPos.z + off.z);
+  } else if (td.dep3D) {
+    const off = getSunBarycentricOffset(m.departureSimTime);
+    shipGroup.position.set(td.dep3D.x + off.x, td.dep3D.y + off.y, td.dep3D.z + off.z);
+  }
   shipGroup.visible = true;
+  setShipLabelVisible(true);
+  shipLabelDiv.textContent = 'SHIP 0%';
   showMissionStudyBar(true);
   syncMissionStudyBar();
 
@@ -180,6 +193,7 @@ export function abortMission() {
   m.currentLegIndex = -1;
   m.flybysTriggered = new Set();
   shipGroup.visible = false;
+  setShipLabelVisible(false);
   trailLine.visible = false;
   resetTrail();
   // Re-show the rendezvous markers if we still have transferData — abort
@@ -211,9 +225,14 @@ export function updateMission() {
   const progress = Math.max(0, Math.min(1, elapsed / td.transferTime));
   const isMulti = !!td.isMultiLeg;
 
-  if (t < m.departureSimTime) { shipGroup.visible = false; return; }
+  if (t < m.departureSimTime) {
+    shipGroup.visible = false;
+    setShipLabelVisible(false);
+    return;
+  }
 
   shipGroup.visible = true;
+  setShipLabelVisible(true);
 
   // Arrival check: compare simTime directly to arrivalSimTime, not via
   // `progress >= 1`. The ratio elapsed/transferTime can round to just below

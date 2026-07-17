@@ -118,20 +118,37 @@ export function vehicleDesignReportHtml(design) {
         <div class="info-row"><span class="key">Tankers to close Need</span><span class="val">${cmp.tankers_needed_for_need != null ? cmp.tankers_needed_for_need : 'impossible @ cargo'}</span></div>
       ` : ''}
 
-      <div class="result-subtitle" style="margin-top:10px">VS SUPER HEAVY + STARSHIP (× MULTIPLES)</div>
-      <p class="vd-cap">Order-of-magnitude vs HELIOS SH+SS stack (wet ~full tanks). Thrust assumes same liftoff T/W as Super Heavy on the paper wet mass.</p>
+      <div class="result-subtitle" style="margin-top:10px">VS STARSHIP SHIP / SUPER HEAVY (× MULTIPLES)</div>
+      <p class="vd-cap">Fuel · tanks · dry · wet are vs a <strong>Starship ship</strong> (~1200&nbsp;t prop), not the full SH+SS stack (stack includes Super Heavy’s launch prop and used to read ~0.1× too small). Thrust is vs Super Heavy liftoff at the same stack T/W.</p>
       ${vs?.ok ? `
         <div class="vd-multiples">
-          <div class="vd-mul"><span class="vd-mul-x">${mt.propellant_mass || '—'}</span><span class="vd-mul-l">fuel load</span></div>
-          <div class="vd-mul"><span class="vd-mul-x">${mt.tank_volume || '—'}</span><span class="vd-mul-l">tank volume</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${mt.propellant_mass || '—'}</span><span class="vd-mul-l">fuel vs SS ship</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${mt.tank_volume || '—'}</span><span class="vd-mul-l">tank vol vs SS</span></div>
           <div class="vd-mul"><span class="vd-mul-x">${mt.linear_tank_scale || '—'}</span><span class="vd-mul-l">tank linear size</span></div>
-          <div class="vd-mul"><span class="vd-mul-x">${mt.wet_mass || '—'}</span><span class="vd-mul-l">wet mass</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${mt.wet_mass || '—'}</span><span class="vd-mul-l">wet vs SS ship</span></div>
           <div class="vd-mul"><span class="vd-mul-x">${mt.linear_wet_mass_scale || '—'}</span><span class="vd-mul-l">overall linear size</span></div>
           <div class="vd-mul"><span class="vd-mul-x">${mt.thrust_same_twr || '—'}</span><span class="vd-mul-l">thrust vs SH liftoff</span></div>
-          <div class="vd-mul"><span class="vd-mul-x">${mt.dry_mass || '—'}</span><span class="vd-mul-l">dry structure</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${mt.dry_mass || '—'}</span><span class="vd-mul-l">dry vs SS ship</span></div>
         </div>
+        ${mt.stack_propellant_mass ? `<p class="vd-cap">Context: fuel ≈ <strong>${mt.stack_propellant_mass}</strong> a full SH+SS stack prop total (includes booster launch prop).</p>` : ''}
         <ul class="vd-sketch vd-vs-lines">${vsLines}</ul>
       ` : '<p class="vd-cap">Multiples unavailable (incomplete mass solve).</p>'}
+      ${(() => {
+        const chem = rec?.vs_chemical_starship_class;
+        if (!chem?.ok || !(rec?.propulsion?.isp > 350)) return '';
+        const ct = chem.multiples_text || {};
+        const cd = chem.design || {};
+        return `
+        <div class="result-subtitle" style="margin-top:8px">IF STAYED LOX/CH₄ LIKE STARSHIP</div>
+        <p class="vd-cap">Recommended sketch uses higher Isp (${rec.propulsion.isp}&nbsp;s), which shrinks tanks. Same Need at Isp&nbsp;350&nbsp;s · dry&nbsp;120&nbsp;t (SS-class chemical):</p>
+        <div class="vd-multiples">
+          <div class="vd-mul"><span class="vd-mul-x">${ct.propellant_mass || '—'}</span><span class="vd-mul-l">fuel vs SS ship</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${ct.tank_volume || '—'}</span><span class="vd-mul-l">tank vol vs SS</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${ct.wet_mass || '—'}</span><span class="vd-mul-l">wet vs SS ship</span></div>
+          <div class="vd-mul"><span class="vd-mul-x">${ct.thrust_same_twr || '—'}</span><span class="vd-mul-l">thrust vs SH</span></div>
+        </div>
+        <p class="vd-cap">Chemical prop ≈ ${fmtT(cd.propellantMass_kg)} · wet ≈ ${fmtT(cd.wetMass_kg)} — usually the larger order-of-magnitude for hard Need.</p>`;
+      })()}
 
       <div class="result-subtitle" style="margin-top:10px">RECOMMENDED PAPER SKETCH</div>
       ${prop ? `<div class="info-row"><span class="key">Propulsion</span><span class="val" style="color:${prop.color}">${prop.name} · Isp ${prop.isp} s</span></div>` : ''}
@@ -252,7 +269,7 @@ export function applyTankerDesign(design) {
   state.lastVehicleDesign = design;
   const tmt = design?.recommendation?.tanker_fleet_vs_sh_starship?.multiples_text;
   const feel = tmt
-    ? ` · fleet ~${tmt.propellant_mass} fuel · ~${tmt.tank_volume} tanks vs SH+SS`
+    ? ` · fleet ~${tmt.propellant_mass} SS-ship fuel · ~${tmt.tank_volume} tanks`
     : '';
   refreshPlanUi().then(() => {
     notify(`STARSHIP TANKER-N · N=${n}${feel}`);

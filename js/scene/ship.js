@@ -31,10 +31,21 @@ shipGroup.add(shipMesh);
 
 export const shipLabelDiv = document.createElement('div');
 shipLabelDiv.className = 'ship-label';
-shipLabelDiv.textContent = 'SHIP 0%';
+shipLabelDiv.textContent = '';
+// Hidden until a mission is in flight — CSS2D often still paints labels when
+// the parent group is .visible=false, which left "SHIP 0%" stuck on the Sun.
+shipLabelDiv.style.display = 'none';
 const shipLabel = new CSS2DObject(shipLabelDiv);
 shipLabel.position.set(0.02, 0.02, 0);
+shipLabel.visible = false;
 shipGroup.add(shipLabel);
+
+/** Show/hide the CSS2D progress label (mission flight only). */
+export function setShipLabelVisible(on) {
+  shipLabel.visible = !!on;
+  shipLabelDiv.style.display = on ? '' : 'none';
+  if (!on) shipLabelDiv.textContent = '';
+}
 
 const trailPositions = new Float32Array(MAX_TRAIL_POINTS * 3);
 const trailGeo = new THREE.BufferGeometry();

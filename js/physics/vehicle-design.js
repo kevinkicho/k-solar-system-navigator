@@ -53,43 +53,64 @@ export const PROPULSION_CLASSES = [
 ];
 
 /**
- * Educational Super Heavy + Starship full-stack baseline (concept-grade masses).
- * Used for “× multiples” language in paper studies.
+ * Educational Super Heavy + Starship baselines (concept-grade masses).
+ *
+ * Important: interplanetary paper stages are compared primarily to the
+ * **Starship ship** (in-space propellant / tanks / dry), not the full
+ * Super Heavy + Starship stack. Including SH’s ~3400 t of *launch* prop
+ * made transfer sketches look like “0.09× fuel” even when they were already
+ * Starship-scale — which is the wrong order of magnitude for Need studies.
+ *
+ * Super Heavy is kept for liftoff thrust / T/W language.
  */
 export function shStarshipBaseline() {
   const sh = VEHICLE_SPECS.superHeavy;
   const ss = VEHICLE_SPECS.starship;
-  const prop_kg = sh.propellantMass + ss.propellantMass;
-  const dry_kg = sh.dryMass + ss.dryMass;
-  const wet_kg = dry_kg + prop_kg;
+  const ship_prop_kg = ss.propellantMass;
+  const ship_dry_kg = ss.dryMass;
+  const ship_wet_kg = ship_dry_kg + ship_prop_kg;
+  const stack_prop_kg = sh.propellantMass + ss.propellantMass;
+  const stack_dry_kg = sh.dryMass + ss.dryMass;
+  const stack_wet_kg = stack_dry_kg + stack_prop_kg;
   // Liftoff thrust class = SH (33 engines); upper-stage vac thrust = SS
   const thrust_liftoff_N = sh.thrust;
   const thrust_upper_N = ss.thrust;
   const thrust_stack_peak_N = sh.thrust + ss.thrust; // not simultaneous in flight; paper bound
-  // CH4/LOX bulk density for stack tank volume (same class as SS)
+  // CH4/LOX bulk density for tank volume (same class as SS)
   const dens = 950;
-  const prop_volume_m3 = prop_kg / dens;
-  // Educational envelope: ~9 m diameter class, ~120 m stack height
+  const ship_prop_volume_m3 = ship_prop_kg / dens;
+  const stack_prop_volume_m3 = stack_prop_kg / dens;
+  // Educational envelope: ~9 m diameter class
   const diameter_m = 9;
-  const height_m = 120;
-  const envelope_volume_m3 = Math.PI * (diameter_m / 2) ** 2 * height_m;
+  const ship_height_m = 50; // Starship ship class (educational)
+  const stack_height_m = 120;
   return {
-    name: 'Super Heavy + Starship (full stack)',
-    dryMass_kg: dry_kg,
-    propellantMass_kg: prop_kg,
-    wetMass_kg: wet_kg,
+    name: 'Super Heavy + Starship (HELIOS concept)',
+    // Primary (in-space) reference — used for fuel/tank/dry/wet multiples
+    dryMass_kg: ship_dry_kg,
+    propellantMass_kg: ship_prop_kg,
+    wetMass_kg: ship_wet_kg,
+    prop_volume_m3: ship_prop_volume_m3,
+    height_m: ship_height_m,
+    // Full stack (ascent) — secondary, for context only
+    stack: {
+      dryMass_kg: stack_dry_kg,
+      propellantMass_kg: stack_prop_kg,
+      wetMass_kg: stack_wet_kg,
+      prop_volume_m3: stack_prop_volume_m3,
+      height_m: stack_height_m,
+    },
     superHeavy: { ...sh },
     starship: { ...ss },
     thrust_liftoff_N,
     thrust_upper_N,
     thrust_stack_peak_N,
     prop_bulk_density_kg_m3: dens,
-    prop_volume_m3,
     diameter_m,
-    height_m,
-    envelope_volume_m3,
-    twr_liftoff_g: thrust_liftoff_N / (wet_kg * G0),
-    note: 'Masses/thrust from HELIOS concept VEHICLE_SPECS — not SpaceX published stack totals.',
+    envelope_volume_m3: Math.PI * (diameter_m / 2) ** 2 * ship_height_m,
+    // Liftoff T/W of a *full stack* (SH thrusting under wet SH+SS)
+    twr_liftoff_g: thrust_liftoff_N / (stack_wet_kg * G0),
+    note: 'Primary multiples vs Starship ship prop/tanks; thrust vs Super Heavy. Not SpaceX published totals.',
   };
 }
 
@@ -105,9 +126,9 @@ export function formatTimes(ratio, digits = 2) {
 }
 
 /**
- * Compare a paper stage/stack to Super Heavy + Starship baseline.
+ * Compare a paper stage to Starship (ship) for mass/tanks and Super Heavy for thrust.
  * Size: tank volume ∝ prop/density; linear scale ~ volume^(1/3) if similar packing.
- * Thrust: match baseline liftoff T/W so F_design ≈ TWR_base · m_wet · g₀.
+ * Thrust: match full-stack liftoff T/W so F_design ≈ TWR_stack · m_wet · g₀.
  */
 export function compareSketchToShStarship(sketch, propulsion = null) {
   const base = shStarshipBaseline();
@@ -120,6 +141,7 @@ export function compareSketchToShStarship(sketch, propulsion = null) {
   const dens = propulsion?.prop_bulk_density_kg_m3
     || base.prop_bulk_density_kg_m3;
   const propVol = prop / dens;
+  // Primary: Starship ship tanks / prop
   const basePropVol = base.prop_volume_m3;
 
   const mass_prop_x = prop / base.propellantMass_kg;
@@ -128,10 +150,14 @@ export function compareSketchToShStarship(sketch, propulsion = null) {
   const tank_volume_x = propVol / basePropVol;
   // Characteristic length if tanks dominate and pack similarly
   const linear_tank_x = tank_volume_x > 0 ? Math.cbrt(tank_volume_x) : null;
-  // Envelope linear scale from wet mass (same mean density as baseline stack)
+  // Envelope linear scale from wet mass (same mean density as Starship ship)
   const linear_mass_x = mass_wet_x > 0 ? Math.cbrt(mass_wet_x) : null;
 
-  // Thrust to preserve baseline liftoff T/W on the paper wet mass
+  // Secondary: vs full SH+SS stack prop (ascent prop included) — for context only
+  const stack_prop_x = prop / base.stack.propellantMass_kg;
+  const stack_wet_x = wet / base.stack.wetMass_kg;
+
+  // Thrust to preserve baseline *stack* liftoff T/W on the paper wet mass
   const thrust_for_same_twr_N = base.twr_liftoff_g * wet * G0;
   const thrust_x = thrust_for_same_twr_N / base.thrust_liftoff_N;
   // Engine count if each engine ~ SH Raptor-class thrust
@@ -145,6 +171,8 @@ export function compareSketchToShStarship(sketch, propulsion = null) {
     tank_volume_x,
     linear_tank_x,
     linear_mass_x,
+    stack_prop_x,
+    stack_wet_x,
     thrust_x,
     thrust_for_same_twr_N,
     engines_like_sh,
@@ -174,6 +202,9 @@ export function compareSketchToShStarship(sketch, propulsion = null) {
       linear_tank_scale: linear_tank_x,
       linear_wet_mass_scale: linear_mass_x,
       thrust_same_twr: thrust_x,
+      // Context: vs full stack (includes Super Heavy launch prop)
+      stack_propellant_mass: stack_prop_x,
+      stack_wet_mass: stack_wet_x,
     },
     multiples_text: {
       propellant_mass: formatTimes(mass_prop_x),
@@ -183,6 +214,8 @@ export function compareSketchToShStarship(sketch, propulsion = null) {
       linear_tank_scale: formatTimes(linear_tank_x),
       linear_wet_mass_scale: formatTimes(linear_mass_x),
       thrust_same_twr: formatTimes(thrust_x),
+      stack_propellant_mass: formatTimes(stack_prop_x),
+      stack_wet_mass: formatTimes(stack_wet_x),
     },
     lines,
   };
@@ -191,92 +224,104 @@ export function compareSketchToShStarship(sketch, propulsion = null) {
 function buildComparisonLines(ctx) {
   const {
     base, mass_prop_x, mass_dry_x, mass_wet_x, tank_volume_x,
-    linear_tank_x, linear_mass_x, thrust_x, thrust_for_same_twr_N,
+    linear_tank_x, linear_mass_x, stack_prop_x, stack_wet_x,
+    thrust_x, thrust_for_same_twr_N,
     engines_like_sh, dens, propVol, propulsion, sketch,
   } = ctx;
   const lines = [];
-  const baseLabel = 'Super Heavy + Starship full stack';
 
   lines.push(
-    `Baseline ${baseLabel}: wet ≈ ${(base.wetMass_kg / 1000).toFixed(0)} t · prop ≈ ${(base.propellantMass_kg / 1000).toFixed(0)} t · dry ≈ ${(base.dryMass_kg / 1000).toFixed(0)} t · SH liftoff thrust ≈ ${(base.thrust_liftoff_N / 1e6).toFixed(1)} MN (${base.superHeavy.numEngines} eng.).`,
+    `Baselines (HELIOS concept): Starship ship ≈ ${(base.propellantMass_kg / 1000).toFixed(0)} t prop / ${(base.dryMass_kg / 1000).toFixed(0)} t dry / ${(base.wetMass_kg / 1000).toFixed(0)} t wet; `
+    + `full SH+SS stack ≈ ${(base.stack.propellantMass_kg / 1000).toFixed(0)} t prop (includes Super Heavy launch prop); `
+    + `SH liftoff thrust ≈ ${(base.thrust_liftoff_N / 1e6).toFixed(1)} MN (${base.superHeavy.numEngines} eng.).`,
+  );
+  lines.push(
+    'Fuel / tank / dry / wet multiples are vs the **Starship ship** (in-space vehicle). '
+    + 'Super Heavy’s propellant is for Earth ascent — counting it made transfer stages look falsely tiny (~0.1×).',
   );
 
-  // Propellant / tanks
+  // Propellant / tanks vs Starship ship
   if (mass_prop_x >= 1.05) {
     lines.push(
-      `Fuel load: ≈ ${formatTimes(mass_prop_x)} the SH+SS propellant mass `
+      `Fuel load: ≈ ${formatTimes(mass_prop_x)} a Starship ship propellant load `
       + `(${(sketch.propellantMass_kg / 1000).toFixed(0)} t vs ${(base.propellantMass_kg / 1000).toFixed(0)} t).`,
     );
   } else if (mass_prop_x <= 0.95) {
     lines.push(
-      `Fuel load: ≈ ${formatTimes(mass_prop_x)} SH+SS propellant `
-      + `(only ${(sketch.propellantMass_kg / 1000).toFixed(0)} t vs ${(base.propellantMass_kg / 1000).toFixed(0)} t) — higher Isp or lower Need.`,
+      `Fuel load: ≈ ${formatTimes(mass_prop_x)} a Starship ship propellant load `
+      + `(${(sketch.propellantMass_kg / 1000).toFixed(0)} t vs ${(base.propellantMass_kg / 1000).toFixed(0)} t) — higher Isp or lower Need.`,
     );
   } else {
-    lines.push('Fuel load: about the same propellant mass as a full SH+SS stack.');
+    lines.push('Fuel load: about one Starship ship propellant load.');
+  }
+  if (stack_prop_x != null && isFinite(stack_prop_x)) {
+    lines.push(
+      `For context only: that is ≈ ${formatTimes(stack_prop_x)} a full SH+SS stack propellant total `
+      + `(stack includes Super Heavy’s ~${(base.superHeavy.propellantMass / 1000).toFixed(0)} t launch prop).`,
+    );
   }
 
   if (tank_volume_x != null && isFinite(tank_volume_x)) {
     const densNote = propulsion?.id === 'lox-lh2'
       ? ' (LH₂ bulk density is low — tanks look larger per tonne)'
-      : propulsion?.id?.startsWith('ep') || propulsion?.id?.includes('1500')
+      : propulsion?.id?.startsWith('ep') || propulsion?.id?.includes('1500') || propulsion?.id?.includes('800')
         ? ' (density assumed; high-Isp props may not use chemical tanks)'
         : '';
     if (tank_volume_x >= 1.05) {
       lines.push(
-        `Tank volume (est.): ≈ ${formatTimes(tank_volume_x)} SH+SS prop tank volume `
+        `Tank volume (est.): ≈ ${formatTimes(tank_volume_x)} Starship ship prop tanks `
         + `~${propVol.toFixed(0)} m³ vs ~${base.prop_volume_m3.toFixed(0)} m³ at ρ≈${dens} kg/m³${densNote}.`,
       );
     } else if (tank_volume_x <= 0.95) {
       lines.push(
-        `Tank volume (est.): ≈ ${formatTimes(tank_volume_x)} SH+SS prop tank volume`
+        `Tank volume (est.): ≈ ${formatTimes(tank_volume_x)} Starship ship prop tanks`
         + densNote + '.',
       );
     }
     if (linear_tank_x != null && Math.abs(linear_tank_x - 1) > 0.05) {
       lines.push(
         `Tank linear size (if similar shape): ≈ ${formatTimes(linear_tank_x)} each length `
-        + `(volume scales as L³ → L ∝ V⅓). A cylindrical tank set would be roughly `
-        + `${formatTimes(linear_tank_x)} as long/wide as SH+SS tanks.`,
+        + `(volume scales as L³ → L ∝ V⅓) vs a Starship-class tank set.`,
       );
     }
   }
 
-  // Structure / wet
+  // Structure / wet vs Starship ship
   if (mass_dry_x != null && Math.abs(mass_dry_x - 1) > 0.08) {
     lines.push(
       mass_dry_x > 1
-        ? `Structure (dry): ≈ ${formatTimes(mass_dry_x)} SH+SS dry mass — heavier airframe/tanks.`
-        : `Structure (dry): ≈ ${formatTimes(mass_dry_x)} SH+SS dry mass — lighter paper stage.`,
+        ? `Structure (dry): ≈ ${formatTimes(mass_dry_x)} Starship dry mass — heavier airframe/tanks.`
+        : `Structure (dry): ≈ ${formatTimes(mass_dry_x)} Starship dry mass — lighter paper stage.`,
     );
   }
   if (mass_wet_x != null && Math.abs(mass_wet_x - 1) > 0.08) {
     lines.push(
-      `Stack wet mass: ≈ ${formatTimes(mass_wet_x)} a fueled SH+SS stack `
-      + `(${(sketch.wetMass_kg / 1000).toFixed(0)} t vs ${(base.wetMass_kg / 1000).toFixed(0)} t).`,
+      `Ship wet mass: ≈ ${formatTimes(mass_wet_x)} a fueled Starship `
+      + `(${(sketch.wetMass_kg / 1000).toFixed(0)} t vs ${(base.wetMass_kg / 1000).toFixed(0)} t)`
+      + (stack_wet_x != null ? ` · ≈ ${formatTimes(stack_wet_x)} a full SH+SS stack wet` : '')
+      + '.',
     );
     if (linear_mass_x != null && Math.abs(linear_mass_x - 1) > 0.05) {
       lines.push(
-        `Overall size (same mean density): linear scale ≈ ${formatTimes(linear_mass_x)} `
-        + `→ height class ~${(base.height_m * linear_mass_x).toFixed(0)} m if ~${base.height_m} m is SH+SS, `
+        `Overall size (same mean density as Starship ship): linear scale ≈ ${formatTimes(linear_mass_x)} `
+        + `→ length class ~${(base.height_m * linear_mass_x).toFixed(0)} m if ~${base.height_m} m is ship-class, `
         + `diameter class ~${(base.diameter_m * linear_mass_x).toFixed(1)} m if ~${base.diameter_m} m baseline `
         + `(very rough; real vehicles pack tanks differently).`,
       );
     }
   }
 
-  // Thrust
+  // Thrust vs Super Heavy
   if (thrust_x != null && isFinite(thrust_x)) {
     lines.push(
-      `Thrust for same liftoff T/W (~${base.twr_liftoff_g.toFixed(2)} g on wet mass): `
+      `Thrust for same liftoff T/W as a full SH+SS stack (~${base.twr_liftoff_g.toFixed(2)} g on wet mass): `
       + `≈ ${formatTimes(thrust_x)} Super Heavy’s ${(base.thrust_liftoff_N / 1e6).toFixed(1)} MN `
       + `→ ~${(thrust_for_same_twr_N / 1e6).toFixed(1)} MN total `
       + `(~${engines_like_sh} engines if each is SH-Raptor class ~${(base.superHeavy.thrust / base.superHeavy.numEngines / 1e6).toFixed(2)} MN).`,
     );
     if (thrust_x > 1.05) {
       lines.push(
-        `That is ${formatTimes(thrust_x)} the liftoff thrust of Super Heavy alone, `
-        + `or ${formatTimes(thrust_for_same_twr_N / base.thrust_stack_peak_N)} the (non-simultaneous) SH+SS peak thrust sum — paper T/W only.`,
+        `That is ${formatTimes(thrust_x)} the liftoff thrust of Super Heavy alone — paper T/W only.`,
       );
     }
   }
@@ -534,22 +579,45 @@ export function recommendPaperVehicle(need_dv_m_s, cargoMass_kg = 0) {
     prop_fraction: mp != null ? mp / (dry + mp) : null,
   };
 
-  // Prefer two-stage chemical stack for SH+SS multiples when prop is huge
-  const compareSubject = (twoStage && twoStage.total_prop_kg > (mp || 0) * 0.5)
+  // Multiples always describe the **recommended single-stage sketch** the tables
+  // show — not a quieter two-stage that made fuel load look ~0.1× by accident.
+  const compareSubject = {
+    dryMass_kg: dry,
+    propellantMass_kg: mp,
+    wetMass_kg: single.wetMass_kg,
+    label: 'single-stage sketch',
+  };
+  const vsBaseline = compareSketchToShStarship(compareSubject, chosen);
+
+  // Chemical Starship-class equivalent (Isp 350, dry 120 t) — honest size if you
+  // stayed methane-chemical like SS even when the recommender escalates Isp.
+  const ch4 = PROPULSION_CLASSES[1];
+  const ch4Dry = VEHICLE_SPECS.starship.dryMass;
+  const ch4Mp = propellantForNeed(need, ch4.isp, ch4Dry, cargo);
+  const chemicalSsClass = ch4Mp != null
     ? {
+      dryMass_kg: ch4Dry,
+      propellantMass_kg: ch4Mp,
+      wetMass_kg: ch4Dry + ch4Mp + cargo,
+      mass_ratio: massRatioForDv(need, ch4.isp),
+      structural_eps: structuralCoefficient(ch4Dry, ch4Mp),
+      propulsion: ch4,
+    }
+    : null;
+  const vsChemicalSs = chemicalSsClass
+    ? compareSketchToShStarship(chemicalSsClass, ch4)
+    : null;
+
+  // Two-stage chemical multiples when staging is the paper lesson
+  let vsTwoStage = null;
+  if (twoStage?.total_prop_kg != null) {
+    vsTwoStage = compareSketchToShStarship({
       dryMass_kg: (twoStage.upper?.dryMass_kg || 0) + (twoStage.lower?.dryMass_kg || 0),
       propellantMass_kg: twoStage.total_prop_kg,
       wetMass_kg: twoStage.total_wet_kg,
       label: 'two-stage chemical sketch',
-    }
-    : {
-      dryMass_kg: dry,
-      propellantMass_kg: mp,
-      wetMass_kg: single.wetMass_kg,
-      label: 'single-stage sketch',
-    };
-
-  const vsBaseline = compareSketchToShStarship(compareSubject, chosen);
+    }, chosen.isp <= 450 ? chosen : ch4);
+  }
 
   // Tanker fleet as another “vehicle” view
   let tankerVsBaseline = null;
@@ -570,15 +638,24 @@ export function recommendPaperVehicle(need_dv_m_s, cargoMass_kg = 0) {
     propulsion: chosen,
     single_stage: single,
     two_stage_chemical: twoStage,
+    chemical_starship_class: chemicalSsClass,
     starship_tankers_needed: tankers,
     abstract_budget_m_s: abstractBudget,
     vs_sh_starship: vsBaseline,
+    vs_chemical_starship_class: vsChemicalSs,
+    vs_two_stage: vsTwoStage,
     tanker_fleet_vs_sh_starship: tankerVsBaseline,
-    paper_sketch: buildPaperSketch(need, chosen, dry, mp, cargo, twoStage, tankers, vsBaseline, tankerVsBaseline),
+    paper_sketch: buildPaperSketch(
+      need, chosen, dry, mp, cargo, twoStage, tankers,
+      vsBaseline, tankerVsBaseline, vsChemicalSs, vsTwoStage,
+    ),
   };
 }
 
-function buildPaperSketch(need, prop, dry, mp, cargo, twoStage, tankers, vsBaseline, tankerVs) {
+function buildPaperSketch(
+  need, prop, dry, mp, cargo, twoStage, tankers,
+  vsBaseline, tankerVs, vsChemicalSs, vsTwoStage,
+) {
   const needKms = (need / 1000).toFixed(2);
   const lines = [];
   lines.push(`Target Need ≈ ${needKms} km/s (ideal rocket-eq; no gravity/drag).`);
@@ -599,17 +676,33 @@ function buildPaperSketch(need, prop, dry, mp, cargo, twoStage, tankers, vsBasel
     lines.push(
       `Two equal-Δv stages (same Isp ${Math.min(prop.isp, 450)} s): total prop ≈ ${(twoStage.total_prop_kg / 1000).toFixed(0)} t, stack wet ≈ ${(twoStage.total_wet_kg / 1000).toFixed(0)} t.`,
     );
+    if (vsTwoStage?.ok) {
+      const t = vsTwoStage.multiples_text;
+      lines.push(
+        `Two-stage vs Starship ship: fuel ≈ ${t.propellant_mass}, tanks ≈ ${t.tank_volume}, wet ≈ ${t.wet_mass}, thrust-for-T/W ≈ ${t.thrust_same_twr} Super Heavy.`,
+      );
+    }
   }
   if (vsBaseline?.ok && vsBaseline.lines?.length) {
-    lines.push('—— vs Super Heavy + Starship (multiples) ——');
+    lines.push('—— vs Starship ship / Super Heavy (multiples) ——');
     for (const L of vsBaseline.lines) lines.push(L);
+  }
+  // When recommender left CH4 for higher Isp, show chemical SS-class size truth
+  if (vsChemicalSs?.ok && prop.isp > 350) {
+    const t = vsChemicalSs.multiples_text;
+    const d = vsChemicalSs.design;
+    lines.push(
+      `If you stayed LOX/CH₄ like Starship (Isp 350 s, dry 120 t): prop ≈ ${((d?.propellantMass_kg || 0) / 1000).toFixed(0)} t `
+      + `→ fuel ≈ ${t.propellant_mass} Starship ship · tanks ≈ ${t.tank_volume} · wet ≈ ${t.wet_mass} · thrust-for-T/W ≈ ${t.thrust_same_twr} Super Heavy. `
+      + 'That is usually the larger “order of magnitude” for hard Need.',
+    );
   }
   if (tankers != null) {
     lines.push(`Starship tanker-n sketch: ≥ ${tankers} tanker quanta (×${(M_TANKER_DELIVER_KG / 1000).toFixed(0)} t) at cargo=${(cargo / 1000).toFixed(1)} t — concept model only.`);
     if (tankerVs?.ok) {
       const t = tankerVs.multiples_text;
       lines.push(
-        `Tanker fleet prop quanta ≈ ${t.propellant_mass} SH+SS fuel load, tank volume ≈ ${t.tank_volume}, `
+        `Tanker fleet prop quanta ≈ ${t.propellant_mass} Starship ship fuel load, tank volume ≈ ${t.tank_volume}, `
         + `wet mass ≈ ${t.wet_mass}, thrust-for-same-T/W ≈ ${t.thrust_same_twr} Super Heavy liftoff thrust.`,
       );
     }
