@@ -7,7 +7,19 @@ test2.txt
 .DS_Store
 *.log
 
-# Secrets — never commit API keys
+# Secrets — never commit API keys / local env
 .env
 .env.local
 .env.*.local
+.env.*.private
+
+# Firebase local / CLI noise (firebase.json & .firebaserc are OK to commit)
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+ui-debug.log
+*.cache
+# Service account keys (never commit)
+*-firebase-adminsdk-*.json
+serviceAccount*.json
+google-services.json
