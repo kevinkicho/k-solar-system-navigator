@@ -18,6 +18,7 @@ import { updateBodyList } from './ui/body-list.js';
 import { updateInfoPanel } from './ui/info-panel.js';
 import { timeState } from './ui/time-system.js';
 import { updateFlybyPulses, updateMission } from './mission.js';
+import { updateTrajectoryHud } from './ui/trajectory-hud.js';
 
 let frameCount = 0, lastFpsTime = 0, fps = 60;
 let lastFrameTime = performance.now();
@@ -148,6 +149,8 @@ export function animate() {
     updateBodyList();
     if (state.selectedBody) updateInfoPanel();
   }
+
+  updateTrajectoryHud(now);
 
   controls.update();
   composer.render();

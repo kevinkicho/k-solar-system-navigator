@@ -808,3 +808,118 @@
 .classroom-mode #cloud-plans-row {
   display: none !important;
 }
+
+/* Map mode + quality controls */
+.map-mode-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.map-mode-btn:hover,
+.map-mode-btn.active {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: rgba(0, 212, 255, 0.1);
+}
+.map-mode-btn.active {
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.25);
+}
+.quality-tier-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.5px;
+}
+
+/* Trajectory HUD (bottom-left scale / residual) */
+.trajectory-hud {
+  position: fixed;
+  left: 12px;
+  bottom: 52px;
+  z-index: 40;
+  min-width: 180px;
+  max-width: 280px;
+  padding: 8px 10px;
+  background: rgba(4, 10, 18, 0.82);
+  border: 1px solid rgba(0, 212, 255, 0.22);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text);
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+.trajectory-hud .thud-row {
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+.trajectory-hud .thud-row.thud-ok { color: #69f0ae; }
+.trajectory-hud .thud-row.thud-warn { color: #ffb74d; }
+.trajectory-hud .thud-note {
+  margin-top: 4px;
+  font-size: 8px;
+  opacity: 0.65;
+  letter-spacing: 0.3px;
+}
+@media (max-width: 768px) {
+  .trajectory-hud {
+    left: 8px;
+    bottom: 88px;
+    max-width: 46vw;
+    font-size: 9px;
+    padding: 6px 8px;
+  }
+  .quality-tier-badge { display: none; }
+}
+
+/* Results trust strip */
+.path-trust-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 6px 0 8px;
+  padding: 6px 8px;
+  background: rgba(0, 212, 255, 0.05);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-dim);
+}
+.path-trust-strip .pts-item em {
+  font-style: normal;
+  color: var(--cyan);
+  margin-right: 3px;
+  opacity: 0.85;
+}
+.path-trust-strip .pts-note {
+  opacity: 0.7;
+  width: 100%;
+}
+
+/* Path tick labels (CSS2D on ribbon) */
+.path-tick-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: #ffe082;
+  background: rgba(4, 10, 18, 0.75);
+  border: 1px solid rgba(255, 213, 79, 0.35);
+  border-radius: 2px;
+  padding: 1px 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateY(-4px);
+}
+
+body.quality-low .trajectory-hud {
+  backdrop-filter: none;
+}

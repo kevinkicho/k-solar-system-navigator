@@ -95,6 +95,22 @@ async function showCloudPlansPanel() {
         const id = row?.dataset?.id;
         const plan = plans.find((x) => x.id === id);
         if (!plan) return;
+        // v2: prefer embedded plan_request (full recompute); else summary fields
+        if (plan.plan_request) {
+          const { planJsonToRequest } = await import('./mission-import.js');
+          const { applyPlanRequest } = await import('./share.js');
+          const req = planJsonToRequest(plan.plan_request)
+            || planJsonToRequest({ plan_request: plan.plan_request });
+          if (req) {
+            applyPlanRequest(req);
+            if (plan.map_mode || plan.plan_request.map) {
+              const { setMapMode } = await import('./map-mode.js');
+              setMapMode(true, { silent: true });
+            }
+            notify(`LOADED CLOUD PLAN v2: ${(plan.title || plan.label || '').toUpperCase()}`);
+            return;
+          }
+        }
         const { applyPlanRequest } = await import('./share.js');
         const { parseDateUTC } = await import('./share-codec.js');
         applyPlanRequest({
@@ -106,9 +122,13 @@ async function showCloudPlansPanel() {
           vehicleId: plan.vehicleId || 'sh-starship',
           abstractBudget_m_s: 8000,
           costBasis: 'helio',
-          view: plan.display_mode === 'schematic' ? 'schematic' : 'cinematic',
+          view: plan.display_mode === 'schematic' || plan.map_mode ? 'schematic' : 'cinematic',
           tofIgnoredMulti: !!plan.isMultiLeg,
         });
+        if (plan.map_mode) {
+          const { setMapMode } = await import('./map-mode.js');
+          setMapMode(true, { silent: true });
+        }
         notify(`LOADED CLOUD PLAN: ${(plan.title || plan.label || '').toUpperCase()}`);
       };
     });

@@ -47,6 +47,10 @@ import { wireBodyPicker } from './ui/body-picker.js';
 import { wireBodyDossier } from './ui/body-dossier-modal.js';
 import { wireSurfacePointUi } from './ui/surface-point-ui.js';
 import { wireFirebaseUi } from './ui/firebase-ui.js';
+import { wireMapMode } from './ui/map-mode.js';
+import { wireTrajectoryHud } from './ui/trajectory-hud.js';
+import { wireQualityTier } from './ui/quality-tier.js';
+import { wireCameraFocus } from './ui/camera-focus.js';
 
 // Mission + animation.
 import { abortMission, launchMission, wireMissionStudyBar } from './mission.js';
@@ -97,6 +101,14 @@ try {
   wireFirebaseUi(); // Auth chip + cloud plans — offline if config missing / classroom / ?firebase=0
 } catch (err) {
   console.error('[HELIOS] Firebase UI failed to wire', err);
+}
+try {
+  wireMapMode();
+  wireTrajectoryHud();
+  wireQualityTier();
+  wireCameraFocus();
+} catch (err) {
+  console.error('[HELIOS] viz/map-mode wiring failed', err);
 }
 loadStarField();
 updateViewBadge();

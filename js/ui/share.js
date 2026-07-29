@@ -259,6 +259,14 @@ export function tryApplyHashOnLoad() {
 
 export function updateViewBadge() {
   const el = document.getElementById('view-mode-badge');
+  // Map mode badge wins when active
+  try {
+    if (state.mapMode && el) {
+      el.textContent = 'VIEW: MAP · dual path';
+      el.title = 'Map mode — schematic frames + dual path overlay; numbers always physical';
+      return;
+    }
+  } catch { /* */ }
   if (!el) return;
   import('../display-scale.js').then(({ displayModeBadge }) => {
     el.textContent = displayModeBadge();

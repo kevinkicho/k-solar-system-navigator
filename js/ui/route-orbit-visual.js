@@ -21,6 +21,7 @@ import {
   setArrivalGhost, setDepartureGhost, setTransferLine, setPhysicalTransferLine,
   transferMarkers,
 } from '../scene/transfer-visual.js';
+import { clearTransferRibbon, setTransferRibbon } from '../scene/transfer-ribbon.js';
 import { scene } from '../scene/setup.js';
 import { isSchematic } from '../display-scale.js';
 
@@ -75,6 +76,7 @@ export function updateTransferOrbitVisual() {
   setPhysicalTransferLine(null);
   clearMultiLegVisuals();
   clearDateMarkers();
+  clearTransferRibbon();
   clearNbodyLine();
   transferMarkers.depart.visible = false;
   transferMarkers.arrive.visible = false;
@@ -94,7 +96,8 @@ export function updateTransferOrbitVisual() {
     return;
   }
 
-  const geomMode = state.pathGeometry || 'visual';
+  // Map mode forces dual path overlay (visual + physical)
+  const geomMode = state.mapMode ? 'both' : (state.pathGeometry || 'visual');
   const depT = td.departureSimTime;
   const arrT = td.arrivalSimTime;
   const dep = td.dep3D || getBodyPosition3D(td.body1, depT);
@@ -124,28 +127,37 @@ export function updateTransferOrbitVisual() {
   if (drawPts.length >= 2) {
     const color = primaryGeom === 'physical' ? 0x4fc3f7 : 0xff9800;
     setTransferLine(makeDashedLine(drawPts, color, 0.8));
+    // Rich Three.js ribbon tube + DEP/MID/ARR ticks
+    if (state.showTransferRibbon !== false) {
+      const tofDays = td.transferTime != null ? td.transferTime / DAY : null;
+      setTransferRibbon(drawPts, {
+        color,
+        labels: [
+          { frac: 0, text: 'DEP' },
+          { frac: 0.25, text: tofDays != null ? `${(tofDays * 0.25).toFixed(0)}d` : '25%' },
+          { frac: 0.5, text: tofDays != null ? `MID ${(tofDays * 0.5).toFixed(0)}d` : 'MID' },
+          { frac: 0.75, text: tofDays != null ? `${(tofDays * 0.75).toFixed(0)}d` : '75%' },
+          { frac: 1, text: 'ARR' },
+        ],
+      });
+    }
   }
 
-  // Dual overlay: physical geometry + physical s (k=1 via exaggerate false on offset)
-  if (geomMode === 'both' && td.orbitPhysical) {
+  // Dual overlay: faint physical path (real inclination) under visual
+  if ((geomMode === 'both' || state.mapMode) && (td.orbitPhysical || td.orbit)) {
     const physOpts = pathOptsFromState(td, {
       geometry: 'physical',
       exaggerate: false,
       offsetPolicy: 'time_varying',
       nSamples: 256,
     });
-    // Force physical offset exaggeration off
     const builtP = buildTransferPathSamples(td, {
       ...physOpts,
       exaggerate: false,
     });
-    // Re-apply offset with exaggerate=false explicitly in applySunOffset via ctx
-    const ptsP = samplesToLinePoints(builtP.points.map((p) => {
-      // samples already offset with exaggerate from opts; rebuild with force
-      return p;
-    }));
+    const ptsP = samplesToLinePoints(builtP.points);
     if (ptsP.length >= 2) {
-      setPhysicalTransferLine(makeDashedLine(ptsP, 0x81d4fa, 0.55));
+      setPhysicalTransferLine(makeDashedLine(ptsP, 0x81d4fa, 0.5));
     }
   }
 

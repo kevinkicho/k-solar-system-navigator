@@ -19,7 +19,8 @@ function plansCol(uid) {
 }
 
 /**
- * Build a compact plan record from current transfer (not full mission JSON).
+ * Build a compact plan record from current transfer.
+ * schema_version 2 adds plan_request for full recompute restore (cloud v2).
  */
 export function planSummaryFromTransfer(td) {
   if (!td?.body1 || !td?.body2) return null;
@@ -34,11 +35,49 @@ export function planSummaryFromTransfer(td) {
   const need = isMulti
     ? (td.dvTotalMultiLeg ?? null)
     : (td.dvTotal_lambert ?? td.dvTotal ?? null);
+  const origin = bodyId(td.body1) || td.body1.name;
+  const dest = bodyId(td.body2) || td.body2.name;
+  const depDay = depUtc ? String(depUtc).slice(0, 10) : null;
+
+  // Compact plan_request — same shape as mission export / share codec (v2 restore).
+  const plan_request = {
+    v: 2,
+    o: origin,
+    d: dest,
+    dep: depDay,
+    tof: tofDays != null ? Math.round(tofDays) : null,
+    veh: state.vehicleId || 'sh-starship',
+    ab: state.abstractBudget_m_s ?? 8000,
+    basis: state.costBasis || 'helio',
+    view: state.mapMode ? 'schematic' : (state.display?.mode || 'cinematic'),
+    cargo: Math.round(state.cargoMass_kg || 0),
+    arch: state.vehicleId === 'sh-starship' ? (state.starshipArch || 'legacy-demo') : undefined,
+    tankers: state.starshipArch === 'tanker-n' ? (state.tankerCount || 0) : undefined,
+    f9v: state.vehicleId === 'falcon9' ? (state.falcon9Variant || 'expendable') : undefined,
+    eph: (state.ephemerisBackend === 'sample-de' && !state.classroomMode) ? 'sample' : undefined,
+    map: state.mapMode ? 1 : undefined,
+  };
+
+  // Multi-leg flybys as compact fb list when present
+  if (isMulti && Array.isArray(td.waypoints) && td.waypoints.length > 2) {
+    const fb = [];
+    for (let i = 1; i < td.waypoints.length - 1; i++) {
+      const w = td.waypoints[i];
+      const id = bodyId(w.body) || w.body?.name || w.bodyName;
+      if (!id) continue;
+      const epoch = w.simTime != null
+        ? new Date(w.simTime * 1000 + Date.UTC(2000, 0, 1, 12)).toISOString().slice(0, 10)
+        : null;
+      fb.push(epoch ? `${id}:${epoch}` : String(id));
+    }
+    if (fb.length) plan_request.fb = fb.join(',');
+  }
+
   return {
-    schema_version: 1,
+    schema_version: 2,
     kind: 'helios_plan_summary',
-    originId: bodyId(td.body1) || td.body1.name,
-    destId: bodyId(td.body2) || td.body2.name,
+    originId: origin,
+    destId: dest,
     originName: td.body1.name,
     destName: td.body2.name,
     label: `${td.body1.name} → ${td.body2.name}`,
@@ -49,7 +88,9 @@ export function planSummaryFromTransfer(td) {
     isMultiLeg: isMulti,
     vehicleId: state.vehicleId || null,
     display_mode: state.display?.mode || 'cinematic',
+    map_mode: !!state.mapMode,
     lambertOk: !!td.lambertOk || !!td.allLegsOk,
+    plan_request,
   };
 }
 

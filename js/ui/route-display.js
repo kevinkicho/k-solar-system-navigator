@@ -17,6 +17,9 @@ import { planStatusBannerHtml, buildPlanDossier } from './plan-dossier.js';
 import { bindPlanRecoveryButtons } from './plan-recovery.js';
 import { activateRailTab } from './rail-ui.js';
 import { wireSavePlanButton } from './firebase-ui.js';
+import { exportPathCsv } from './path-export.js';
+import { measurePathResidual } from './trajectory-hud.js';
+import { isSchematic } from '../display-scale.js';
 export { updateTransferOrbitVisual } from './route-orbit-visual.js';
 export { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 
@@ -65,6 +68,9 @@ function bindMissionControlButtons(td, { canLaunch }) {
   }
   const exp = document.getElementById('btn-export-plan');
   if (exp) exp.onclick = () => exportMissionPlan(td);
+
+  const pathCsv = document.getElementById('btn-export-path-csv');
+  if (pathCsv) pathCsv.onclick = () => exportPathCsv(td);
 
   wireSavePlanButton(td);
 
@@ -149,8 +155,36 @@ function actionsHtml(missionReady) {
       <button class="route-btn secondary" id="btn-open-windows">Windows</button>
       <button class="route-btn secondary" id="btn-goto-depart">Jump to Departure</button>
       <button class="route-btn secondary" id="btn-export-plan">Export</button>
+      <button class="route-btn secondary" id="btn-export-path-csv" title="Download path samples CSV (Kepler conic, scene-frame AU)">Path CSV</button>
       <button class="route-btn secondary" id="btn-save-cloud" title="Save plan summary to Firebase (sign-in required)">Save to cloud</button>
       <button class="route-btn secondary" id="btn-share-link">Share</button>
+    </div>`;
+}
+
+/** Always-on honesty strip: ephemeris, path model, scene mode, residual, low-thrust note. */
+function trustStripHtml(td, dossier) {
+  const eph = state.classroomMode
+    ? 'L1 approx (classroom)'
+    : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : (dossier?.fidelity?.fidelityLevel || state.fidelityLevel || 'L1'));
+  const scene = state.mapMode
+    ? 'MAP dual-path'
+    : (isSchematic() ? 'schematic' : 'cinematic×incl');
+  const geom = state.pathGeometry || 'visual';
+  let resTxt = '—';
+  try {
+    if (td && !td.isMultiLeg) {
+      const r = measurePathResidual(td);
+      if (r.maxAU != null) resTxt = `${r.maxAU.toExponential(1)} AU`;
+    }
+  } catch { /* */ }
+  return `
+    <div class="path-trust-strip" id="path-trust-strip" role="status"
+      title="Concept-grade: numbers from physical Lambert; scene may exaggerate inclinations unless Map/Schematic.">
+      <span class="pts-item"><em>Eph</em> ${eph}</span>
+      <span class="pts-item"><em>Path</em> Kepler conic · ${geom}</span>
+      <span class="pts-item"><em>Scene</em> ${scene}</span>
+      <span class="pts-item"><em>Res</em> ${resTxt}</span>
+      <span class="pts-item pts-note">Chemical Lambert · not low-thrust · not SPICE</span>
     </div>`;
 }
 
@@ -361,6 +395,7 @@ function renderSingleLegRouteUI(td) {
         visualWarn: visualWarnHtml(td) + designHint,
         surfaceNote: surfaceNoteHtml(td),
       })}
+      ${trustStripHtml(td, dossier)}
       ${actionsHtml(missionReady)}
       ${detailsBlock('det-lambert', 'Transfer detail', false, lambertBlock)}
       ${detailsBlock('det-mission', 'Mission parking Δv', false, missionBlock)}
@@ -487,6 +522,7 @@ function renderMultiLegRouteUI() {
         fidelityPill: fidelityPill(dossier),
         visualWarn: visualWarnHtml(td),
       })}
+      ${trustStripHtml(td, dossier)}
       ${actionsHtml(missionReady)}
       ${detailsBlock('det-ml', 'Legs & flybys', true, detail)}
       ${detailsBlock('det-plan', 'Plan status & recovery', !missionReady, planStatusBannerHtml(dossier))}

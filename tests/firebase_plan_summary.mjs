@@ -23,7 +23,7 @@ const td = {
 
 const s = planSummaryFromTransfer(td);
 assert(s, 'summary exists');
-assert(s.schema_version === 1, 'schema');
+assert(s.schema_version === 2, 'schema v2');
 assert(s.kind === 'helios_plan_summary', 'kind');
 assert(s.originName === 'Earth' && s.destName === 'Mars', 'names');
 assert(s.label === 'Earth → Mars', 'label');
@@ -31,6 +31,8 @@ assert(Math.abs(s.tof_days - 200) < 1e-9, `tof ${s.tof_days}`);
 assert(s.need_dv_m_s === 5600, 'need');
 assert(s.lambertOk === true, 'lambertOk');
 assert(s.departure_utc && s.arrival_utc, 'utc stamps');
+assert(s.plan_request && s.plan_request.o && s.plan_request.d, 'plan_request v2');
+assert(s.plan_request.tof === 200, 'plan_request tof');
 assert(planSummaryFromTransfer(null) === null, 'null td');
 assert(planSummaryFromTransfer({}) === null, 'empty td');
 

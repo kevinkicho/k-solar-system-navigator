@@ -44,14 +44,23 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 
 ### Cloud (optional Firebase)
 - **Google sign-in** — top-bar ☁ chip (disabled in classroom mode and with `?firebase=0`)
-- **Cloud plans** — save/load/delete compact route summaries in Firestore (`users/{uid}/plans`)
+- **Cloud plans** — save/load/delete compact route summaries in Firestore (`users/{uid}/plans`); **v2** embeds `plan_request` for full recompute restore
 - **Hosting** — static SPA via Firebase Hosting (`public: "."`); Security Rules own all data access
 - Enable **Google** provider in Firebase Console → Authentication before first sign-in
 
+### Three.js visualization upgrades
+- **MAP mode** — one-click schematic frames + dual path (visual + physical) for honest trajectory mapping
+- **Transfer ribbon** — TubeGeometry path tube with DEP / MID / ARR time ticks (CSS2D)
+- **Trajectory HUD** — live view mode, ephemeris, heliocentric *r*, ship–line residual
+- **Results trust strip** — Eph / Path / Scene / Residual / “not low-thrust / not SPICE”
+- **Path CSV export** — download Kepler conic samples (scene-frame AU)
+- **SOI focus** — camera frames selected body with Hill-sphere scale
+- **Quality tier** — auto-low bloom on mobile / reduced-motion; toggle with **FX**
+
 ## Tech stack
 
-- **Three.js r0.164** — 3D rendering with UnrealBloom post-processing
-- **CSS2DRenderer** — planet/moon/spacecraft labels
+- **Three.js r0.164** — 3D rendering with UnrealBloom post-processing, transfer ribbons, dual path overlays
+- **CSS2DRenderer** — planet/moon/spacecraft labels + path tick labels
 - **Node.js** — static file server + Ollama chat proxy + agent C2 bus
 - **Firebase** (optional) — Auth + Firestore plans; modular SDK via import map (gstatic CDN)
 

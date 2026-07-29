@@ -49,6 +49,13 @@ export function wireControls() {
   document.getElementById('view-reset').onclick = () => {
     state.followMode = false; camera3D.position.set(0, 8, 12); controls.target.set(0, 0, 0);
   };
+  // SOI / Hill-sphere framing (richer Three.js camera)
+  const soiBtn = document.getElementById('view-focus-soi');
+  if (soiBtn) {
+    soiBtn.onclick = () => {
+      import('./camera-focus.js').then(({ focusBodyWithSoi }) => focusBodyWithSoi());
+    };
+  }
 
   document.getElementById('btn-use-sim').onclick = () => {
     document.getElementById('depart-date').value = dateToInputValue(timeState.getDate());
@@ -263,6 +270,11 @@ export function wireControls() {
     };
   }
   if (dispSel) dispSel.onchange = () => {
+    // Manual display select clears map-mode flag if user picks cinematic
+    if (dispSel.value === 'cinematic' && state.mapMode) {
+      state.mapMode = false;
+      import('./map-mode.js').then(({ syncMapModeUi }) => syncMapModeUi());
+    }
     setDisplayMode(dispSel.value);
     // Rebuild planet orbit lines with new inclination scale
     for (const [name, data] of orbitLines) {

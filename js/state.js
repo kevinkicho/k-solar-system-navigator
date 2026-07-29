@@ -69,6 +69,20 @@ export const state = {
 
   classroomMode: false,
   /**
+   * Map mode: schematic display + dual path geometry for honest trajectory mapping.
+   * Cinematic remains the default “wow” view; map mode is one click away.
+   */
+  mapMode: false,
+  /**
+   * Render quality: 'auto' | 'high' | 'low' (bloom / heavy FX).
+   * auto = high desktop, low on mobile or prefers-reduced-motion.
+   */
+  qualityTier: 'auto',
+  /**
+   * Transfer ribbon tube + time ticks (Three.js TubeGeometry).
+   */
+  showTransferRibbon: true,
+  /**
    * Firebase Auth mirror (filled by js/firebase/auth.js).
    * enabled=false in classroom / ?firebase=0 / missing config.
    */
