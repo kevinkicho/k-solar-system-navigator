@@ -344,6 +344,7 @@ export function wireControls() {
   const flagMultiRev = document.getElementById('flag-multirev');
   const flagNbody = document.getElementById('flag-nbody');
   const flagNbodyWrap = document.getElementById('flag-nbody-wrap');
+  const flagLtNeed = document.getElementById('flag-lt-need');
 
   function syncPathAccuracyUI() {
     if (pathGeomSel) pathGeomSel.value = state.pathGeometry || 'visual';
@@ -395,6 +396,23 @@ export function wireControls() {
       ? 'N-BODY OVERLAY ON · educational residual only (Need unchanged)'
       : 'N-BODY OVERLAY OFF');
   };
+  if (flagLtNeed) {
+    flagLtNeed.checked = !!state.lightTimeNeedCompare && !state.classroomMode;
+    flagLtNeed.onchange = () => {
+      if (state.classroomMode) {
+        flagLtNeed.checked = false;
+        state.lightTimeNeedCompare = false;
+        return;
+      }
+      state.lightTimeNeedCompare = !!flagLtNeed.checked;
+      notify(state.lightTimeNeedCompare
+        ? 'LT NEED COMPARE ON · analysis sketch only'
+        : 'LT NEED COMPARE OFF');
+      if (state.transferData) {
+        import('./route-display.js').then((m) => m.renderRouteUI?.()).catch(() => {});
+      }
+    };
+  }
 
   document.getElementById('fx-potential').onclick = (e) => {
     FX.potential = !FX.potential;

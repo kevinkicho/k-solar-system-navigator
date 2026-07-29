@@ -54,6 +54,32 @@ export function lightTimeSummary(td) {
 }
 
 /**
+ * Educational light-time alternate Need sketch.
+ * Shifts arrival epoch by one-way LT at arrival r and re-solves Δv if caller provides recompute.
+ * Here: report Δt and fractional TOF impact only — full re-Lambert is opt-in via routing.
+ *
+ * @param {object} td
+ * @returns {{ lt_arr_s, tof_s, tof_adj_s, frac_tof, note }|null}
+ */
+export function lightTimeAlternateSketch(td) {
+  if (!td || !(td.transferTime > 0)) return null;
+  const sum = lightTimeSummary(td);
+  if (!sum?.lt_arr_s) return null;
+  const tof = td.transferTime;
+  const tofAdj = tof + sum.lt_arr_s; // arrive later by LT (display-only sketch)
+  return {
+    lt_arr_s: sum.lt_arr_s,
+    lt_arr_label: sum.lt_arr_label,
+    tof_s: tof,
+    tof_adj_s: tofAdj,
+    tof_days: tof / DAY,
+    tof_adj_days: tofAdj / DAY,
+    frac_tof: sum.lt_arr_s / tof,
+    note: 'LT-adjusted TOF sketch only — not stellar aberration, not OD. Enable “LT Need compare” for alternate Lambert Δv.',
+  };
+}
+
+/**
  * Ops-education gates appended to Plan Dossier when flightOpsMode is on.
  * Always non-certifying.
  * @returns {Array<object>}

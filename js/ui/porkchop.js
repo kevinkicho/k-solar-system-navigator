@@ -8,6 +8,9 @@ import { hohmannTransfer } from '../physics/kepler.js';
 import {
   cellTimes, defaultGridSpec, fillGridRow, refineGridSpec,
 } from '../physics/porkchop-grid.js';
+import {
+  buildWindowShortlist, formatShortlistLines,
+} from '../physics/window-shortlist.js';
 import { solveTransferOrbit } from '../physics/routing.js';
 import { dateToInputValue, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
@@ -708,12 +711,93 @@ export function wirePorkchop() {
       applyBtn.disabled = false;
       repaintAll();
       updateLegend();
+      // Multi-candidate shortlist under planning backend
+      try {
+        const planOpts = {
+          backend: state.classroomMode
+            ? 'approx'
+            : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
+          classroomMode: !!state.classroomMode,
+          maxRevolutions: (state.pathAccuracy?.multiRevLambert && !state.classroomMode)
+            ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
+            : 0,
+        };
+        const shortlist = buildWindowShortlist(pcState.data, gridSpec, body1, body2, {
+          topN: 8,
+          planOpts,
+          reevaluate: true,
+        });
+        pcState.shortlist = shortlist;
+        state.windowShortlist = shortlist;
+        renderShortlistPanel(shortlist);
+        // Optional server rank (App Hosting) — non-blocking
+        if (!state.classroomMode && typeof fetch === 'function') {
+          fetch('/api/planning/window-shortlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              origin: body1.name,
+              dest: body2.name,
+              fidelity: planOpts.backend,
+              candidates: shortlist,
+            }),
+          }).then((r) => r.json()).then((j) => {
+            if (j?.ok && j.shortlist) {
+              pcState.serverShortlist = j.shortlist;
+            }
+          }).catch(() => {});
+        }
+      } catch (err) {
+        console.warn('[porkchop] shortlist', err);
+      }
       // Refine neighborhood around coarse global minimum.
       await refineAroundSelection(acc.minIdx.ix, acc.minIdx.iy, requestId);
     } else {
       repaintAll();
       updateLegend();
     }
+  }
+
+  function renderShortlistPanel(shortlist) {
+    let host = document.getElementById('pc-shortlist');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'pc-shortlist';
+      host.className = 'pc-shortlist';
+      const info = document.querySelector('#porkchop-overlay .pc-info');
+      if (info?.parentElement) info.parentElement.insertBefore(host, info.nextSibling);
+      else document.getElementById('porkchop-overlay')?.appendChild(host);
+    }
+    if (!shortlist?.length) {
+      host.innerHTML = '';
+      return;
+    }
+    const lines = formatShortlistLines(shortlist);
+    host.innerHTML = `
+      <div class="pc-shortlist-title">TOP WINDOWS (planning eph)</div>
+      <div class="pc-shortlist-list">
+        ${shortlist.map((s, i) => `
+          <button type="button" class="pc-shortlist-item" data-si="${i}">
+            ${lines[i] || `#${s.rank}`}
+          </button>`).join('')}
+      </div>
+      <p class="pc-shortlist-note">Click a candidate to select · not global optimum · preliminary</p>`;
+    host.querySelectorAll('.pc-shortlist-item').forEach((btn) => {
+      btn.onclick = () => {
+        const i = Number(btn.getAttribute('data-si'));
+        const s = shortlist[i];
+        if (!s || !pcState) return;
+        pcState.selectedCell = {
+          ix: s.ix, iy: s.iy,
+          dep: s.dep_sim, tof: s.tof_s, dv: s.dv_m_s,
+          c3: s.c3_m2_s2, vinf: s.vinf_arr_m_s,
+        };
+        showSelection(pcState.selectedCell);
+        applyBtn.disabled = false;
+        repaintAll();
+        notify(`SHORTLIST #${s.rank} SELECTED · Δv ${(s.dv_m_s / 1000).toFixed(2)} km/s`);
+      };
+    });
   }
 
   function cellAt(clientX, clientY) {

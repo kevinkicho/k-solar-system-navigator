@@ -1188,3 +1188,49 @@ body:not(.theme-classic) .map-mode-btn.active {
   background: rgba(77, 184, 217, 0.1);
 }
 
+/* Porkchop multi-candidate shortlist */
+.pc-shortlist {
+  margin: 10px 0 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.28);
+  max-height: 160px;
+  overflow: auto;
+}
+.pc-shortlist-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.pc-shortlist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pc-shortlist-item {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.pc-shortlist-item:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: var(--cyan-glow);
+}
+.pc-shortlist-note {
+  font-size: 8px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  line-height: 1.3;
+}
+

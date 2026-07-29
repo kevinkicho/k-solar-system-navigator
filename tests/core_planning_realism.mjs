@@ -100,6 +100,25 @@ check('n-body has analysis note', nb && /Need unchanged|analysis/i.test(nb.note 
 const needBefore = computeNeed(td);
 check('Need still applicable after residual', needBefore.applicable);
 
+// Window shortlist
+const { buildWindowShortlist } = await import('../js/physics/window-shortlist.js');
+const grid2 = defaultGridSpec(earth, mars, dep, 10, 8);
+const sw2 = sweepPorkchopGrid(earth, mars, grid2, { backend: 'sample-de' });
+const sl = buildWindowShortlist(sw2.data, grid2, earth, mars, {
+  topN: 5,
+  planOpts: { backend: 'sample-de' },
+});
+check('shortlist non-empty', sl.length >= 1, `n=${sl.length}`);
+check('shortlist ranked', sl[0].rank === 1 && sl[0].dv_m_s <= (sl[sl.length - 1]?.dv_m_s ?? Infinity));
+
+// LT compare sketch on Need
+state.lightTimeNeedCompare = true;
+td.dep3D = { x: 1, y: 0, z: 0 };
+td.arr3D = { x: 1.5, y: 0, z: 0 };
+const needLt = computeNeed(td);
+check('LT compare attaches', !!needLt.light_time_compare?.lt_arr_s);
+state.lightTimeNeedCompare = false;
+
 if (failed) {
   console.error(`\ncore_planning_realism: ${failed} failed`);
   process.exit(1);

@@ -4,11 +4,14 @@
   "private": true,
   "description": "HELIOS Mission Design — Firebase App Hosting (Next.js SSR shell + client SPA)",
   "scripts": {
+    "prepare:spa": "node scripts/prepare-spa-assets.mjs",
     "prebuild": "node scripts/prepare-spa-assets.mjs",
-    "dev": "node scripts/prepare-spa-assets.mjs && next dev -p 3000",
-    "build": "next build",
+    "predev": "node scripts/prepare-spa-assets.mjs",
+    "dev": "next dev -p 3000",
+    "build": "node scripts/prepare-spa-assets.mjs && next build",
     "start": "next start",
-    "lint": "echo skip"
+    "lint": "echo skip",
+    "postinstall": "node scripts/prepare-spa-assets.mjs || true"
   },
   "dependencies": {
     "next": "^15.5.0",

@@ -1174,6 +1174,13 @@ input[type="range"]::-webkit-slider-thumb {
             </label>
             <p class="surface-hint" style="margin-top:4px">Inject fetches live JPL Horizons for origin/dest (and flybys) before Compute. Classroom forces off. Offline sample-DE remains product default.</p>
           </div>
+          <div class="route-field-row" id="lt-need-row">
+            <label style="font-size:10px;display:flex;gap:6px;align-items:center">
+              <input type="checkbox" id="flag-lt-need" title="Add light-time TOF compare sketch on Need (does not replace geometric Need)">
+              Light-time Need compare (analysis)
+            </label>
+            <p class="surface-hint" style="margin-top:4px">Reports LT-adjusted TOF sketch next to Need — not aberration OD.</p>
+          </div>
           <div class="route-field-row" id="ascent-loss-row">
             <label>Ascent loss budget (analysis)</label>
             <select id="ascent-loss-budget" title="Ascent gravity/drag loss class — not added into Lambert Need">

@@ -6,6 +6,7 @@ import { computeMissionBudget } from './mission-budget.js';
 import { v3mag, v3sub } from './vec3.js';
 import { getPlanningVelocity3D } from './ephemeris-provider.js';
 import { BODIES } from '../data/bodies.js';
+import { lightTimeAlternateSketch } from './flight-ops.js';
 
 const AERO_MIN = 0;
 const AERO_MAX = 0.9;
@@ -245,7 +246,7 @@ export function computeNeed(td, opts = {}) {
   }
 
   // helio_leg
-  return {
+  const base = {
     phase: 'helio_leg',
     multi_leg: false,
     need_dv_m_s: helio,
@@ -256,6 +257,19 @@ export function computeNeed(td, opts = {}) {
     aeroassist_factor: 0,
     reason: isFinite(helio) ? null : 'helio Δv unavailable',
   };
+
+  // Optional light-time compare (analysis only — does not replace geometric Need)
+  if (opts.lightTimeCompare || state.lightTimeNeedCompare) {
+    const lt = lightTimeAlternateSketch(td);
+    if (lt) {
+      base.light_time_compare = {
+        ...lt,
+        geometric_need_dv_m_s: helio,
+        note: lt.note,
+      };
+    }
+  }
+  return base;
 }
 
 /** Scalar required Δv for UI paths that still need a number (K25-safe). */

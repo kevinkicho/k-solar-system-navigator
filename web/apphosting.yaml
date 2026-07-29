@@ -2,6 +2,7 @@
 # Docs: https://firebase.google.com/docs/app-hosting
 #
 # Requires Blaze plan. Backend id is set in firebase.json (apphosting.backendId).
+# rootDir is web/; monorepo parent (../js) is available at build for prepare:spa.
 
 runConfig:
   cpu: 1
@@ -9,6 +10,11 @@ runConfig:
   minInstances: 0
   maxInstances: 20
   concurrency: 80
+
+# Explicit build ensures SPA assets are copied before next build
+scripts:
+  buildCommand: npm run build
+  runCommand: npm run start
 
 env:
   - variable: NEXT_PUBLIC_HELIOS_PRODUCT
@@ -21,3 +27,8 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  # When monorepo parent is mounted one level up from web/
+  - variable: HELIOS_SPA_ROOT
+    value: ..
+    availability:
+      - BUILD

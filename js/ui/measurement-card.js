@@ -134,6 +134,11 @@ export function buildMeasurementCard(td) {
     html += `<div class="info-row"><span class="key">Cargo requested</span><span class="val">${fmtKg(state.cargoMass_kg)}</span></div>`;
   }
 
+  const ltRow = need.light_time_compare
+    ? `<div class="info-row"><span class="key">LT TOF sketch</span><span class="val amber">${need.light_time_compare.tof_days?.toFixed?.(1)} → ${need.light_time_compare.tof_adj_days?.toFixed?.(1)} d (LT ${need.light_time_compare.lt_arr_label})</span></div>
+       <div class="info-row"><span class="key">LT note</span><span class="val" style="font-size:9px;opacity:0.8">${need.light_time_compare.note || ''}</span></div>`
+    : '';
+
   html += `
       <div style="height:8px"></div>
       <div class="result-subtitle">NEED · phase ${need.phase}${need.multi_leg ? ' (multi-leg)' : ''}</div>
@@ -141,6 +146,7 @@ export function buildMeasurementCard(td) {
       <div class="info-row"><span class="key">C₃ (departure)</span><span class="val">${fmtC3(need.c3_m2_s2)}</span></div>
       ${need.vinf_dep_m_s != null ? `<div class="info-row"><span class="key">V∞ dep</span><span class="val">${formatVelocity(need.vinf_dep_m_s)}</span></div>` : ''}
       ${need.aeroassist_factor > 0 ? `<div class="info-row"><span class="key">Aeroassist factor</span><span class="val">${need.aeroassist_factor.toFixed(2)}</span></div>` : ''}
+      ${ltRow}
       ${(state.ascentLossBudget_m_s > 0) ? `<div class="info-row"><span class="key">Ascent loss budget</span><span class="val amber">${formatVelocity(state.ascentLossBudget_m_s)} <span style="font-size:9px;opacity:0.7">not in Lambert Need</span></span></div>` : ''}
 
       <div style="height:8px"></div>

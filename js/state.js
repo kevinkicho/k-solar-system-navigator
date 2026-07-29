@@ -52,6 +52,13 @@ export const state = {
    * Surfaces light-time, ops gates, OEM-like export; prefers L3-plan table when available.
    */
   flightOpsMode: false,
+  /**
+   * When true, Need includes light-time TOF compare sketch (analysis only).
+   * Does not replace geometric Lambert Need.
+   */
+  lightTimeNeedCompare: false,
+  /** Last porkchop multi-candidate shortlist (client). */
+  windowShortlist: null,
 
   display: {
     mode: 'cinematic',
