@@ -26,6 +26,9 @@ export function setDisplayMode(mode) {
 }
 
 export function displayModeBadge() {
+  if (state.physicsAccurate) {
+    return 'VIEW: PHYSICS-ACCURATE — schematic frames · physical path · Δv from Lambert (Three.js is display only)';
+  }
   if (isSchematic()) {
     return 'VIEW: SCHEMATIC — incl. & sun wobble physical; moon orbits still layout-scaled; numbers always physical';
   }

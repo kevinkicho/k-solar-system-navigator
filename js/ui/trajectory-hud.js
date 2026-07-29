@@ -24,7 +24,7 @@ export function ensureTrajectoryHud() {
     <div class="thud-row" id="thud-path">PATH: —</div>
     <div class="thud-row" id="thud-r">r: —</div>
     <div class="thud-row" id="thud-res">RES: —</div>
-    <div class="thud-note">Numbers always physical · path is Kepler conic (not SPICE)</div>
+    <div class="thud-note">Three.js = display only · Δv/path from Lambert/Kepler · not SPICE</div>
   `;
   document.body.appendChild(el);
   return el;
@@ -122,7 +122,8 @@ export function updateTrajectoryHud(nowMs = performance.now()) {
   const resEl = document.getElementById('thud-res');
 
   if (modeEl) {
-    if (state.mapMode) modeEl.textContent = 'VIEW: MAP · dual path';
+    if (state.physicsAccurate) modeEl.textContent = 'VIEW: PHYSICS-ACCURATE';
+    else if (state.mapMode) modeEl.textContent = 'VIEW: MAP · dual path';
     else if (isSchematic()) modeEl.textContent = 'VIEW: SCHEMATIC';
     else modeEl.textContent = 'VIEW: CINEMATIC ×incl/wobble';
   }

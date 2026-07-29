@@ -51,14 +51,17 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 - **Admin smoke (local only)** — `npm run firebase:smoke` with gitignored Admin SDK JSON
 - Classroom / `?firebase=0` stay fully offline
 
-### Three.js visualization upgrades
-- **MAP mode** — one-click schematic frames + dual path (visual + physical) for honest trajectory mapping
-- **Transfer ribbon** — TubeGeometry path tube with DEP / MID / ARR time ticks (CSS2D)
-- **Trajectory HUD** — live view mode, ephemeris, heliocentric *r*, ship–line residual
-- **Results trust strip** — Eph / Path / Scene / Residual / “not low-thrust / not SPICE”
-- **Path CSV export** — download Kepler conic samples (scene-frame AU)
-- **SOI focus** — camera frames selected body with Hill-sphere scale
-- **Quality tier** — auto-low bloom on mobile / reduced-motion; toggle with **FX**
+### Three.js visualization (display only — not a physics engine)
+**Three.js does not make trajectories accurate.** Accuracy is `js/physics` (Lambert, Kepler, ephemeris). Three.js draws those results.
+
+- **ACCURATE view** — schematic frames + physical path + dual overlay (honest scene)
+- **1:R true-scale** — semi-true body radii (`R/AU × boost`; pure 1:1 is invisible)
+- **MAP mode** — dual path for teaching cinematic vs physical
+- **Transfer ribbon** + **path bead** (scrub sim time on the arc) + **Δv arrows** at burns
+- **Camera TOUR** along the transfer; **SOI** focus; ship trail + velocity arrow
+- **Earth clouds + night lights** + atmosphere shells; **InstancedMesh** asteroid belt
+- **Trajectory HUD** + Results trust strip; **Path CSV** export
+- **Quality tier** — bloom off on mobile / reduced-motion
 
 ## Tech stack
 

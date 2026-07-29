@@ -22,6 +22,8 @@ import {
   transferMarkers,
 } from '../scene/transfer-visual.js';
 import { clearTransferRibbon, setTransferRibbon } from '../scene/transfer-ribbon.js';
+import { clearDvArrows, setDvArrows } from '../scene/transfer-dv-arrows.js';
+import { clearPathBead } from '../scene/path-bead.js';
 import { scene } from '../scene/setup.js';
 import { isSchematic } from '../display-scale.js';
 
@@ -77,12 +79,17 @@ export function updateTransferOrbitVisual() {
   clearMultiLegVisuals();
   clearDateMarkers();
   clearTransferRibbon();
+  clearDvArrows();
   clearNbodyLine();
+  // Keep path bead alive; it tracks sim time separately
   transferMarkers.depart.visible = false;
   transferMarkers.arrive.visible = false;
   hideArrivalGhost();
   hideDepartureGhost();
-  if (!state.showTransferOrbit || !state.transferData) return;
+  if (!state.showTransferOrbit || !state.transferData) {
+    clearPathBead();
+    return;
+  }
 
   // trail_only: hide future dashed path during active mission
   if (shouldHidePathForTrailOnly()) {
@@ -96,18 +103,22 @@ export function updateTransferOrbitVisual() {
     return;
   }
 
-  // Map mode forces dual path overlay (visual + physical)
-  const geomMode = state.mapMode ? 'both' : (state.pathGeometry || 'visual');
+  // Physics-accurate / map mode → dual path (visual + physical)
+  const geomMode = (state.physicsAccurate || state.mapMode)
+    ? 'both'
+    : (state.pathGeometry || 'visual');
   const depT = td.departureSimTime;
   const arrT = td.arrivalSimTime;
   const dep = td.dep3D || getBodyPosition3D(td.body1, depT);
   const arr = td.arr3D || getBodyPosition3D(td.body2, arrT);
 
-  // Primary (scene/visual or physical)
-  const primaryGeom = geomMode === 'physical' ? 'physical' : 'visual';
+  // Primary: physical when physics-accurate; else visual (or physical if selected)
+  const primaryGeom = state.physicsAccurate
+    ? 'physical'
+    : (geomMode === 'physical' ? 'physical' : 'visual');
   const opts = pathOptsFromState(td, {
     geometry: primaryGeom,
-    exaggerate: primaryGeom === 'physical' ? false : true,
+    exaggerate: primaryGeom === 'physical' || state.physicsAccurate ? false : true,
     offsetPolicy: primaryGeom === 'physical' && isSchematic()
       ? (state.pathOffsetPolicy || 'time_varying')
       : (primaryGeom === 'physical'
@@ -125,8 +136,9 @@ export function updateTransferOrbitVisual() {
 
   const drawPts = samplesToLinePoints(built.points);
   if (drawPts.length >= 2) {
+    // Physical path = cyan; cinematic visual = orange
     const color = primaryGeom === 'physical' ? 0x4fc3f7 : 0xff9800;
-    setTransferLine(makeDashedLine(drawPts, color, 0.8));
+    setTransferLine(makeDashedLine(drawPts, color, 0.85));
     // Rich Three.js ribbon tube + DEP/MID/ARR ticks
     if (state.showTransferRibbon !== false) {
       const tofDays = td.transferTime != null ? td.transferTime / DAY : null;
@@ -143,25 +155,47 @@ export function updateTransferOrbitVisual() {
     }
   }
 
-  // Dual overlay: faint physical path (real inclination) under visual
-  if ((geomMode === 'both' || state.mapMode) && (td.orbitPhysical || td.orbit)) {
-    const physOpts = pathOptsFromState(td, {
-      geometry: 'physical',
-      exaggerate: false,
-      offsetPolicy: 'time_varying',
-      nSamples: 256,
-    });
+  // Dual overlay: second geometry for honesty (physical under visual or vice versa)
+  if ((geomMode === 'both' || state.mapMode || state.physicsAccurate)
+      && (td.orbitPhysical || td.orbit)) {
+    const overlayGeom = primaryGeom === 'physical' ? 'visual' : 'physical';
     const builtP = buildTransferPathSamples(td, {
-      ...physOpts,
-      exaggerate: false,
+      ...pathOptsFromState(td, {
+        geometry: overlayGeom,
+        exaggerate: overlayGeom === 'visual' && !state.physicsAccurate,
+        offsetPolicy: 'time_varying',
+        nSamples: 256,
+      }),
     });
     const ptsP = samplesToLinePoints(builtP.points);
     if (ptsP.length >= 2) {
-      setPhysicalTransferLine(makeDashedLine(ptsP, 0x81d4fa, 0.5));
+      const c2 = overlayGeom === 'physical' ? 0x81d4fa : 0xffb74d;
+      setPhysicalTransferLine(makeDashedLine(ptsP, c2, 0.45));
     }
   }
 
   placeEndpointMarkers(td, dep, arr, depT, arrT, drawPts);
+
+  // Burn Δv arrows at endpoints
+  try {
+    const depMark = transferMarkers.depart.visible
+      ? {
+        x: transferMarkers.depart.position.x,
+        y: transferMarkers.depart.position.y,
+        z: transferMarkers.depart.position.z,
+      }
+      : null;
+    const arrMark = transferMarkers.arrive.visible
+      ? {
+        x: transferMarkers.arrive.position.x,
+        y: transferMarkers.arrive.position.y,
+        z: transferMarkers.arrive.position.z,
+      }
+      : null;
+    setDvArrows(td, { depMark, arrMark });
+  } catch (err) {
+    console.warn('[HELIOS] dv arrows', err);
+  }
 
   if (built.orbitUsed && td.transferTime / DAY < 3000) {
     addDateMarkersAlongOrbit(td, built.orbitUsed, depT, td.transferTime, 0xffd54f, opts);

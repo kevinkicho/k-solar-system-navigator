@@ -19,6 +19,7 @@ import { updateInfoPanel } from './ui/info-panel.js';
 import { timeState } from './ui/time-system.js';
 import { updateFlybyPulses, updateMission } from './mission.js';
 import { updateTrajectoryHud } from './ui/trajectory-hud.js';
+import { updatePathBead } from './scene/path-bead.js';
 
 let frameCount = 0, lastFpsTime = 0, fps = 60;
 let lastFrameTime = performance.now();
@@ -151,6 +152,9 @@ export function animate() {
   }
 
   updateTrajectoryHud(now);
+  try {
+    updatePathBead(timeState.simTime);
+  } catch { /* */ }
 
   controls.update();
   composer.render();

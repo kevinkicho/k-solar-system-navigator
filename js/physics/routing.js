@@ -286,6 +286,8 @@ function solvePlanetRelativeTransferOrbit(tData) {
     // Parent-frame velocities (m/s relative to central).
     tData.v1_lambert = bestP.sol.v1;
     tData.v2_lambert = bestP.sol.v2;
+    tData.v_body1 = vBody1;
+    tData.v_body2 = vBody2;
     tData.dv1_lambert = v3mag(v3sub(bestP.sol.v1, vBody1));
     tData.dv2_lambert = v3mag(v3sub(bestP.sol.v2, vBody2));
     tData.dvTotal_lambert = tData.dv1_lambert + tData.dv2_lambert;
@@ -404,6 +406,8 @@ export function solveTransferOrbit(tData) {
     // rather than just the heliocentric leg.
     tData.v1_lambert = bestP.sol.v1;
     tData.v2_lambert = bestP.sol.v2;
+    tData.v_body1 = vBody1;
+    tData.v_body2 = vBody2;
     // Δv vs surface-inertial velocity when surface points active (includes spin),
     // else classic body-center velocity.
     tData.dv1_lambert = v3mag(v3sub(bestP.sol.v1, vBody1));

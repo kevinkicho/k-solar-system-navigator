@@ -184,7 +184,7 @@ function trustStripHtml(td, dossier) {
       <span class="pts-item"><em>Path</em> Kepler conic · ${geom}</span>
       <span class="pts-item"><em>Scene</em> ${scene}</span>
       <span class="pts-item"><em>Res</em> ${resTxt}</span>
-      <span class="pts-item pts-note">Chemical Lambert · not low-thrust · not SPICE</span>
+      <span class="pts-item pts-note">Chemical Lambert · not low-thrust · not SPICE · Three.js is display only</span>
     </div>`;
 }
 

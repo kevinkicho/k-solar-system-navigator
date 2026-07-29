@@ -899,6 +899,10 @@ input[type="range"]::-webkit-slider-thumb {
   </div>
   <div class="right-info">
     <span id="view-mode-badge" title="Display scale mode">VIEW: CINEMATIC</span>
+    <button type="button" id="btn-physics-accurate" class="map-mode-btn" aria-pressed="false"
+      title="Physics-accurate view: schematic frames + physical path. Numbers always from Lambert — Three.js is display only.">ACCURATE</button>
+    <button type="button" id="btn-true-scale" class="map-mode-btn" aria-pressed="false"
+      title="Semi-true body radii (R/AU × boost). Pure 1:1 is invisible at system scale.">1:R</button>
     <button type="button" id="btn-map-mode" class="map-mode-btn" aria-pressed="false"
       title="Map mode — schematic frames + dual path overlay (honest trajectory mapping)">MAP</button>
     <button type="button" id="btn-quality-tier" class="map-mode-btn" title="Toggle render quality (bloom / pixel ratio)">FX</button>
@@ -1334,6 +1338,7 @@ input[type="range"]::-webkit-slider-thumb {
   <button id="view-focus-soi" title="Frame selected body with Hill sphere / SOI scale">SOI</button>
   <button id="view-reset">RESET</button>
   <button id="btn-map-mode-view" class="map-mode-btn" title="Map mode (schematic + dual path)">MAP</button>
+  <button id="btn-camera-tour" class="map-mode-btn" title="Camera tour along current transfer">TOUR</button>
 </div>
 
 <div id="tooltip"></div>

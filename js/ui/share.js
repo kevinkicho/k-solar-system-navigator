@@ -259,15 +259,19 @@ export function tryApplyHashOnLoad() {
 
 export function updateViewBadge() {
   const el = document.getElementById('view-mode-badge');
-  // Map mode badge wins when active
+  if (!el) return;
   try {
-    if (state.mapMode && el) {
+    if (state.physicsAccurate) {
+      el.textContent = 'VIEW: PHYSICS-ACCURATE';
+      el.title = 'Schematic frames + physical path geometry. Numbers from Lambert/ephemeris — Three.js is display only.';
+      return;
+    }
+    if (state.mapMode) {
       el.textContent = 'VIEW: MAP · dual path';
       el.title = 'Map mode — schematic frames + dual path overlay; numbers always physical';
       return;
     }
   } catch { /* */ }
-  if (!el) return;
   import('../display-scale.js').then(({ displayModeBadge }) => {
     el.textContent = displayModeBadge();
   });

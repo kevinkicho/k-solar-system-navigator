@@ -70,6 +70,27 @@ for (const body of BODIES) {
     );
   }
 
+  // Soft atmosphere limb (Fresnel-ish shell) for gas giants + Earth/Mars/Venus
+  if (['Earth', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'].includes(body.name)) {
+    const atmoColor = body.name === 'Earth' ? 0x4fc3f7
+      : body.name === 'Mars' ? 0xff8a65
+        : body.name === 'Venus' ? 0xffe082
+          : new THREE.Color(body.color).getHex();
+    const atmo = new THREE.Mesh(
+      new THREE.SphereGeometry(body.displayRadius * 1.06, 32, 32),
+      new THREE.MeshBasicMaterial({
+        color: atmoColor,
+        transparent: true,
+        opacity: 0.12,
+        side: THREE.BackSide,
+        depthWrite: false,
+      }),
+    );
+    atmo.name = 'atmosphere';
+    atmo.userData.isAtmosphere = true;
+    group.add(atmo);
+  }
+
   if (body.name === 'Earth') {
     const cloudMat = new THREE.MeshStandardMaterial({
       color: 0xffffff, transparent: true, opacity: 0.55,
@@ -86,6 +107,34 @@ for (const body of BODIES) {
       cloudMat.needsUpdate = true;
       planetTextureTargets.push({ map: tex, period: PLANET_ROTATION_SEC.Earth * 0.9 });
     }, undefined, () => { /* keep solid-color fallback */ });
+
+    // City lights / night side — additive emissive shell (texture when available)
+    const nightMat = new THREE.MeshBasicMaterial({
+      color: 0xffcc80,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const night = new THREE.Mesh(
+      new THREE.SphereGeometry(body.displayRadius * 1.001, 48, 48),
+      nightMat,
+    );
+    night.name = 'earth-night';
+    group.add(night);
+    // threex-planets style night lights (may 404 → keep invisible)
+    texLoader.load(TEX_BASE + 'earthlights1k.jpg', (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = THREE.RepeatWrapping;
+      nightMat.map = tex;
+      nightMat.opacity = 0.55;
+      nightMat.needsUpdate = true;
+      planetTextureTargets.push({ map: tex, period: PLANET_ROTATION_SEC.Earth });
+    }, undefined, () => {
+      // Procedural dim night glow fallback
+      nightMat.opacity = 0.08;
+      nightMat.color.setHex(0x1a237e);
+    });
   }
 
   if (body.name === 'Saturn') {

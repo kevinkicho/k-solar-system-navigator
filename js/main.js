@@ -51,6 +51,8 @@ import { wireMapMode } from './ui/map-mode.js';
 import { wireTrajectoryHud } from './ui/trajectory-hud.js';
 import { wireQualityTier } from './ui/quality-tier.js';
 import { wireCameraFocus } from './ui/camera-focus.js';
+import { wirePhysicsView } from './ui/physics-view.js';
+import { applyBodyScales } from './scene/body-scale.js';
 
 // Mission + animation.
 import { abortMission, launchMission, wireMissionStudyBar } from './mission.js';
@@ -107,6 +109,8 @@ try {
   wireTrajectoryHud();
   wireQualityTier();
   wireCameraFocus();
+  wirePhysicsView();
+  applyBodyScales();
 } catch (err) {
   console.error('[HELIOS] viz/map-mode wiring failed', err);
 }

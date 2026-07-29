@@ -42,6 +42,21 @@ export const state = {
   display: {
     mode: 'cinematic',
   },
+  /**
+   * Physics-accurate scene mode (not a Three.js solver — uses our Lambert/ephemeris).
+   * Forces schematic frames + physical path geometry + dual overlay optional.
+   */
+  physicsAccurate: false,
+  /**
+   * Body radii: false = cinematic displayRadius; true = R/AU × trueScaleBoost (semi-true).
+   * Pure 1:1 AU scale is invisible for planets; boost is labeled in the HUD.
+   */
+  trueScaleBodies: false,
+  trueScaleBoost: 200,
+  /** Three.js teaching overlays */
+  showDvArrows: true,
+  showPathBead: true,
+  showAtmospheres: true,
 
   /**
    * Path rendering (trajectory accuracy design Phases 1–4).
