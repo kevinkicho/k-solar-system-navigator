@@ -722,11 +722,26 @@ export function wirePorkchop() {
             ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
             : 0,
         };
-        const shortlist = buildWindowShortlist(pcState.data, gridSpec, body1, body2, {
+        let shortlist = buildWindowShortlist(pcState.data, gridSpec, body1, body2, {
           topN: 8,
           planOpts,
           reevaluate: true,
         });
+        // Dense neighborhood re-eval under planning ephemeris (richer refine)
+        try {
+          const { refineShortlistNeighborhood } = await import('../physics/window-refine.js');
+          const refined = refineShortlistNeighborhood(shortlist, body1, body2, gridSpec, {
+            planOpts,
+            subdiv: 3,
+            topN: 8,
+          });
+          if (refined?.shortlist?.length) {
+            shortlist = refined.shortlist;
+            pcState.refineMeta = { nEvals: refined.nEvals, refined: refined.refined };
+          }
+        } catch (err) {
+          console.warn('[porkchop] neighborhood refine', err);
+        }
         pcState.shortlist = shortlist;
         state.windowShortlist = shortlist;
         renderShortlistPanel(shortlist);
@@ -806,7 +821,7 @@ export function wirePorkchop() {
             ${lines[i] || `#${s.rank}`}
           </button>`).join('')}
       </div>
-      <p class="pc-shortlist-note">Click a candidate to select · not global optimum · preliminary</p>`;
+      <p class="pc-shortlist-note">Click a candidate · neighborhood-refined under planning eph · not global optimum · preliminary</p>`;
     host.querySelectorAll('.pc-shortlist-item').forEach((btn) => {
       btn.onclick = () => {
         const i = Number(btn.getAttribute('data-si'));

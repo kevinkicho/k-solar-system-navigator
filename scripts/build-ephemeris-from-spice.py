@@ -103,13 +103,24 @@ def spk_pos_scene(body_id: int, et: float) -> tuple[float, float, float]:
 
 
 def main() -> None:
-    step_days = 3
+    # Default 2-day step: denser outer-window sampling within ~2.5 MiB soft budget.
+    step_days = 2
     if "--step" in sys.argv:
         i = sys.argv.index("--step")
         step_days = int(sys.argv[i + 1])
 
     t0 = datetime(2015, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     t1 = datetime(2055, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    if "--t0" in sys.argv:
+        i = sys.argv.index("--t0")
+        t0 = datetime.fromisoformat(sys.argv[i + 1].replace("Z", "+00:00"))
+        if t0.tzinfo is None:
+            t0 = t0.replace(tzinfo=timezone.utc)
+    if "--t1" in sys.argv:
+        i = sys.argv.index("--t1")
+        t1 = datetime.fromisoformat(sys.argv[i + 1].replace("Z", "+00:00"))
+        if t1.tzinfo is None:
+            t1 = t1.replace(tzinfo=timezone.utc)
     step_sec = step_days * 86400.0
 
     print("Loading SPICE kernels…")
@@ -147,11 +158,12 @@ def main() -> None:
         bodies_out[name] = {"pos_au": pos_au}
 
     table = {
-        "version": 4,
-        "source": "naif-de440s-spice-v4",
+        "version": 5,
+        "source": "naif-de440s-spice-v5",
         "source_note": (
             "Baked with spiceypy from NAIF de440s.bsp + naif0012.tls + pck00011.tpc + gm_de440.tpc. "
             "Geometric states, ECLIPJ2000 → HELIOS scene axes (Y↔Z). "
+            f"Default step={step_days}d for denser outer-window sampling. "
             "EDUCATIONAL offline L3-class table — NOT flight-certified OD, NOT range safety, "
             "NOT a substitute for operational SPICE pipelines."
         ),

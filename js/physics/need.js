@@ -8,6 +8,7 @@ import { getPlanningVelocity3D } from './ephemeris-provider.js';
 import { BODIES } from '../data/bodies.js';
 import { lightTimeAlternateSketch } from './flight-ops.js';
 import { planeChangeNeedAddon_m_s, planeChangeSketchForSite } from './launch-site-plane.js';
+import { doglegNeedAddon_m_s, launchAzimuthDoglegSketch } from './launch-azimuth.js';
 
 const AERO_MIN = 0;
 const AERO_MAX = 0.9;
@@ -196,15 +197,23 @@ export function computeNeed(td, opts = {}) {
   const vInfDep = budget?.departure?.vInf ?? null;
   const vInfArr = budget?.arrival?.vInf ?? null;
 
-  // Educational plane-change sketch vs site DLA (Earth dep only)
+  // Educational plane-change / dogleg sketch vs site DLA (Earth dep only)
   const dlaEq = opts.dla_eq_deg
     ?? td.dossier?.geometry?.dla_eq_deg
     ?? null;
   const siteId = opts.launchSiteId ?? state.launchSiteId ?? 'any';
   const planeSk = planeChangeSketchForSite(dlaEq, siteId);
-  const planeAddon = (opts.includePlaneChange !== false && state.planeChangeNeedAddon !== false)
-    ? planeChangeNeedAddon_m_s(td, siteId, dlaEq)
-    : 0;
+  const launchSk = launchAzimuthDoglegSketch(dlaEq, siteId);
+  // Need addon: site DLA-band plane-change (primary). When that band is exceeded,
+  // prefer educational dogleg Δv (cheaper than pure LEO plane-change). Azimuth is
+  // always attached for OPS analysis even when addon is zero.
+  let planeAddon = 0;
+  if (opts.includePlaneChange !== false && state.planeChangeNeedAddon !== false) {
+    const pure = planeChangeNeedAddon_m_s(td, siteId, dlaEq);
+    const dog = doglegNeedAddon_m_s(td, siteId, dlaEq);
+    if (pure > 0 && dog > 0) planeAddon = Math.min(pure, dog);
+    else planeAddon = pure;
+  }
 
   if (phase === 'injection') {
     // Aeroassist is no-op on injection (departure only).
@@ -219,6 +228,7 @@ export function computeNeed(td, opts = {}) {
       vinf_arr_m_s: vInfArr,
       plane_change_sketch: planeSk,
       plane_change_addon_m_s: planeAddon,
+      launch_geometry_sketch: launchSk,
       applicable: needDv != null && isFinite(needDv),
       aeroassist_factor: 0,
       reason: inj == null ? 'injection requires Lambert-ok mission budget' : null,
@@ -255,14 +265,15 @@ export function computeNeed(td, opts = {}) {
       arrival_dv_raw_m_s: budget.arrival.total,
       plane_change_sketch: planeSk,
       plane_change_addon_m_s: planeAddon,
+      launch_geometry_sketch: launchSk,
       applicable: true,
       aeroassist_factor: aero,
       reason: null,
     };
   }
 
-  // helio_leg — report geometric Need and optional plane-change addon separately
-  // so users can distinguish ballistic Δv from educational site plane-change.
+  // helio_leg — report geometric Need and optional plane-change/dogleg addon separately
+  // so users can distinguish ballistic Δv from educational site geometry.
   const helioNeed = isFinite(helio) ? helio + planeAddon : helio;
   const base = {
     phase: 'helio_leg',
@@ -274,6 +285,7 @@ export function computeNeed(td, opts = {}) {
     vinf_arr_m_s: vInfArr,
     plane_change_sketch: planeSk,
     plane_change_addon_m_s: planeAddon,
+    launch_geometry_sketch: launchSk,
     applicable: isFinite(helioNeed),
     aeroassist_factor: 0,
     reason: isFinite(helio) ? null : 'helio Δv unavailable',

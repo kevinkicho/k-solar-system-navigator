@@ -1,12 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Server-side window shortlist stub for App Hosting.
- * Full Lambert grid remains client-side (Workers); this endpoint accepts a
- * client-computed shortlist for validation / future Cloud persistence.
+ * Server-side window shortlist scoring for App Hosting.
+ * Mirrors Cloud Function multi-objective rank (Δv + mild C3 + TOF mid + diversity).
+ * Full Lambert recompute stays client-side (Workers + neighborhood refine).
  *
  * POST body: { origin, dest, candidates: [{ dep_iso, tof_days, dv_m_s, c3? }] }
  */
+
+type Cand = {
+  rank?: number;
+  dep_iso?: string;
+  tof_days?: number;
+  dv_m_s?: number;
+  c3_m2_s2?: number | null;
+  revolutions?: number;
+  score?: number;
+  [key: string]: unknown;
+};
+
+function scoreWindowCandidate(c: Cand, tofMid: number | null): number {
+  const dv = Number(c.dv_m_s);
+  if (!Number.isFinite(dv)) return Infinity;
+  let s = dv;
+  const c3 = Number(c.c3_m2_s2);
+  if (Number.isFinite(c3) && c3 > 0) s += 0.05 * Math.sqrt(c3);
+  const tofD = Number(c.tof_days);
+  if (Number.isFinite(tofD) && tofMid != null && tofMid > 0) {
+    s += 80 * Math.abs(tofD - tofMid) / tofMid;
+  }
+  if ((c.revolutions ?? 0) > 0) s += 150 * (c.revolutions ?? 0);
+  return s;
+}
+
+function rankScored(candidates: Cand[], topN = 10, minDepDayGap = 5): Cand[] {
+  const tofs = candidates.map((c) => Number(c.tof_days)).filter(Number.isFinite);
+  const tofMid = tofs.length ? tofs.reduce((a, b) => a + b, 0) / tofs.length : null;
+  const scored = candidates
+    .map((c) => ({ ...c, score: scoreWindowCandidate(c, tofMid) }))
+    .filter((c) => Number.isFinite(c.score as number))
+    .sort((a, b) => (a.score as number) - (b.score as number));
+
+  const picked: Cand[] = [];
+  for (const c of scored) {
+    if (picked.length >= topN) break;
+    const depDay = c.dep_iso ? Date.parse(String(c.dep_iso)) / 86400000 : null;
+    if (minDepDayGap > 0 && depDay != null && Number.isFinite(depDay)) {
+      const clash = picked.some((p) => {
+        const pd = p.dep_iso ? Date.parse(String(p.dep_iso)) / 86400000 : null;
+        return pd != null && Math.abs(pd - depDay) < minDepDayGap;
+      });
+      if (clash && picked.length >= 2) continue;
+    }
+    picked.push(c);
+  }
+  if (picked.length < topN) {
+    for (const c of scored) {
+      if (picked.length >= topN) break;
+      if (!picked.includes(c)) picked.push(c);
+    }
+  }
+  return picked.map((c, i) => ({ ...c, rank: i + 1 }));
+}
+
 export async function POST(req: NextRequest) {
   let body: unknown;
   try {
@@ -18,11 +74,12 @@ export async function POST(req: NextRequest) {
   const b = body as {
     origin?: string;
     dest?: string;
-    candidates?: Array<Record<string, unknown>>;
+    candidates?: Cand[];
     fidelity?: string;
+    topN?: number;
   };
 
-  const candidates = Array.isArray(b.candidates) ? b.candidates.slice(0, 20) : [];
+  const candidates = Array.isArray(b.candidates) ? b.candidates.slice(0, 24) : [];
   if (!b.origin || !b.dest || candidates.length === 0) {
     return NextResponse.json(
       { ok: false, error: 'need origin, dest, candidates[]' },
@@ -30,14 +87,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Rank by dv_m_s when present
-  const ranked = [...candidates].sort((a, c) => {
-    const da = Number(a.dv_m_s);
-    const db = Number(c.dv_m_s);
-    if (!Number.isFinite(da)) return 1;
-    if (!Number.isFinite(db)) return -1;
-    return da - db;
-  });
+  const ranked = rankScored(candidates, b.topN ?? 10, 5);
 
   return NextResponse.json({
     ok: true,
@@ -45,9 +95,11 @@ export async function POST(req: NextRequest) {
     dest: b.dest,
     fidelity: b.fidelity || 'client',
     n: ranked.length,
-    shortlist: ranked.slice(0, 10),
+    shortlist: ranked,
+    refine_mode: 'multi-objective-score+diversity',
     product_class: 'preliminary-not-flight-certified',
-    note: 'Server ranked client candidates — not a global mission optimizer; not range safety.',
+    note:
+      'Server scored client candidates — neighborhood Lambert refine is client-side; not range safety.',
     stored: false,
   });
 }
@@ -57,6 +109,8 @@ export async function GET() {
     ok: true,
     endpoint: '/api/planning/window-shortlist',
     method: 'POST',
-    usage: 'Send client-computed window candidates for server ranking / future RTDB store.',
+    usage:
+      'Send client-computed (optionally neighborhood-refined) window candidates for multi-objective server ranking.',
+    refine_mode: 'multi-objective-score+diversity',
   });
 }

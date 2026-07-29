@@ -49,6 +49,10 @@ export function setMoonTableForTests(table) {
 
 export function getSampleMeta() {
   if (!_table) return null;
+  const t0 = _table.t0_sim;
+  const step = _table.step_sec;
+  const n = _table.n;
+  const t1 = (t0 != null && step > 0 && n > 0) ? t0 + (n - 1) * step : null;
   return {
     version: _table.version,
     source: _table.source,
@@ -57,12 +61,81 @@ export function getSampleMeta() {
     frame: _table.frame,
     t0_iso: _table.t0_iso,
     t1_iso: _table.t1_iso,
+    t0_sim: t0,
+    t1_sim: t1,
     step_days: _table.step_days,
+    step_sec: step,
     n: _table.n,
+    span_years: t1 != null && t0 != null ? (t1 - t0) / (365.25 * DAY) : null,
     bodies: Object.keys(_table.bodies || {}),
     moons: _moonTable ? Object.keys(_moonTable.bodies || {}) : [],
     kernels: _table.kernels,
     flight_ops_certified: _table.flight_ops_certified === true,
+  };
+}
+
+/**
+ * Coverage report for a sim time (or window) vs offline sample table.
+ * @param {number|null} timeSec
+ * @param {object|null} [body]
+ * @returns {{ loaded: boolean, in_window: boolean, sample_hit: boolean, t0_iso, t1_iso, step_days, note: string }}
+ */
+export function sampleCoverageReport(timeSec = null, body = null) {
+  const meta = getSampleMeta();
+  if (!meta) {
+    return {
+      loaded: false,
+      in_window: false,
+      sample_hit: false,
+      t0_iso: null,
+      t1_iso: null,
+      step_days: null,
+      note: 'Offline sample table not loaded — planning falls back to Approximate Positions (L1).',
+    };
+  }
+  let inWin = true;
+  let hit = true;
+  if (timeSec != null && Number.isFinite(timeSec)) {
+    inWin = inWindow(_table, timeSec);
+    hit = body ? sampleAvailable(body, timeSec) : inWin;
+  }
+  const dens = meta.step_days != null ? `${meta.step_days}d step` : 'step n/a';
+  const span = meta.span_years != null ? `${meta.span_years.toFixed(1)} y span` : '';
+  return {
+    loaded: true,
+    in_window: inWin,
+    sample_hit: hit,
+    t0_iso: meta.t0_iso,
+    t1_iso: meta.t1_iso,
+    step_days: meta.step_days,
+    version: meta.version,
+    bake_source: meta.bake_source,
+    note: inWin && hit
+      ? `Sample table in range (${meta.t0_iso?.slice(0, 10)} → ${meta.t1_iso?.slice(0, 10)}, ${dens}${span ? `, ${span}` : ''}).`
+      : `Sample OOR or body missing — endpoint falls back to Approximate Positions. Table ${meta.t0_iso?.slice(0, 10)} → ${meta.t1_iso?.slice(0, 10)} (${dens}).`,
+  };
+}
+
+/**
+ * Report coverage for both departure and arrival of a transfer.
+ * @param {object} td
+ */
+export function transferSampleCoverage(td) {
+  if (!td) return null;
+  const depT = td.departureSimTime;
+  const arrT = td.arrivalSimTime ?? (td.departureSimTime != null && td.transferTime != null
+    ? td.departureSimTime + td.transferTime
+    : null);
+  const dep = sampleCoverageReport(depT, td.body1);
+  const arr = sampleCoverageReport(arrT, td.body2);
+  const anyOor = !dep.sample_hit || !arr.sample_hit;
+  return {
+    dep,
+    arr,
+    any_oor: anyOor,
+    note: anyOor
+      ? 'One or more endpoints outside offline sample table — mixed fidelity (see G_SAMPLE_OOR).'
+      : 'Both endpoints inside offline sample coverage.',
   };
 }
 

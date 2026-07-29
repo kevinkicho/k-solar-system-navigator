@@ -8,6 +8,7 @@ import {onRequest} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {initializeApp, getApps} from "firebase-admin/app";
 import {getDatabase} from "firebase-admin/database";
+import {rankShortlistScored, type WindowCandidate} from "./window-score";
 
 if (!getApps().length) {
   initializeApp();
@@ -21,30 +22,26 @@ export const heliosHealth = onRequest((_req, res) => {
     ok: true,
     service: "helios-functions",
     product_class: "preliminary-not-flight-certified",
+    features: ["refineWindowShortlist-scored", "heliosHealth"],
     timestamp: new Date().toISOString(),
   });
 });
 
-type Candidate = {
-  rank?: number;
-  dep_iso?: string;
-  tof_days?: number;
-  dv_m_s?: number;
-  c3_m2_s2?: number | null;
-  revolutions?: number;
-};
-
 /**
- * Re-rank client window shortlist on the server (auth optional for read rank;
- * RTDB write requires auth).
+ * Re-rank / score client window shortlist on the server.
+ * Accepts already neighborhood-refined client candidates; applies multi-objective
+ * score (Δv + mild C3 + TOF mid preference + multi-rev penalty) and dep-day diversity.
+ * RTDB write requires auth when save=true.
  */
 export const refineWindowShortlist = onCall(async (request) => {
   const data = request.data as {
     origin?: string;
     dest?: string;
-    candidates?: Candidate[];
+    candidates?: WindowCandidate[];
     fidelity?: string;
     save?: boolean;
+    minDepDayGap?: number;
+    topN?: number;
   };
   const origin = data?.origin;
   const dest = data?.dest;
@@ -56,17 +53,18 @@ export const refineWindowShortlist = onCall(async (request) => {
     );
   }
 
-  const ranked = [...candidates]
-    .filter((c) => Number.isFinite(Number(c.dv_m_s)))
-    .sort((a, b) => Number(a.dv_m_s) - Number(b.dv_m_s))
-    .slice(0, 12)
-    .map((c, i) => ({...c, rank: i + 1}));
+  const ranked = rankShortlistScored(candidates, {
+    topN: data.topN ?? 12,
+    minDepDayGap: data.minDepDayGap ?? 5,
+  });
 
   logger.info("refineWindowShortlist", {
     origin,
     dest,
     n: ranked.length,
     uid: request.auth?.uid || null,
+    best_dv: ranked[0]?.dv_m_s ?? null,
+    best_score: ranked[0]?.score ?? null,
   });
 
   let campaignId: string | null = null;
@@ -76,13 +74,13 @@ export const refineWindowShortlist = onCall(async (request) => {
     await ref.set({
       origin,
       dest,
-      fidelity: data.fidelity || "server-rank",
-      backend: "client-candidates",
+      fidelity: data.fidelity || "server-score",
+      backend: "client-candidates-scored",
       shortlist: ranked,
       product_class: "preliminary-not-flight-certified",
       at: Date.now(),
       label: `${origin} → ${dest}`,
-      source: "cloud-function",
+      source: "cloud-function-scored",
     });
     campaignId = ref.key;
   }
@@ -94,6 +92,9 @@ export const refineWindowShortlist = onCall(async (request) => {
     shortlist: ranked,
     campaignId,
     product_class: "preliminary-not-flight-certified",
-    note: "Server re-ranked client candidates — not global optimization, not certified.",
+    refine_mode: "multi-objective-score+diversity",
+    note:
+      "Server scored client candidates (Δv/C3/TOF/diversity) — not global optimization, not certified. "
+      + "Client neighborhood Lambert refine is the physics recompute path.",
   };
 });

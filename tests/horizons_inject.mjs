@@ -32,7 +32,7 @@ const t = (Date.UTC(2026, 5, 1, 12) - J2000) / 1000;
 const table = JSON.parse(readFileSync(resolve(ROOT, 'assets/ephemeris-samples-v1.json'), 'utf8'));
 setSampleTableForTests(table);
 assert(table.version >= 2 || table.n > 2000, 'expanded sample table');
-assert(table.step_days === 3, '3-day step');
+assert(table.step_days >= 1 && table.step_days <= 3, `dense sample step (got ${table.step_days})`);
 
 // Mock Horizons text response (labeled vectors)
 const mockX = 0.5;

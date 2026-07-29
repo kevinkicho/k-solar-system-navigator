@@ -64,6 +64,8 @@ const SUITE = [
   'tests/core_planning_realism.mjs',
   'tests/launch_site_plane.mjs',
   'tests/need_geometry.mjs',
+  'tests/window_refine.mjs',
+  'tests/launch_azimuth.mjs',
   'tests/perf_budgets.mjs',
 ];
 

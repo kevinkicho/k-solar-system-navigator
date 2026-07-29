@@ -3,11 +3,16 @@
  */
 import { state } from '../state.js';
 import {
-  lightTimeSummary, buildFlightOpsGates, buildEducationalOem, opsDisclaimer,
+  lightTimeSummary, lightTimeAberrationAnalysis, buildFlightOpsGates,
+  buildEducationalOem, opsDisclaimer,
 } from '../physics/flight-ops.js';
-import { getSampleMeta } from '../physics/ephemeris-sample.js';
+import {
+  getSampleMeta, transferSampleCoverage, sampleCoverageReport,
+} from '../physics/ephemeris-sample.js';
 import { notify } from './format.js';
 import { buildTransferPathSamples } from '../physics/transfer-path.js';
+import { needOptsFromTransfer } from '../physics/need-geometry.js';
+import { computeNeed } from '../physics/need.js';
 
 export function setFlightOpsMode(on, opts = {}) {
   state.flightOpsMode = !!on;
@@ -21,12 +26,16 @@ export function setFlightOpsMode(on, opts = {}) {
       state.fidelityLevel = state.fidelityLevel === 'L2-horizons' ? 'L2-horizons' : 'L2-plan';
     }
     state.physicsAccurate = true;
+    // Default LT Need compare on in OPS (analysis alternate — geometric Need remains primary)
+    state.lightTimeNeedCompare = true;
     import('./physics-view.js').then((m) => m.setPhysicsAccurateView?.(true, { silent: true })).catch(() => {});
+  } else if (!state.flightOpsMode) {
+    // Leave lightTimeNeedCompare as user left it when turning OPS off
   }
   syncFlightOpsUi();
   if (!opts.silent) {
     notify(state.flightOpsMode
-      ? 'OPS REVIEW ON — preliminary analysis · not certified / not range safety'
+      ? 'OPS REVIEW ON — LT/aberration rows + sample coverage · not certified / not range safety'
       : 'OPS REVIEW OFF');
   }
   // Refresh results if any
@@ -51,18 +60,59 @@ export function refreshFlightOpsPanel() {
   if (!host || !state.flightOpsMode) return;
   const td = state.transferData;
   const meta = getSampleMeta();
-  const lt = lightTimeSummary(td);
+  const lt = lightTimeAberrationAnalysis(td) || lightTimeSummary(td);
+  const cov = transferSampleCoverage(td) || { note: sampleCoverageReport().note };
   const gates = buildFlightOpsGates(td, {
     sampleMeta: meta,
     horizonsInject: !!state.horizonsEndpointInject,
   });
   const src = meta?.source || meta?.bake_source || state.fidelityLevel || '—';
+  const step = meta?.step_days != null ? `${meta.step_days} d` : '—';
+  const span = meta?.span_years != null ? `${meta.span_years.toFixed(1)} y` : '—';
+
+  let launchRows = '';
+  let ltNeedRow = '';
+  try {
+    if (td?.lambertOk) {
+      const need = computeNeed(td, needOptsFromTransfer(td, {
+        launchSiteId: state.launchSiteId || 'any',
+        lightTimeCompare: true,
+      }));
+      const L = need.launch_geometry_sketch;
+      if (L) {
+        launchRows = `
+          <div class="result-subtitle" style="margin-top:8px">Launch geometry (edu)</div>
+          <div class="info-row"><span class="key">Az from N</span><span class="val">${L.azimuth_from_north_deg != null ? `${L.azimuth_from_north_deg.toFixed(1)}°` : '—'}</span></div>
+          <div class="info-row"><span class="key">i_des / i_min</span><span class="val">${L.i_des_deg?.toFixed?.(1) ?? '—'}° / ${L.i_min_deg?.toFixed?.(1) ?? '—'}°</span></div>
+          <div class="info-row"><span class="key">Dogleg</span><span class="val ${L.dogleg_needed ? 'amber' : 'green'}">${L.dogleg_needed ? `yes · +${((L.dogleg_dv_m_s || 0) / 1000).toFixed(2)} km/s` : 'not required'}</span></div>
+          <div class="surface-hint">${escapeHtml(L.note || '')}</div>`;
+      }
+      if (need.light_time_compare) {
+        const ltc = need.light_time_compare;
+        ltNeedRow = `
+          <div class="info-row"><span class="key">LT-adj TOF</span><span class="val">${ltc.tof_adj_days != null ? `${ltc.tof_adj_days.toFixed(3)} d` : '—'}</span></div>
+          <div class="info-row"><span class="key">LT / TOF</span><span class="val">${ltc.frac_tof != null ? `${(ltc.frac_tof * 100).toFixed(4)}%` : '—'}</span></div>`;
+      }
+    }
+  } catch { /* keep panel resilient */ }
+
+  const abDep = lt?.aberration_dep_arcsec != null ? `${lt.aberration_dep_arcsec.toFixed(1)}″` : '—';
+  const abArr = lt?.aberration_arr_arcsec != null ? `${lt.aberration_arr_arcsec.toFixed(1)}″` : '—';
+
   host.innerHTML = `
     <p class="surface-hint">${opsDisclaimer()}</p>
     <div class="info-row"><span class="key">Kernel / table</span><span class="val">${escapeHtml(String(src))}</span></div>
     <div class="info-row"><span class="key">Fidelity</span><span class="val">${escapeHtml(state.fidelityLevel || '—')}</span></div>
+    <div class="info-row"><span class="key">Sample step / span</span><span class="val">${escapeHtml(step)} · ${escapeHtml(span)}</span></div>
+    <div class="info-row"><span class="key">Coverage</span><span class="val ${cov.any_oor ? 'amber' : 'green'}">${escapeHtml(cov.note || '—')}</span></div>
+    <div class="result-subtitle" style="margin-top:8px">Light time · aberration (analysis)</div>
     <div class="info-row"><span class="key">LT (dep r)</span><span class="val">${lt?.lt_dep_label || '—'}</span></div>
     <div class="info-row"><span class="key">LT (arr r)</span><span class="val">${lt?.lt_arr_label || '—'}</span></div>
+    <div class="info-row"><span class="key">Aberration dep</span><span class="val">${abDep} class</span></div>
+    <div class="info-row"><span class="key">Aberration arr</span><span class="val">${abArr} class</span></div>
+    ${ltNeedRow}
+    <div class="surface-hint">${escapeHtml(lt?.note || 'Geometric LT only — not applied to primary Need unless LT compare enabled.')}</div>
+    ${launchRows}
     <div class="result-subtitle" style="margin-top:8px">Ops gates (educational)</div>
     ${gates.map((g) => `
       <div class="info-row">

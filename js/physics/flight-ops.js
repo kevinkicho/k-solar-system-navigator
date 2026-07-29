@@ -28,7 +28,25 @@ export function formatLightTime(sec) {
 }
 
 /**
- * Educational geometric vs apparent note (no full aberration model).
+ * Stellar-aberration angle sketch: θ ≈ v/c (rad) for transverse motion.
+ * Educational magnitude only — not full IAU aberration or planetary LT iteration.
+ * @param {number} v_m_s speed relative to solar-system barycenter class
+ * @returns {{ theta_rad: number, theta_arcsec: number, theta_deg: number }|null}
+ */
+export function stellarAberrationSketch(v_m_s) {
+  if (!(v_m_s > 0) || !Number.isFinite(v_m_s)) return null;
+  const theta = v_m_s / C_LIGHT;
+  return {
+    theta_rad: theta,
+    theta_deg: theta * (180 / Math.PI),
+    theta_arcsec: theta * (180 / Math.PI) * 3600,
+    v_m_s,
+    note: 'Stellar-aberration class angle θ≈v/c — educational magnitude only, not applied to Need.',
+  };
+}
+
+/**
+ * Educational geometric vs apparent note (+ aberration magnitude sketch).
  * @param {object} td transfer data
  */
 export function lightTimeSummary(td) {
@@ -41,6 +59,16 @@ export function lightTimeSummary(td) {
     : null;
   const ltDep = rDep != null ? lightTimeSeconds(rDep) : null;
   const ltArr = rArr != null ? lightTimeSeconds(rArr) : null;
+  // Typical heliocentric speeds ~30 km/s Earth, ~24 km/s Mars class
+  const vDep = td.v1_lambert
+    ? Math.hypot(td.v1_lambert[0], td.v1_lambert[1], td.v1_lambert[2])
+    : 30000;
+  const vArr = td.v2_lambert
+    ? Math.hypot(td.v2_lambert[0], td.v2_lambert[1], td.v2_lambert[2])
+    : 24000;
+  const abDep = stellarAberrationSketch(vDep);
+  const abArr = stellarAberrationSketch(vArr);
+  const tof = td.transferTime > 0 ? td.transferTime : null;
   // Sun–Earth–craft class one-way at 1 AU ≈ 499 s
   return {
     r_dep_AU: rDep,
@@ -49,7 +77,30 @@ export function lightTimeSummary(td) {
     lt_arr_s: ltArr,
     lt_dep_label: formatLightTime(ltDep),
     lt_arr_label: formatLightTime(ltArr),
-    note: 'One-way geometric light time at heliocentric r only — not full light-time/aberration/OD solution.',
+    lt_frac_tof: (ltArr != null && tof) ? ltArr / tof : null,
+    aberration_dep: abDep,
+    aberration_arr: abArr,
+    aberration_dep_arcsec: abDep?.theta_arcsec ?? null,
+    aberration_arr_arcsec: abArr?.theta_arcsec ?? null,
+    note: 'One-way geometric light time at heliocentric r + θ≈v/c aberration sketch — not full LT iteration / OD.',
+  };
+}
+
+/**
+ * Full LT / aberration analysis package for OPS board (always safe to display).
+ * @param {object} td
+ */
+export function lightTimeAberrationAnalysis(td) {
+  const sum = lightTimeSummary(td);
+  if (!sum) return null;
+  const alt = lightTimeAlternateSketch(td);
+  return {
+    ...sum,
+    tof_sketch: alt,
+    applied_to_need: false,
+    product_class: 'preliminary-not-flight-certified',
+    summary_line:
+      `LT arr ${sum.lt_arr_label || '—'} · ab ~${sum.aberration_arr_arcsec != null ? sum.aberration_arr_arcsec.toFixed(1) : '—'}″ class · geometric states (NONE)`,
   };
 }
 
@@ -126,12 +177,24 @@ export function buildFlightOpsGates(td, ctx = {}) {
     });
   }
 
+  const ab = lt?.aberration_arr_arcsec;
   gates.push({
     code: 'G_OPS_ABERRATION',
     level: 'warn',
-    title: 'Aberration / LT correction incomplete',
-    detail: 'Lambert Need uses geometric states (NONE-class). Full stellar/planetary aberration not applied.',
+    title: ab != null
+      ? `Aberration sketch ~${ab.toFixed(1)}″ class (not applied to Need)`
+      : 'Aberration / LT correction incomplete',
+    detail: 'Lambert Need uses geometric states (NONE-class). Full stellar/planetary aberration and LT-converged ephemeris not applied to Δv.',
   });
+
+  if (lt?.lt_frac_tof != null && lt.lt_frac_tof > 1e-6) {
+    gates.push({
+      code: 'G_OPS_LT_TOF_FRACTION',
+      level: lt.lt_frac_tof > 0.001 ? 'warn' : 'pass',
+      title: `LT / TOF ≈ ${(lt.lt_frac_tof * 100).toFixed(3)}%`,
+      detail: 'One-way light time as fraction of transfer TOF — educational scale check only.',
+    });
+  }
 
   return gates;
 }

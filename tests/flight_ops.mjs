@@ -11,6 +11,8 @@ import {
   lightTimeSeconds,
   formatLightTime,
   lightTimeSummary,
+  lightTimeAberrationAnalysis,
+  stellarAberrationSketch,
   buildFlightOpsGates,
   buildEducationalOem,
   opsDisclaimer,
@@ -20,6 +22,8 @@ import {
   setSampleTableForTests,
   getSampleMeta,
   sampleTableIsSpiceDe,
+  sampleCoverageReport,
+  transferSampleCoverage,
 } from '../js/physics/ephemeris-sample.js';
 
 let failed = 0;
@@ -50,6 +54,12 @@ const td = {
 const sum = lightTimeSummary(td);
 check('lightTimeSummary dep/arr', sum && sum.lt_dep_s > 0 && sum.lt_arr_s > sum.lt_dep_s);
 check('lightTimeSummary note present', /light time/i.test(sum.note || ''));
+check('aberration dep arcsec', sum.aberration_dep_arcsec != null && sum.aberration_dep_arcsec > 10);
+const ab = stellarAberrationSketch(30000);
+check('stellar ab ~20″ class at 30 km/s', ab && ab.theta_arcsec > 15 && ab.theta_arcsec < 30,
+  `arcsec=${ab?.theta_arcsec}`);
+const lta = lightTimeAberrationAnalysis(td);
+check('LT analysis package', lta && lta.summary_line && lta.applied_to_need === false);
 
 // Gates without SPICE meta
 const gatesWarn = buildFlightOpsGates(td, { sampleMeta: null });
@@ -63,6 +73,19 @@ const samples = JSON.parse(readFileSync(resolve(ROOT, 'assets/ephemeris-samples-
 setSampleTableForTests(samples);
 const meta = getSampleMeta();
 check('sample meta has source', !!meta?.source);
+check('sample step ≤ 3d (dense bake)', meta.step_days != null && meta.step_days <= 3,
+  `step=${meta.step_days}`);
+check('sample span ~40 y', meta.span_years != null && meta.span_years > 35,
+  `span=${meta.span_years}`);
+const cov = sampleCoverageReport(td.departureSimTime, { name: 'Earth' });
+check('coverage report loaded', cov.loaded === true);
+const tcov = transferSampleCoverage({
+  body1: { name: 'Earth' },
+  body2: { name: 'Mars' },
+  departureSimTime: samples.t0_sim + samples.step_sec * 10,
+  arrivalSimTime: samples.t0_sim + samples.step_sec * 100,
+});
+check('transfer coverage both in window', tcov && tcov.any_oor === false, tcov?.note);
 const isSpice = sampleTableIsSpiceDe();
 check('sampleTableIsSpiceDe for product table', isSpice === true
   || samples.bake_source === 'horizons'

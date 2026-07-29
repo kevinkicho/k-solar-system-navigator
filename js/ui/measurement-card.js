@@ -138,11 +138,18 @@ export function buildMeasurementCard(td) {
     ? `<div class="info-row"><span class="key">LT TOF sketch</span><span class="val amber">${need.light_time_compare.tof_days?.toFixed?.(1)} → ${need.light_time_compare.tof_adj_days?.toFixed?.(1)} d (LT ${need.light_time_compare.lt_arr_label})</span></div>
        <div class="info-row"><span class="key">LT note</span><span class="val" style="font-size:9px;opacity:0.8">${need.light_time_compare.note || ''}</span></div>`
     : '';
+  const lg = need.launch_geometry_sketch;
   const planeRow = need.plane_change_addon_m_s > 0
-    ? `<div class="info-row"><span class="key">Plane-change sketch</span><span class="val amber">+${formatVelocity(need.plane_change_addon_m_s)}</span></div>
-       <div class="info-row"><span class="key">Plane note</span><span class="val" style="font-size:9px;opacity:0.8">${need.plane_change_sketch?.note || 'Educational DLA vs site band'}</span></div>`
-    : (need.plane_change_sketch?.note
-      ? `<div class="info-row"><span class="key">Site DLA</span><span class="val" style="font-size:9px;opacity:0.85">${need.plane_change_sketch.note}</span></div>`
+    ? `<div class="info-row"><span class="key">${lg?.dogleg_needed ? 'Dogleg / plane sketch' : 'Plane-change sketch'}</span><span class="val amber">+${formatVelocity(need.plane_change_addon_m_s)}</span></div>
+       <div class="info-row"><span class="key">Launch geometry</span><span class="val" style="font-size:9px;opacity:0.8">${lg?.note || need.plane_change_sketch?.note || 'Educational DLA vs site band'}</span></div>
+       ${lg?.azimuth_from_north_deg != null
+         ? `<div class="info-row"><span class="key">Launch Az (edu)</span><span class="val">${lg.azimuth_from_north_deg.toFixed(1)}° from N · i_des ${lg.i_des_deg?.toFixed?.(1) ?? '—'}°</span></div>`
+         : ''}`
+    : (lg?.note || need.plane_change_sketch?.note
+      ? `<div class="info-row"><span class="key">Launch / site</span><span class="val" style="font-size:9px;opacity:0.85">${lg?.note || need.plane_change_sketch.note}</span></div>
+         ${lg?.azimuth_from_north_deg != null
+           ? `<div class="info-row"><span class="key">Launch Az (edu)</span><span class="val">${lg.azimuth_from_north_deg.toFixed(1)}° from N</span></div>`
+           : ''}`
       : '');
 
   html += `
