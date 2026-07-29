@@ -1,8 +1,8 @@
 /**
- * Realtime Database — lightweight last-route bookmark under users/{uid}/lastRoute.
- * Not a second plan store; Firestore remains source of truth for plan lists.
+ * Realtime Database — last-route bookmark + window-campaign shortlists.
+ * Firestore remains source of truth for full plan lists.
  */
-import { ref, set, get, remove } from 'firebase/database';
+import { ref, set, get, remove, push, query, orderByChild, limitToLast } from 'firebase/database';
 import { getFirebaseRtdb, isFirebaseEnabled } from './app.js';
 import { currentUser } from './auth.js';
 import { bodyId } from '../data/catalog.js';
@@ -13,6 +13,12 @@ function lastRouteRef(uid) {
   const rtdb = getFirebaseRtdb();
   if (!rtdb) throw new Error('RTDB unavailable');
   return ref(rtdb, `users/${uid}/lastRoute`);
+}
+
+function campaignsRef(uid) {
+  const rtdb = getFirebaseRtdb();
+  if (!rtdb) throw new Error('RTDB unavailable');
+  return ref(rtdb, `users/${uid}/windowCampaigns`);
 }
 
 /**
@@ -69,5 +75,79 @@ export async function clearLastRoute() {
     await remove(lastRouteRef(user.uid));
   } catch (err) {
     console.warn('[HELIOS] clearLastRoute', err);
+  }
+}
+
+/**
+ * Save a porkchop multi-candidate shortlist to RTDB (auth required).
+ * @param {object} campaign { origin, dest, shortlist, fidelity, backend }
+ * @returns {Promise<string|null>} campaign id
+ */
+export async function saveWindowCampaign(campaign) {
+  if (!isFirebaseEnabled()) return null;
+  const user = currentUser();
+  if (!user) return null;
+  if (!campaign?.origin || !campaign?.dest || !Array.isArray(campaign.shortlist)) return null;
+  try {
+    const listRef = campaignsRef(user.uid);
+    const newRef = push(listRef);
+    const payload = {
+      origin: campaign.origin,
+      dest: campaign.dest,
+      fidelity: campaign.fidelity || state.fidelityLevel || 'L2-plan',
+      backend: campaign.backend || state.ephemerisBackend || 'sample-de',
+      shortlist: campaign.shortlist.slice(0, 12).map((s) => ({
+        rank: s.rank,
+        dep_iso: s.dep_iso,
+        arr_iso: s.arr_iso,
+        tof_days: s.tof_days,
+        dv_m_s: s.dv_m_s,
+        c3_m2_s2: s.c3_m2_s2 ?? null,
+        revolutions: s.revolutions ?? 0,
+      })),
+      product_class: 'preliminary-not-flight-certified',
+      at: Date.now(),
+      label: `${campaign.origin} → ${campaign.dest}`,
+    };
+    await set(newRef, payload);
+    return newRef.key;
+  } catch (err) {
+    console.warn('[HELIOS] saveWindowCampaign', err);
+    return null;
+  }
+}
+
+/**
+ * List recent window campaigns for the signed-in user.
+ * @param {number} [limit=10]
+ */
+export async function listWindowCampaigns(limit = 10) {
+  if (!isFirebaseEnabled()) return [];
+  const user = currentUser();
+  if (!user) return [];
+  try {
+    const q = query(campaignsRef(user.uid), orderByChild('at'), limitToLast(Math.min(30, limit)));
+    const snap = await get(q);
+    if (!snap.exists()) return [];
+    const rows = [];
+    snap.forEach((child) => {
+      rows.push({ id: child.key, ...child.val() });
+    });
+    rows.sort((a, b) => (b.at || 0) - (a.at || 0));
+    return rows;
+  } catch (err) {
+    console.warn('[HELIOS] listWindowCampaigns', err);
+    return [];
+  }
+}
+
+export async function deleteWindowCampaign(id) {
+  if (!isFirebaseEnabled() || !id) return;
+  const user = currentUser();
+  if (!user) return;
+  try {
+    await remove(ref(getFirebaseRtdb(), `users/${user.uid}/windowCampaigns/${id}`));
+  } catch (err) {
+    console.warn('[HELIOS] deleteWindowCampaign', err);
   }
 }

@@ -82,7 +82,7 @@ if (params.get('mode') === 'classroom') {
   applyProductVehicleDefaults();
   // Preload offline sample table so first Compute is L2/L3-plan ready
   import('./physics/ephemeris-sample.js').then(async (m) => {
-    await m.ensureSampleTableLoaded();
+    await m.ensureSampleTableLoaded(); // planets + moons sample tables
     const ephSel = document.getElementById('ephemeris-backend');
     if (ephSel && !state.classroomMode) ephSel.value = 'sample-de';
     // Promote badge to L3-plan when DE/SPICE-baked table is present

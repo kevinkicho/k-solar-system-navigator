@@ -103,6 +103,7 @@ const required = [
   'helios-base.css',
   'helios-body.html',
   'assets/ephemeris-samples-v1.json',
+  'assets/ephemeris-moons-v1.json',
 ];
 let missing = 0;
 for (const rel of required) {

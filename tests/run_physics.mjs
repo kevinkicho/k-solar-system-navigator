@@ -62,6 +62,7 @@ const SUITE = [
   'tests/flight_ops.mjs',
   'tests/mission_package.mjs',
   'tests/core_planning_realism.mjs',
+  'tests/launch_site_plane.mjs',
   'tests/perf_budgets.mjs',
 ];
 

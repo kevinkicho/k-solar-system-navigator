@@ -9,7 +9,7 @@ import {
   savePlanToCloud, listCloudPlans, deleteCloudPlan,
 } from '../firebase/plans.js';
 import { loadUserPrefs, applyPrefsToState, saveUserPrefs } from '../firebase/prefs.js';
-import { loadLastRoute } from '../firebase/rtdb.js';
+import { loadLastRoute, listWindowCampaigns } from '../firebase/rtdb.js';
 import { state } from '../state.js';
 import { notify } from './format.js';
 import { activateRailTab } from './rail-ui.js';
@@ -55,6 +55,7 @@ function showAccountMenu(user, chip) {
   menu.innerHTML = `
     <div class="fam-email">${escapeHtml(user.email || user.uid)}</div>
     <button type="button" data-act="plans">☁ Cloud plans</button>
+    <button type="button" data-act="campaigns">▣ Window campaigns</button>
     <button type="button" data-act="last">↩ Load last route</button>
     <button type="button" data-act="prefs">💾 Save prefs</button>
     <button type="button" data-act="signout" class="fam-danger">Sign out</button>
@@ -72,6 +73,8 @@ function showAccountMenu(user, chip) {
       hideAccountMenu();
       if (act === 'plans') {
         await showCloudPlansPanel();
+      } else if (act === 'campaigns') {
+        await showWindowCampaignsPanel();
       } else if (act === 'last') {
         await loadAndApplyLastRoute();
       } else if (act === 'prefs') {
@@ -116,6 +119,50 @@ function renderAuthChip(user) {
         notify(`SIGN-IN FAILED: ${err?.code || err?.message || 'error'}`);
       }
     };
+  }
+}
+
+async function showWindowCampaignsPanel() {
+  try {
+    const rows = await listWindowCampaigns(12);
+    let panel = document.getElementById('window-campaigns-panel');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'window-campaigns-panel';
+      panel.className = 'cloud-plans recent-routes';
+      panel.style.cssText = 'position:fixed;right:12px;top:56px;z-index:130;max-width:320px;max-height:50vh;overflow:auto;padding:10px;background:rgba(8,12,18,0.96);border:1px solid rgba(90,120,150,0.35);border-radius:4px;';
+      document.body.appendChild(panel);
+    }
+    if (!rows.length) {
+      panel.innerHTML = '<div class="recent-empty">No window campaigns saved yet. Run Search launch windows while signed in.</div>';
+      notify('NO WINDOW CAMPAIGNS');
+      return;
+    }
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong style="font-size:11px">WINDOW CAMPAIGNS</strong>
+        <button type="button" class="btn-tiny" id="wcp-close">CLOSE</button>
+      </div>
+      ${rows.map((r) => `
+        <div class="cloud-plan-row" style="margin-bottom:6px;font-size:10px">
+          <div><strong>${escapeHtml(r.label || `${r.origin}→${r.dest}`)}</strong></div>
+          <div style="opacity:0.75">${r.shortlist?.length || 0} candidates · ${r.fidelity || '—'} · ${r.at ? new Date(r.at).toISOString().slice(0, 10) : ''}</div>
+          <button type="button" class="btn-tiny wcp-apply" data-id="${r.id}">Show top</button>
+        </div>`).join('')}`;
+    panel.querySelector('#wcp-close')?.addEventListener('click', () => panel.remove());
+    panel.querySelectorAll('.wcp-apply').forEach((btn) => {
+      btn.onclick = () => {
+        const row = rows.find((x) => x.id === btn.dataset.id);
+        if (!row?.shortlist?.length) return;
+        state.windowShortlist = row.shortlist;
+        const top = row.shortlist[0];
+        notify(`CAMPAIGN TOP: Δv ${((top.dv_m_s || 0) / 1000).toFixed(2)} km/s · ${String(top.dep_iso || '').slice(0, 10)}`);
+      };
+    });
+    activateRailTab('plan');
+  } catch (err) {
+    console.warn(err);
+    notify(`CAMPAIGNS FAILED: ${err?.message || 'error'}`);
   }
 }
 

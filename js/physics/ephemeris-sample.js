@@ -1,11 +1,17 @@
 /**
- * Offline sample-table ephemeris (L2-plan, K5).
- * Loads assets/ephemeris-samples-v1.json (lazy) and linearly interpolates.
+ * Offline sample-table ephemeris (L2/L3-plan).
+ * - assets/ephemeris-samples-v1.json — major planets (heliocentric)
+ * - assets/ephemeris-moons-v1.json — key moons (parent-relative AU)
+ *
+ * Moon heliocentric = parent sample (or null) + parent-relative moon sample.
+ * Educational — not live SPICE SPKs.
  */
 
 import { AU, DAY } from '../constants.js';
+import { BODIES } from '../data/bodies.js';
 
 let _table = null;
+let _moonTable = null;
 let _loadAttempted = false;
 let _loadPromise = null;
 
@@ -14,19 +20,31 @@ const BODY_KEYS = {
   jupiter: 'jupiter', saturn: 'saturn', uranus: 'uranus', neptune: 'neptune',
 };
 
+const MOON_KEYS = {
+  moon: 'moon', phobos: 'phobos', deimos: 'deimos',
+  io: 'io', europa: 'europa', ganymede: 'ganymede', callisto: 'callisto',
+  titan: 'titan', enceladus: 'enceladus', triton: 'triton',
+};
+
 function bodyKey(body) {
   if (!body) return null;
   const raw = (typeof body === 'string' ? body : (body.id || body.name || '')).toLowerCase().trim();
   return BODY_KEYS[raw] || null;
 }
 
-/**
- * Inject table for offline tests (no fetch).
- * @param {object|null} table
- */
+function moonKey(body) {
+  if (!body) return null;
+  const raw = (typeof body === 'string' ? body : (body.id || body.name || '')).toLowerCase().trim();
+  return MOON_KEYS[raw] || null;
+}
+
 export function setSampleTableForTests(table) {
   _table = table;
   _loadAttempted = true;
+}
+
+export function setMoonTableForTests(table) {
+  _moonTable = table;
 }
 
 export function getSampleMeta() {
@@ -42,12 +60,12 @@ export function getSampleMeta() {
     step_days: _table.step_days,
     n: _table.n,
     bodies: Object.keys(_table.bodies || {}),
+    moons: _moonTable ? Object.keys(_moonTable.bodies || {}) : [],
     kernels: _table.kernels,
     flight_ops_certified: _table.flight_ops_certified === true,
   };
 }
 
-/** True when offline table was baked from DE/SPICE kernels (L3-class). */
 export function sampleTableIsSpiceDe() {
   const m = getSampleMeta();
   if (!m) return false;
@@ -56,7 +74,16 @@ export function sampleTableIsSpiceDe() {
 }
 
 export async function ensureSampleTableLoaded() {
-  if (_table || _loadAttempted) return _table;
+  if (_table || _loadAttempted) {
+    // Still try moons if planets already loaded without moons
+    if (_table && !_moonTable && typeof fetch === 'function') {
+      try {
+        const resM = await fetch(new URL('../../assets/ephemeris-moons-v1.json', import.meta.url));
+        if (resM.ok) _moonTable = await resM.json();
+      } catch { /* */ }
+    }
+    return _table;
+  }
   if (_loadPromise) return _loadPromise;
   _loadPromise = (async () => {
     _loadAttempted = true;
@@ -64,42 +91,53 @@ export async function ensureSampleTableLoaded() {
       if (typeof fetch === 'function') {
         const res = await fetch(new URL('../../assets/ephemeris-samples-v1.json', import.meta.url));
         if (res.ok) _table = await res.json();
+        const resM = await fetch(new URL('../../assets/ephemeris-moons-v1.json', import.meta.url));
+        if (resM.ok) _moonTable = await resM.json();
       }
     } catch (_) {
-      _table = null;
+      _table = _table || null;
     }
     return _table;
   })();
   return _loadPromise;
 }
 
-/** Sync load for Node tests via dynamic import of JSON is handled by setSampleTableForTests / loadSampleTableSync. */
 export async function loadSampleTableFromObject(obj) {
   _table = obj;
   _loadAttempted = true;
   return _table;
 }
 
-export function sampleAvailable(body, timeSec) {
-  if (!_table) return false;
-  const key = bodyKey(body);
-  if (!key || !_table.bodies?.[key]) return false;
-  const t0 = _table.t0_sim;
-  const step = _table.step_sec;
-  const n = _table.n;
+function inWindow(table, timeSec) {
+  if (!table) return false;
+  const t0 = table.t0_sim;
+  const step = table.step_sec;
+  const n = table.n;
   if (!(step > 0) || n < 2) return false;
   const t1 = t0 + (n - 1) * step;
   return timeSec >= t0 - 1e-6 && timeSec <= t1 + 1e-6;
 }
 
-/**
- * Catmull–Rom cubic Hermite on uniform knots (AU positions).
- * Falls back to linear near table edges / short series.
- */
-function interpSeries(series, timeSec) {
-  const t0 = _table.t0_sim;
-  const step = _table.step_sec;
-  const n = _table.n;
+export function sampleAvailable(body, timeSec) {
+  const pk = bodyKey(body);
+  if (pk && _table?.bodies?.[pk] && inWindow(_table, timeSec)) return true;
+  const mk = moonKey(body);
+  if (mk && _moonTable?.bodies?.[mk] && inWindow(_moonTable, timeSec)) {
+    // Moon sample usable if parent sample or we can still return relative-only
+    // (heliocentric needs parent — check parent available)
+    const parentName = _moonTable.bodies[mk].parent;
+    const parentKey = BODY_KEYS[parentName];
+    if (parentKey && _table?.bodies?.[parentKey] && inWindow(_table, timeSec)) return true;
+    // Relative table alone is still "available" for planet-relative parent diffs
+    return true;
+  }
+  return false;
+}
+
+function interpSeriesOnTable(table, series, timeSec) {
+  const t0 = table.t0_sim;
+  const step = table.step_sec;
+  const n = table.n;
   const u = (timeSec - t0) / step;
   if (u < 0 || u > n - 1) return null;
   const i0 = Math.floor(u);
@@ -114,7 +152,6 @@ function interpSeries(series, timeSec) {
       z: a[2] + f * (b[2] - a[2]),
     };
   }
-  // Catmull–Rom: p(f) with tangents from neighboring knots
   const im1 = Math.max(0, i0 - 1);
   const i2 = Math.min(n - 1, i1 + 1);
   const p0 = series[im1];
@@ -123,7 +160,6 @@ function interpSeries(series, timeSec) {
   const p3 = series[i2];
   const f2 = f * f;
   const f3 = f2 * f;
-  // Hermite basis with Catmull–Rom tangents m1 = (p2-p0)/2, m2 = (p3-p1)/2
   const h00 = 2 * f3 - 3 * f2 + 1;
   const h10 = f3 - 2 * f2 + f;
   const h01 = -2 * f3 + 3 * f2;
@@ -137,25 +173,52 @@ function interpSeries(series, timeSec) {
   return { x: out[0], y: out[1], z: out[2] };
 }
 
-export function samplePosition3D(body, timeSec) {
-  if (!sampleAvailable(body, timeSec)) return null;
-  const key = bodyKey(body);
-  return interpSeries(_table.bodies[key].pos_au, timeSec);
+/** Parent-relative moon position (AU) from moon sample table. */
+export function sampleMoonRelativePosition3D(body, timeSec) {
+  const mk = moonKey(body);
+  if (!mk || !_moonTable?.bodies?.[mk] || !inWindow(_moonTable, timeSec)) return null;
+  const series = _moonTable.bodies[mk].pos_au_parent_relative;
+  if (!series) return null;
+  return interpSeriesOnTable(_moonTable, series, timeSec);
 }
 
-/**
- * Velocity via central difference on cubic-interpolated positions (m/s, scene axes).
- * Uses a fraction of the table step for stable Δv / C3.
- */
+export function samplePosition3D(body, timeSec) {
+  const pk = bodyKey(body);
+  if (pk && _table?.bodies?.[pk] && inWindow(_table, timeSec)) {
+    return interpSeriesOnTable(_table, _table.bodies[pk].pos_au, timeSec);
+  }
+  // Moon: parent heliocentric sample + parent-relative moon sample
+  const mk = moonKey(body);
+  if (mk && _moonTable?.bodies?.[mk] && inWindow(_moonTable, timeSec)) {
+    const rel = sampleMoonRelativePosition3D(body, timeSec);
+    if (!rel) return null;
+    const parentName = _moonTable.bodies[mk].parent;
+    const parentBody = BODIES.find((b) => b.name.toLowerCase() === parentName);
+    const parentKey = BODY_KEYS[parentName];
+    let parentPos = null;
+    if (parentKey && _table?.bodies?.[parentKey] && inWindow(_table, timeSec)) {
+      parentPos = interpSeriesOnTable(_table, _table.bodies[parentKey].pos_au, timeSec);
+    }
+    if (!parentPos) return null; // need parent for heliocentric
+    return {
+      x: parentPos.x + rel.x,
+      y: parentPos.y + rel.y,
+      z: parentPos.z + rel.z,
+      r: null,
+      _moonSample: true,
+      _parent: parentName,
+    };
+  }
+  return null;
+}
+
 export function sampleVelocity3D(body, timeSec) {
   if (!sampleAvailable(body, timeSec)) return null;
-  const step = _table.step_sec || DAY;
-  // Half-step or 0.1 day, whichever smaller — better V∞ for outer TOFs
+  const step = (bodyKey(body) ? _table?.step_sec : _moonTable?.step_sec) || DAY;
   const dt = Math.min(0.1 * DAY, Math.max(3600, step * 0.15));
   const pa = samplePosition3D(body, timeSec - dt);
   const pb = samplePosition3D(body, timeSec + dt);
   if (!pa || !pb) {
-    // Edge: one-sided
     const p0 = samplePosition3D(body, timeSec);
     const p1 = samplePosition3D(body, timeSec + dt) || samplePosition3D(body, timeSec - dt);
     if (!p0 || !p1) return null;
@@ -171,4 +234,9 @@ export function sampleVelocity3D(body, timeSec) {
     (pb.y - pa.y) * AU / (2 * dt),
     (pb.z - pa.z) * AU / (2 * dt),
   ];
+}
+
+/** Prefer moon relative sample for planet-relative diffs when available. */
+export function sampleMoonRelativeOrNull(body, timeSec) {
+  return sampleMoonRelativePosition3D(body, timeSec);
 }

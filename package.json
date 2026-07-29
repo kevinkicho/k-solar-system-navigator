@@ -18,6 +18,7 @@
     "build:stars": "node scripts/build-stars.mjs",
     "build:ephemeris": "node scripts/build-ephemeris-samples.mjs",
     "build:ephemeris:spice": "python scripts/build-ephemeris-from-spice.py",
+    "build:ephemeris:moons": "node scripts/build-moon-samples.mjs",
     "kernels:download": "python scripts/download-kernels.py",
     "firebase:smoke": "node scripts/firebase-admin-smoke.mjs",
     "firebase:seed": "node scripts/firebase-admin-seed.mjs",

@@ -59,6 +59,11 @@ export const state = {
   lightTimeNeedCompare: false,
   /** Last porkchop multi-candidate shortlist (client). */
   windowShortlist: null,
+  /**
+   * When true (default), educational plane-change Δv sketch may add to Need
+   * for Earth departures with launch-site DLA band exceeded.
+   */
+  planeChangeNeedAddon: true,
 
   display: {
     mode: 'cinematic',

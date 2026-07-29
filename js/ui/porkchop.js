@@ -747,6 +747,18 @@ export function wirePorkchop() {
             }
           }).catch(() => {});
         }
+        // Cloud RTDB save when signed in (non-blocking)
+        import('../firebase/rtdb.js').then(({ saveWindowCampaign }) => {
+          saveWindowCampaign({
+            origin: body1.name,
+            dest: body2.name,
+            shortlist,
+            fidelity: state.fidelityLevel,
+            backend: planOpts.backend,
+          }).then((id) => {
+            if (id) notify('WINDOW CAMPAIGN SAVED TO CLOUD');
+          }).catch(() => {});
+        }).catch(() => {});
       } catch (err) {
         console.warn('[porkchop] shortlist', err);
       }

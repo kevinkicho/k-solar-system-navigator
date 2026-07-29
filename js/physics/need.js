@@ -7,6 +7,7 @@ import { v3mag, v3sub } from './vec3.js';
 import { getPlanningVelocity3D } from './ephemeris-provider.js';
 import { BODIES } from '../data/bodies.js';
 import { lightTimeAlternateSketch } from './flight-ops.js';
+import { planeChangeNeedAddon_m_s, planeChangeSketchForSite } from './launch-site-plane.js';
 
 const AERO_MIN = 0;
 const AERO_MAX = 0.9;
@@ -195,17 +196,30 @@ export function computeNeed(td, opts = {}) {
   const vInfDep = budget?.departure?.vInf ?? null;
   const vInfArr = budget?.arrival?.vInf ?? null;
 
+  // Educational plane-change sketch vs site DLA (Earth dep only)
+  const dlaEq = opts.dla_eq_deg
+    ?? td.dossier?.geometry?.dla_eq_deg
+    ?? null;
+  const siteId = opts.launchSiteId ?? state.launchSiteId ?? 'any';
+  const planeSk = planeChangeSketchForSite(dlaEq, siteId);
+  const planeAddon = (opts.includePlaneChange !== false && state.planeChangeNeedAddon !== false)
+    ? planeChangeNeedAddon_m_s(td, siteId, dlaEq)
+    : 0;
+
   if (phase === 'injection') {
     // Aeroassist is no-op on injection (departure only).
     const inj = budget ? budget.departure.total : null;
+    const needDv = inj != null && isFinite(inj) ? inj + planeAddon : null;
     return {
       phase: 'injection',
       multi_leg: false,
-      need_dv_m_s: inj != null && isFinite(inj) ? inj : null,
+      need_dv_m_s: needDv,
       c3_m2_s2: c3,
       vinf_dep_m_s: vInfDep,
       vinf_arr_m_s: vInfArr,
-      applicable: inj != null && isFinite(inj),
+      plane_change_sketch: planeSk,
+      plane_change_addon_m_s: planeAddon,
+      applicable: needDv != null && isFinite(needDv),
       aeroassist_factor: 0,
       reason: inj == null ? 'injection requires Lambert-ok mission budget' : null,
     };
@@ -228,7 +242,7 @@ export function computeNeed(td, opts = {}) {
     // Apply aeroassist only to arrival capture contribution (K11).
     const dep = budget.departure.total;
     const arr = budget.arrival.total * (1 - aero);
-    const total = dep + arr;
+    const total = dep + arr + planeAddon;
     return {
       phase: 'mission_parking',
       multi_leg: false,
@@ -239,21 +253,26 @@ export function computeNeed(td, opts = {}) {
       departure_dv_m_s: dep,
       arrival_dv_m_s: arr,
       arrival_dv_raw_m_s: budget.arrival.total,
+      plane_change_sketch: planeSk,
+      plane_change_addon_m_s: planeAddon,
       applicable: true,
       aeroassist_factor: aero,
       reason: null,
     };
   }
 
-  // helio_leg
+  // helio_leg — optional plane-change addon for Earth dep educational honesty
+  const helioNeed = isFinite(helio) ? helio + planeAddon : helio;
   const base = {
     phase: 'helio_leg',
     multi_leg: false,
-    need_dv_m_s: helio,
+    need_dv_m_s: helioNeed,
     c3_m2_s2: c3,
     vinf_dep_m_s: vInfDep,
     vinf_arr_m_s: vInfArr,
-    applicable: isFinite(helio),
+    plane_change_sketch: planeSk,
+    plane_change_addon_m_s: planeAddon,
+    applicable: isFinite(helioNeed),
     aeroassist_factor: 0,
     reason: isFinite(helio) ? null : 'helio Δv unavailable',
   };

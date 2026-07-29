@@ -16,6 +16,7 @@ import { getBodyPosition3D, getBodyVelocity3D } from './kepler.js';
 import {
   getPlanningPosition3D, getPlanningVelocity3D,
 } from './ephemeris-provider.js';
+import { sampleMoonRelativePosition3D } from './ephemeris-sample.js';
 import { defaultParkingAlt_m } from './surface-point.js';
 import { v3cross, v3mag, v3scale, v3sub } from './vec3.js';
 
@@ -123,25 +124,51 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
     };
   }
 
-  // Moon (or other satellite) relative to parent: heliocentric difference.
-  // Physical (exaggerate=false): use planning provider so DE/sample-de parents
-  // match Need when product is L2/L3-plan. Visual exaggerate still pure Kepler.
-  let pB; let pC; let vB; let vC;
+  // Moon (or other satellite) relative to parent.
+  // Physical: prefer offline moon sample (parent-relative) when present.
   if (!exaggerate) {
+    const rel = sampleMoonRelativePosition3D(body, timeSec);
+    if (rel) {
+      // Velocity via finite difference on relative samples
+      const dt = 0.05 * DAY;
+      const ra = sampleMoonRelativePosition3D(body, timeSec - dt);
+      const rb = sampleMoonRelativePosition3D(body, timeSec + dt);
+      let vel = [0, 0, 0];
+      if (ra && rb) {
+        vel = [
+          (rb.x - ra.x) * AU / (2 * dt),
+          (rb.y - ra.y) * AU / (2 * dt),
+          (rb.z - ra.z) * AU / (2 * dt),
+        ];
+      }
+      return {
+        posAU: { x: rel.x, y: rel.y, z: rel.z, r: Math.hypot(rel.x, rel.y, rel.z) },
+        vel,
+        isParking: false,
+        sampleMoon: true,
+      };
+    }
     const pOpts = {
       backend: opts.backend || opts.ephemerisBackend || 'approx',
       classroomMode: !!opts.classroomMode,
     };
-    pB = getPlanningPosition3D(body, timeSec, pOpts);
-    pC = getPlanningPosition3D(central, timeSec, pOpts);
-    vB = getPlanningVelocity3D(body, timeSec, pOpts);
-    vC = getPlanningVelocity3D(central, timeSec, pOpts);
-  } else {
-    pB = getBodyPosition3D(body, timeSec, true);
-    pC = getBodyPosition3D(central, timeSec, true);
-    vB = getBodyVelocity3D(body, timeSec, true);
-    vC = getBodyVelocity3D(central, timeSec, true);
+    const pB = getPlanningPosition3D(body, timeSec, pOpts);
+    const pC = getPlanningPosition3D(central, timeSec, pOpts);
+    const vB = getPlanningVelocity3D(body, timeSec, pOpts);
+    const vC = getPlanningVelocity3D(central, timeSec, pOpts);
+    const x = pB.x - pC.x;
+    const y = pB.y - pC.y;
+    const z = pB.z - pC.z;
+    return {
+      posAU: { x, y, z, r: Math.sqrt(x * x + y * y + z * z) },
+      vel: v3sub(vB, vC),
+      isParking: false,
+    };
   }
+  const pB = getBodyPosition3D(body, timeSec, true);
+  const pC = getBodyPosition3D(central, timeSec, true);
+  const vB = getBodyVelocity3D(body, timeSec, true);
+  const vC = getBodyVelocity3D(central, timeSec, true);
   const x = pB.x - pC.x;
   const y = pB.y - pC.y;
   const z = pB.z - pC.z;
