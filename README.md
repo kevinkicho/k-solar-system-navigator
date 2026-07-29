@@ -43,10 +43,13 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 - **Drag-and-drop or right-click route planning** — assign origin/destination from the sidebar or scene
 
 ### Cloud (optional Firebase)
-- **Google sign-in** — top-bar ☁ chip (disabled in classroom mode and with `?firebase=0`)
-- **Cloud plans** — save/load/delete compact route summaries in Firestore (`users/{uid}/plans`); **v2** embeds `plan_request` for full recompute restore
-- **Hosting** — static SPA via Firebase Hosting (`public: "."`); Security Rules own all data access
-- Enable **Google** provider in Firebase Console → Authentication before first sign-in
+- **Google sign-in** — top-bar ☁ chip + account menu (disabled in classroom mode and with `?firebase=0`)
+- **Firestore** — cloud plans (`users/{uid}/plans`, schema v2 + `plan_request`) and user prefs (`users/{uid}/prefs/settings`)
+- **RTDB** — last-route bookmark (`users/{uid}/lastRoute`) for one-click resume
+- **Storage** — full mission JSON blobs (`users/{uid}/plans/{id}.json`) alongside plan summaries
+- **Hosting** — static SPA (`public: "."`); Security Rules own all data access
+- **Admin smoke (local only)** — `npm run firebase:smoke` with gitignored Admin SDK JSON
+- Classroom / `?firebase=0` stay fully offline
 
 ### Three.js visualization upgrades
 - **MAP mode** — one-click schematic frames + dual path (visual + physical) for honest trajectory mapping

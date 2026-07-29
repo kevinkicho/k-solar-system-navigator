@@ -16,9 +16,11 @@
     "test:ui": "node tests/ui_smoke.mjs",
     "test:ui:ci": "node tests/ci_ui.mjs",
     "build:stars": "node scripts/build-stars.mjs",
-    "build:ephemeris": "node scripts/build-ephemeris-samples.mjs"
+    "build:ephemeris": "node scripts/build-ephemeris-samples.mjs",
+    "firebase:smoke": "node scripts/firebase-admin-smoke.mjs"
   },
   "devDependencies": {
+    "firebase-admin": "^13.10.0",
     "playwright": "^1.59.1",
     "puppeteer": "^24.42.0"
   },

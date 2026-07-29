@@ -95,7 +95,7 @@ export function planSummaryFromTransfer(td) {
 }
 
 /**
- * Save current transfer summary to Firestore.
+ * Save current transfer summary to Firestore (+ optional Storage mission JSON + RTDB lastRoute).
  * @returns {Promise<string>} plan id
  */
 export async function savePlanToCloud(td, opts = {}) {
@@ -117,7 +117,40 @@ export async function savePlanToCloud(td, opts = {}) {
   };
   // Only stamp createdAt on first write (auto id). Re-saves merge without clobbering it.
   if (isNew) payload.createdAt = serverTimestamp();
+
+  // Best-effort full mission JSON to Storage (does not block Firestore save)
+  let storagePath = null;
+  if (opts.withMissionBlob !== false) {
+    try {
+      const { buildPlanObject } = await import('../ui/mission-export.js');
+      const { uploadMissionBlob } = await import('./storage-plans.js');
+      const planObj = buildPlanObject(td);
+      const url = await uploadMissionBlob(id, planObj);
+      if (url) {
+        storagePath = `users/${user.uid}/plans/${id}.json`;
+        payload.mission_blob = storagePath;
+        payload.mission_blob_url = url;
+        payload.has_mission_blob = true;
+      }
+    } catch (err) {
+      console.warn('[HELIOS] mission blob upload skipped', err);
+    }
+  }
+
   await setDoc(ref, payload, { merge: true });
+
+  // RTDB last-route bookmark
+  try {
+    const { saveLastRoute } = await import('./rtdb.js');
+    await saveLastRoute(td);
+  } catch { /* */ }
+
+  // Touch prefs so vehicle/view stay in sync
+  try {
+    const { saveUserPrefs } = await import('./prefs.js');
+    await saveUserPrefs({ last_plan_id: id });
+  } catch { /* */ }
+
   return id;
 }
 
@@ -143,4 +176,8 @@ export async function deleteCloudPlan(planId) {
   const user = currentUser();
   if (!user || !planId) return;
   await deleteDoc(doc(plansCol(user.uid), planId));
+  try {
+    const { deleteMissionBlob } = await import('./storage-plans.js');
+    await deleteMissionBlob(planId);
+  } catch { /* */ }
 }

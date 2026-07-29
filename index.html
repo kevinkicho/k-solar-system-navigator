@@ -1191,14 +1191,18 @@ input[type="range"]::-webkit-slider-thumb {
             </div>
             <div id="recent-routes" class="recent-routes" aria-label="Recent routes"></div>
           </div>
-          <div class="route-field-row" id="cloud-plans-row">
-            <label>Cloud plans</label>
-            <div id="cloud-plans" class="cloud-plans recent-routes" aria-label="Cloud-saved plans" hidden>
-              <div class="recent-empty">Sign in to sync plans across devices</div>
-            </div>
-          </div>
         </div>
       </details>
+
+      <div class="route-field-row" id="cloud-plans-row" style="margin-top:10px">
+        <label>Cloud plans (Firebase)</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+          <button type="button" class="btn-tiny" id="btn-refresh-cloud-plans" title="Refresh cloud plan list">Refresh</button>
+        </div>
+        <div id="cloud-plans" class="cloud-plans recent-routes" aria-label="Cloud-saved plans" hidden>
+          <div class="recent-empty">Sign in to sync plans across devices</div>
+        </div>
+      </div>
 
       <button class="route-btn" id="calc-route">Compute Transfer</button>
       <button class="route-btn" id="find-windows" style="font-size:10px;padding:8px;margin-top:4px;">Find Launch Windows</button>

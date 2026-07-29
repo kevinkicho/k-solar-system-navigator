@@ -1,10 +1,17 @@
 /**
  * Firebase app bootstrap for HELIOS.
  * Graceful offline: returns null services when disabled / classroom / init fails.
+ *
+ * Services: Auth · Firestore (plans + prefs) · RTDB (last-route) · Storage (mission JSON).
  */
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
 import { FIREBASE_PUBLIC_CONFIG } from './public-config.js';
@@ -67,11 +74,29 @@ export function initFirebase() {
   try {
     _app = getApps().length ? getApps()[0] : initializeApp(cfg);
     _auth = getAuth(_app);
-    _db = getFirestore(_app);
+    // Persist Google session across reloads (popup / redirect)
+    try {
+      setPersistence(_auth, browserLocalPersistence).catch(() => {});
+    } catch { /* */ }
+
+    // Firestore with multi-tab IndexedDB cache when available
+    try {
+      _db = initializeFirestore(_app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      });
+    } catch {
+      try { _db = getFirestore(_app); } catch { _db = null; }
+    }
+
     try { _rtdb = getDatabase(_app); } catch { _rtdb = null; }
     try { _storage = getStorage(_app); } catch { _storage = null; }
     _enabled = true;
-    state.firebase = { enabled: true, uid: null, email: null };
+    state.firebase = {
+      enabled: true, uid: null, email: null, displayName: null,
+      rtdb: !!_rtdb, storage: !!_storage, firestore: !!_db,
+    };
   } catch (err) {
     console.warn('[HELIOS] Firebase init failed — continuing offline', err);
     _enabled = false;

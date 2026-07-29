@@ -54,6 +54,7 @@ const SUITE = [
   'tests/adaptive_path.mjs',
   'tests/nbody_cowell_smoke.mjs',
   'tests/firebase_plan_summary.mjs',
+  'tests/firebase_prefs.mjs',
   'tests/path_export_csv.mjs',
   'tests/perf_budgets.mjs',
 ];
