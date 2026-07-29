@@ -55,6 +55,7 @@ PACKS: dict[str, dict] = {
         "default_t1": "2035-01-01T12:00:00Z",
         "frame_note": "parent-relative AU, HELIOS scene (ECLIPJ2000 Y↔Z)",
         "mode": "relative",
+        "tier": "A",
     },
     "earth-moon": {
         "title": "Luna Earth-relative (de440s)",
@@ -67,6 +68,7 @@ PACKS: dict[str, dict] = {
         "default_t1": "2035-01-01T12:00:00Z",
         "frame_note": "Earth-centered parent-relative AU, HELIOS scene",
         "mode": "relative",
+        "tier": "A",
     },
     "planets-dense": {
         "title": "8 planets heliocentric dense (de440s)",
@@ -97,6 +99,49 @@ PACKS: dict[str, dict] = {
         "default_t1": "2035-01-01T12:00:00Z",
         "frame_note": "heliocentric AU (SSB geometric), HELIOS scene",
         "mode": "heliocentric",
+        "tier": "A",
+    },
+    "galilean": {
+        "title": "Io/Europa/Ganymede/Callisto Jupiter-relative (jup365)",
+        "kernels": ["naif0012.tls", "pck00011.tpc", "gm_de440.tpc", "de440s.bsp", "jup365.bsp"],
+        "bodies": {
+            "io": (501, 599),
+            "europa": (502, 599),
+            "ganymede": (503, 599),
+            "callisto": (504, 599),
+        },
+        "default_step_min": 30,
+        "default_t0": "2025-01-01T12:00:00Z",
+        "default_t1": "2035-01-01T12:00:00Z",
+        "frame_note": "Jupiter-centered parent-relative AU, HELIOS scene",
+        "mode": "relative",
+        "tier": "B",
+    },
+    "titan": {
+        "title": "Titan Saturn-relative (sat441)",
+        "kernels": ["naif0012.tls", "pck00011.tpc", "gm_de440.tpc", "de440s.bsp", "sat441.bsp"],
+        "bodies": {
+            "titan": (606, 699),
+        },
+        "default_step_min": 60,
+        "default_t0": "2025-01-01T12:00:00Z",
+        "default_t1": "2035-01-01T12:00:00Z",
+        "frame_note": "Saturn-centered parent-relative AU, HELIOS scene",
+        "mode": "relative",
+        "tier": "B",
+    },
+    "triton": {
+        "title": "Triton Neptune-relative (nep097)",
+        "kernels": ["naif0012.tls", "pck00011.tpc", "gm_de440.tpc", "de440s.bsp", "nep097.bsp"],
+        "bodies": {
+            "triton": (801, 899),
+        },
+        "default_step_min": 60,
+        "default_t0": "2025-01-01T12:00:00Z",
+        "default_t1": "2035-01-01T12:00:00Z",
+        "frame_note": "Neptune-centered parent-relative AU, HELIOS scene",
+        "mode": "relative",
+        "tier": "B",
     },
 }
 
@@ -207,6 +252,8 @@ def bake_pack(pack_id: str, step_min: int | None = None, t0: str | None = None, 
         "kernels": cfg["kernels"],
         "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "flight_ops_certified": False,
+        "tier": cfg.get("tier", "A"),
+        "lazy": cfg.get("tier", "A") != "A",
         "size_bytes": len(raw),
         "size_miB": round(len(raw) / (1024 * 1024), 3),
         "source_note": (
@@ -220,13 +267,67 @@ def bake_pack(pack_id: str, step_min: int | None = None, t0: str | None = None, 
     return OUT_DIR / meta_name
 
 
+def write_registry() -> None:
+    """Index of packs on disk for lazy client loading (meta only, no binaries)."""
+    packs = []
+    for meta_path in sorted(OUT_DIR.glob("*.meta.json")):
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        packs.append({
+            "pack_id": meta.get("pack_id") or meta_path.stem.replace(".meta", ""),
+            "title": meta.get("title"),
+            "bodies": meta.get("bodies") or [],
+            "mode": meta.get("mode"),
+            "tier": meta.get("tier", "A"),
+            "lazy": meta.get("lazy", False),
+            "step_min": meta.get("step_min"),
+            "t0_iso": meta.get("t0_iso"),
+            "t1_iso": meta.get("t1_iso"),
+            "size_miB": meta.get("size_miB"),
+            "bin": meta.get("bin"),
+            "meta": meta_path.name,
+        })
+    body_index: dict[str, str] = {}
+    for p in packs:
+        for b in p["bodies"]:
+            body_index[b] = p["pack_id"]
+    reg = {
+        "version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "packs": packs,
+        "body_to_pack": body_index,
+        "note": "Tier A packs auto-load; Tier B packs lazy-load when route needs them.",
+    }
+    out = OUT_DIR / "registry.json"
+    out.write_text(json.dumps(reg, indent=2), encoding="utf-8")
+    print(f"Wrote registry {out}  packs={len(packs)}")
+
+
 def main() -> None:
     args = sys.argv[1:]
     if "--all-tier-a" in args:
         bake_pack("mars-moons", step_min=10)
         bake_pack("earth-moon", step_min=30)
-        # Optional denser planet overlay (6 h, 15 y) — complements 2 d JSON
         bake_pack("planets-dense", step_min=360)
+        write_registry()
+        return
+    if "--all-tier-b" in args:
+        bake_pack("galilean", step_min=30)
+        # Titan/Triton need large kernels (sat441 ~631 MiB, nep097 ~100 MiB) when present
+        try:
+            bake_pack("titan", step_min=60)
+        except FileNotFoundError as e:
+            print(f"  skip titan: {e}")
+        try:
+            bake_pack("triton", step_min=60)
+        except FileNotFoundError as e:
+            print(f"  skip triton: {e}")
+        write_registry()
+        return
+    if "--registry-only" in args:
+        write_registry()
         return
 
     pack = None
@@ -245,6 +346,7 @@ def main() -> None:
         print("Packs:", ", ".join(PACKS))
         sys.exit(1)
     bake_pack(pack, step_min=step_min, t0=t0, t1=t1)
+    write_registry()
 
 
 if __name__ == "__main__":

@@ -1,8 +1,10 @@
 /**
- * Modular dense SPICE packs (Float32 LE xyz).
- * Loads assets/dense-spk/<pack>.meta.json + .bin produced by build-dense-spk-pack.py.
+ * Modular dense SPICE packs (Float32 LE xyz) with lazy Tier-B loading.
  *
- * Also supports legacy mars moons path (assets/ephemeris-mars-moons-dense.*).
+ * Tier A (mars-moons, earth-moon, planets-dense): loaded at ephemeris init.
+ * Tier B (galilean, titan-triton): loaded on demand when a route needs them.
+ *
+ * Bake: python scripts/build-dense-spk-pack.py --all-tier-a|--all-tier-b
  */
 
 import { AU } from '../constants.js';
@@ -10,12 +12,26 @@ import { moonSampleCadenceOk, adaptiveVelocityDtSec } from './moon-fidelity.js';
 
 /** @type {Map<string, { meta: object, f32: Float32Array }>} */
 const _packs = new Map();
-let _loadPromise = null;
+/** @type {object|null} registry.json */
+let _registry = null;
+/** @type {Set<string>} */
+const _loading = new Set();
+/** @type {Promise<string[]>|null} */
+let _tierAPromise = null;
 
-const BODY_TO_PACK = {
+const TIER_A_PACKS = ['mars-moons', 'earth-moon', 'planets-dense'];
+
+/** Static fallback map when registry not yet loaded. */
+const BODY_TO_PACK_FALLBACK = {
   phobos: 'mars-moons',
   deimos: 'mars-moons',
   moon: 'earth-moon',
+  io: 'galilean',
+  europa: 'galilean',
+  ganymede: 'galilean',
+  callisto: 'galilean',
+  titan: 'titan',
+  triton: 'triton',
   mercury: 'planets-dense',
   venus: 'planets-dense',
   earth: 'planets-dense',
@@ -34,6 +50,10 @@ export function getDensePackMeta(packId) {
   return _packs.get(packId)?.meta || null;
 }
 
+export function getDenseRegistry() {
+  return _registry;
+}
+
 export function setDensePackForTests(packId, meta, float32Array) {
   if (!meta || !float32Array) {
     _packs.delete(packId);
@@ -47,33 +67,72 @@ function bodyKey(body) {
   return (typeof body === 'string' ? body : (body.id || body.name || '')).toLowerCase().trim();
 }
 
-async function fetchPack(packId, base = '../../assets/dense-spk/') {
+export function packIdForBody(body) {
+  const key = bodyKey(body);
+  if (!key) return null;
+  if (_registry?.body_to_pack?.[key]) return _registry.body_to_pack[key];
+  return BODY_TO_PACK_FALLBACK[key] || null;
+}
+
+async function fetchJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function fetchPack(packId) {
   if (_packs.has(packId)) return _packs.get(packId);
+  if (_loading.has(packId)) {
+    // Wait briefly for in-flight load
+    for (let i = 0; i < 200; i++) {
+      await new Promise((r) => setTimeout(r, 25));
+      if (_packs.has(packId)) return _packs.get(packId);
+      if (!_loading.has(packId)) break;
+    }
+  }
   if (typeof fetch !== 'function') return null;
+  _loading.add(packId);
   try {
-    const metaUrl = new URL(`${base}${packId}.meta.json`, import.meta.url);
-    const resM = await fetch(metaUrl);
-    if (!resM.ok) return null;
-    const meta = await resM.json();
+    const base = new URL('../../assets/dense-spk/', import.meta.url);
+    const metaUrl = new URL(`${packId}.meta.json`, base);
+    const meta = await fetchJson(metaUrl);
+    if (!meta) return null;
     const binName = meta.bin || `${packId}.bin`;
-    const binUrl = new URL(`${base}${binName}`, import.meta.url);
+    const binUrl = new URL(binName, base);
     const resB = await fetch(binUrl);
     if (!resB.ok) return null;
-    const buf = await resB.arrayBuffer();
-    const f32 = new Float32Array(buf);
+    const f32 = new Float32Array(await resB.arrayBuffer());
     const entry = { meta, f32 };
     _packs.set(packId, entry);
     return entry;
   } catch {
     return null;
+  } finally {
+    _loading.delete(packId);
   }
 }
 
-/** Load legacy mars moons + new modular packs. */
+async function loadRegistry() {
+  if (_registry || typeof fetch !== 'function') return _registry;
+  try {
+    const url = new URL('../../assets/dense-spk/registry.json', import.meta.url);
+    _registry = await fetchJson(url);
+  } catch {
+    _registry = null;
+  }
+  return _registry;
+}
+
+/**
+ * Load Tier A packs (+ registry). Safe to call multiple times.
+ * Does NOT auto-load Tier B (use ensureDensePackForBodies / ensureDensePack).
+ */
 export async function ensureDenseSpkPacksLoaded() {
-  if (_loadPromise) return _loadPromise;
-  _loadPromise = (async () => {
-    // Legacy path (already committed product)
+  if (_tierAPromise) return _tierAPromise;
+  _tierAPromise = (async () => {
+    await loadRegistry();
+
+    // Legacy mars moons path (committed product) if modular missing
     try {
       if (typeof fetch === 'function' && !_packs.has('mars-moons')) {
         const metaUrl = new URL('../../assets/ephemeris-mars-moons-dense.meta.json', import.meta.url);
@@ -82,6 +141,7 @@ export async function ensureDenseSpkPacksLoaded() {
           const meta = await resM.json();
           meta.pack_id = meta.pack_id || 'mars-moons';
           meta.bodies = meta.bodies || ['phobos', 'deimos'];
+          meta.tier = meta.tier || 'A';
           const binUrl = new URL(`../../assets/${meta.bin || 'ephemeris-mars-moons-dense.bin'}`, import.meta.url);
           const resB = await fetch(binUrl);
           if (resB.ok) {
@@ -91,22 +151,53 @@ export async function ensureDenseSpkPacksLoaded() {
       }
     } catch { /* */ }
 
-    // Modular Tier A packs (optional if present)
-    await fetchPack('earth-moon');
-    await fetchPack('planets-dense');
-    // Prefer modular mars-moons if present (overrides legacy only if both load — modular wins if later)
-    const modularMars = await fetchPack('mars-moons');
-    if (modularMars) _packs.set('mars-moons', modularMars);
-
+    // Tier A modular packs
+    for (const id of TIER_A_PACKS) {
+      await fetchPack(id);
+    }
     return listLoadedDensePacks();
   })();
-  return _loadPromise;
+  return _tierAPromise;
+}
+
+/** Explicitly load one pack (Tier B). */
+export async function ensureDensePack(packId) {
+  if (!packId) return null;
+  await loadRegistry();
+  return fetchPack(packId);
+}
+
+/**
+ * Ensure dense packs covering the given bodies are loaded (lazy Tier B).
+ * @param {Array<object|string>} bodies
+ * @returns {Promise<{ loaded: string[], missing: string[] }>}
+ */
+export async function ensureDensePackForBodies(bodies = []) {
+  await ensureDenseSpkPacksLoaded();
+  const needed = new Set();
+  for (const b of bodies) {
+    const id = packIdForBody(b);
+    if (id) needed.add(id);
+  }
+  const loaded = [];
+  const missing = [];
+  for (const id of needed) {
+    const entry = await ensureDensePack(id);
+    if (entry) loaded.push(id);
+    else missing.push(id);
+  }
+  return { loaded, missing };
+}
+
+/**
+ * Convenience for a transfer / route pair.
+ */
+export async function ensureDensePackForRoute(body1, body2, extra = []) {
+  return ensureDensePackForBodies([body1, body2, ...extra].filter(Boolean));
 }
 
 function packForBody(body) {
-  const key = bodyKey(body);
-  if (!key) return null;
-  const packId = BODY_TO_PACK[key];
+  const packId = packIdForBody(body);
   if (!packId) return null;
   return _packs.get(packId) || null;
 }
@@ -127,7 +218,6 @@ export function denseSpkAvailable(body, timeSec, opts = {}) {
   const key = bodyKey(body);
   if (!entry.meta.bodies?.includes(key)) return false;
   if (!inWindow(entry.meta, timeSec)) return false;
-  // Relative moon packs: enforce cadence if period known
   if (opts.requireCadence !== false && body?.period > 0 && entry.meta.mode === 'relative') {
     if (!moonSampleCadenceOk(entry.meta.step_sec, body.period)) return false;
   }
@@ -143,7 +233,6 @@ function readPos(entry, bodyName, i) {
   return { x: f32[base], y: f32[base + 1], z: f32[base + 2] };
 }
 
-/** Cubic Hermite sample of dense pack (AU). */
 export function sampleDenseSpkAU(body, timeSec) {
   if (!denseSpkAvailable(body, timeSec, { requireCadence: false })) return null;
   const entry = packForBody(body);
@@ -217,7 +306,6 @@ export function sampleDenseSpkVelocity_m_s(body, timeSec) {
   ];
 }
 
-/** Summary for OPS / accuracy budget. */
 export function denseSpkCoverageSummary() {
   const packs = [];
   for (const [id, { meta }] of _packs) {
@@ -229,13 +317,22 @@ export function denseSpkCoverageSummary() {
       t1: meta.t1_iso,
       size_miB: meta.size_miB,
       mode: meta.mode,
+      tier: meta.tier || 'A',
     });
   }
+  const available = (_registry?.packs || []).map((p) => ({
+    pack_id: p.pack_id,
+    tier: p.tier,
+    size_miB: p.size_miB,
+    lazy: p.lazy,
+    loaded: _packs.has(p.pack_id),
+  }));
   return {
     n_packs: packs.length,
     packs,
+    registry: available,
     note: packs.length
-      ? `Dense SPICE packs loaded: ${packs.map((p) => p.pack_id).join(', ')}`
-      : 'No dense SPICE packs loaded — continuous Kepler / coarse samples.',
+      ? `Dense SPICE loaded: ${packs.map((p) => `${p.pack_id}(T${p.tier || 'A'})`).join(', ')}`
+      : 'No dense SPICE packs loaded — continuous Kepler / DE table fallback.',
   };
 }

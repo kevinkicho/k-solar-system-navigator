@@ -15,15 +15,20 @@ Required for DE440s bake + Mars moons dense bake:
 | `gm_de440.tpc` | GM values |
 | `de440s.bsp` | Short planetary SPK (~32 MiB) |
 | `mar099s.bsp` | Mars satellites short SPK (~64 MiB) — Phobos/Deimos |
+| `jup365.bsp` | Galilean moons (~1.1 GiB) — Io–Callisto Tier B bake |
+| `sat441.bsp` | Saturn major moons (~631 MiB) — Titan Tier B bake |
+| `nep097.bsp` | Triton (~100 MiB) — Tier B bake |
 
 Bake offline sample tables:
 
 ```bash
 pip install spiceypy
-python scripts/download-kernels.py
-python scripts/build-ephemeris-from-spice.py          # planets → ephemeris-samples-v1.json
-python scripts/build-mars-moons-spice.py              # Phobos/Deimos dense 10-min binary
-node scripts/build-moon-samples.mjs                  # slow moons only (not Phobos/Deimos)
+python scripts/download-kernels.py              # core + mar099s
+python scripts/download-kernels.py --tier-b     # + jup365, sat441, nep097 (large)
+python scripts/build-ephemeris-from-spice.py    # planets JSON
+python scripts/build-dense-spk-pack.py --all-tier-a   # mars-moons, earth-moon, planets-dense
+python scripts/build-dense-spk-pack.py --all-tier-b   # galilean, titan, triton (lazy packs)
+node scripts/build-moon-samples.mjs             # slow moons Kepler table (not Phobos/Deimos)
 ```
 
 **Mars-system accuracy targets (concept-grade):**

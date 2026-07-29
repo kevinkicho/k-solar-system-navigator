@@ -446,6 +446,22 @@ async function preparePlanningEphemeris() {
         notify('L2-PLAN SAMPLE TABLE READY');
       }
     }
+    // Lazy Tier B dense SPICE packs for origin/dest/flybys (Galilean, Titan, …)
+    try {
+      const dense = await import('../physics/dense-spk-pack.js');
+      const extras = (state.flybys || []).map((f) => resolveFlybyBody(f)).filter(Boolean);
+      const res = await dense.ensureDensePackForRoute(
+        state.routeOrigin,
+        state.routeDestination,
+        extras,
+      );
+      if (res?.loaded?.length) {
+        const lazy = res.loaded.filter((id) => !['mars-moons', 'earth-moon', 'planets-dense'].includes(id));
+        if (lazy.length) {
+          notify(`DENSE SPICE PACK LOADED · ${lazy.join(', ')}`);
+        }
+      }
+    } catch { /* non-fatal */ }
   }
 
   if (state.horizonsEndpointInject) {

@@ -1,0 +1,62 @@
+{
+  "pack_id": "galilean",
+  "version": 1,
+  "title": "Io/Europa/Ganymede/Callisto Jupiter-relative (jup365)",
+  "source": "spice-dense-galilean",
+  "bake_source": "spice-dense-pack",
+  "mode": "relative",
+  "frame": "Jupiter-centered parent-relative AU, HELIOS scene",
+  "t0_iso": "2025-01-01T12:00:00Z",
+  "t1_iso": "2035-01-01T12:00:00Z",
+  "t0_sim": 789004800.0,
+  "step_sec": 1800.0,
+  "step_min": 30,
+  "n": 175297,
+  "dtype": "float32_le",
+  "layout": "bodies sequential: each n*(x,y,z) float32",
+  "bodies": [
+    "io",
+    "europa",
+    "ganymede",
+    "callisto"
+  ],
+  "body_naif": {
+    "io": [
+      501,
+      599
+    ],
+    "europa": [
+      502,
+      599
+    ],
+    "ganymede": [
+      503,
+      599
+    ],
+    "callisto": [
+      504,
+      599
+    ]
+  },
+  "body_offsets": {
+    "io": 0,
+    "europa": 2103564,
+    "ganymede": 4207128,
+    "callisto": 6310692
+  },
+  "bin": "galilean.bin",
+  "kernels": [
+    "naif0012.tls",
+    "pck00011.tpc",
+    "gm_de440.tpc",
+    "de440s.bsp",
+    "jup365.bsp"
+  ],
+  "generated_at": "2026-07-29T22:11:25.199326Z",
+  "flight_ops_certified": false,
+  "tier": "B",
+  "lazy": true,
+  "size_bytes": 8414256,
+  "size_miB": 8.024,
+  "source_note": "Educational dense SPICE-baked sample pack \u2014 NOT flight-certified OD, NOT range safety. Geometric NONE states, ECLIPJ2000 \u2192 HELIOS scene."
+}

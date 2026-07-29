@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "generated_at": "2026-07-29T22:12:23.516524Z",
+  "packs": [
+    {
+      "pack_id": "earth-moon",
+      "title": "Luna Earth-relative (de440s)",
+      "bodies": [
+        "moon"
+      ],
+      "mode": "relative",
+      "tier": "A",
+      "lazy": false,
+      "step_min": 30,
+      "t0_iso": "2020-01-01T12:00:00Z",
+      "t1_iso": "2035-01-01T12:00:00Z",
+      "size_miB": 3.01,
+      "bin": "earth-moon.bin",
+      "meta": "earth-moon.meta.json"
+    },
+    {
+      "pack_id": "galilean",
+      "title": "Io/Europa/Ganymede/Callisto Jupiter-relative (jup365)",
+      "bodies": [
+        "io",
+        "europa",
+        "ganymede",
+        "callisto"
+      ],
+      "mode": "relative",
+      "tier": "B",
+      "lazy": true,
+      "step_min": 30,
+      "t0_iso": "2025-01-01T12:00:00Z",
+      "t1_iso": "2035-01-01T12:00:00Z",
+      "size_miB": 8.024,
+      "bin": "galilean.bin",
+      "meta": "galilean.meta.json"
+    },
+    {
+      "pack_id": "mars-moons",
+      "title": "Phobos/Deimos Mars-relative (mar099s)",
+      "bodies": [
+        "phobos",
+        "deimos"
+      ],
+      "mode": "relative",
+      "tier": "A",
+      "lazy": false,
+      "step_min": 10,
+      "t0_iso": "2025-01-01T12:00:00Z",
+      "t1_iso": "2035-01-01T12:00:00Z",
+      "size_miB": 12.037,
+      "bin": "mars-moons.bin",
+      "meta": "mars-moons.meta.json"
+    },
+    {
+      "pack_id": "planets-dense",
+      "title": "8 planets heliocentric dense (de440s)",
+      "bodies": [
+        "mercury",
+        "venus",
+        "earth",
+        "mars",
+        "jupiter",
+        "saturn",
+        "uranus",
+        "neptune"
+      ],
+      "mode": "heliocentric",
+      "tier": "A",
+      "lazy": false,
+      "step_min": 360,
+      "t0_iso": "2020-01-01T12:00:00Z",
+      "t1_iso": "2035-01-01T12:00:00Z",
+      "size_miB": 2.007,
+      "bin": "planets-dense.bin",
+      "meta": "planets-dense.meta.json"
+    },
+    {
+      "pack_id": "titan",
+      "title": "Titan Saturn-relative (sat441)",
+      "bodies": [
+        "titan"
+      ],
+      "mode": "relative",
+      "tier": "B",
+      "lazy": true,
+      "step_min": 60,
+      "t0_iso": "2025-01-01T12:00:00Z",
+      "t1_iso": "2035-01-01T12:00:00Z",
+      "size_miB": 1.003,
+      "bin": "titan.bin",
+      "meta": "titan.meta.json"
+    },
+    {
+      "pack_id": "triton",
+      "title": "Triton Neptune-relative (nep097)",
+      "bodies": [
+        "triton"
+      ],
+      "mode": "relative",
+      "tier": "B",
+      "lazy": true,
+      "step_min": 60,
+      "t0_iso": "2025-01-01T12:00:00Z",
+      "t1_iso": "2035-01-01T12:00:00Z",
+      "size_miB": 1.003,
+      "bin": "triton.bin",
+      "meta": "triton.meta.json"
+    }
+  ],
+  "body_to_pack": {
+    "moon": "earth-moon",
+    "io": "galilean",
+    "europa": "galilean",
+    "ganymede": "galilean",
+    "callisto": "galilean",
+    "phobos": "mars-moons",
+    "deimos": "mars-moons",
+    "mercury": "planets-dense",
+    "venus": "planets-dense",
+    "earth": "planets-dense",
+    "mars": "planets-dense",
+    "jupiter": "planets-dense",
+    "saturn": "planets-dense",
+    "uranus": "planets-dense",
+    "neptune": "planets-dense",
+    "titan": "titan",
+    "triton": "triton"
+  },
+  "note": "Tier A packs auto-load; Tier B packs lazy-load when route needs them."
+}
