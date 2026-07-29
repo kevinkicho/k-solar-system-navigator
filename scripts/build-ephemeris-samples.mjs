@@ -18,12 +18,13 @@ const { BODIES } = await import(pathToFileURL(resolve(ROOT, 'js/data/bodies.js')
 const { getBodyPosition3D } = await import(pathToFileURL(resolve(ROOT, 'js/physics/kepler.js')).href);
 const { DAY, J2000 } = await import(pathToFileURL(resolve(ROOT, 'js/constants.js')).href);
 
-// 2020-01-01 12:00 UTC → 2040-01-01, 4-day step (size budget).
-const t0Date = Date.UTC(2020, 0, 1, 12, 0, 0);
-const t1Date = Date.UTC(2040, 0, 1, 12, 0, 0);
+// Expanded window: 2015-01-01 → 2055-01-01, 3-day step (still under ~2.5 MiB soft budget).
+// Wider epoch coverage reduces OOR fallback to L1 approx for typical mission plans.
+const t0Date = Date.UTC(2015, 0, 1, 12, 0, 0);
+const t1Date = Date.UTC(2055, 0, 1, 12, 0, 0);
 const t0_sim = (t0Date - J2000) / 1000;
 const t1_sim = (t1Date - J2000) / 1000;
-const step_days = 4;
+const step_days = 3;
 const step_sec = step_days * DAY;
 const n = Math.floor((t1_sim - t0_sim) / step_sec) + 1;
 
@@ -55,13 +56,13 @@ for (const name of names) {
 }
 
 const table = {
-  version: 1,
-  source: 'approx-bootstrap-v1+mars-educational-bias',
+  version: 2,
+  source: 'approx-bootstrap-v2+mars-educational-bias',
   source_note:
-    'Positions from HELIOS JPL Approximate Positions model; Mars x += 0.00015 AU educational bias for L2-plan A/B. Not SPICE/DE. Re-bake with Horizons/DE for higher fidelity.',
+    'v2 expanded 2015–2055 @ 3 d step. Positions from HELIOS JPL Approximate Positions model; Mars x += 0.00015 AU educational bias for L2-plan A/B. Not SPICE/DE. Optional live Horizons inject is separate (network opt-in).',
   frame: 'HELIOS heliocentric ecliptic (physics axes, exaggerate=false)',
-  t0_iso: '2020-01-01T12:00:00.000Z',
-  t1_iso: '2040-01-01T12:00:00.000Z',
+  t0_iso: '2015-01-01T12:00:00.000Z',
+  t1_iso: '2055-01-01T12:00:00.000Z',
   t0_sim,
   step_days,
   step_sec,

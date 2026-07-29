@@ -58,6 +58,7 @@ const SUITE = [
   'tests/path_export_csv.mjs',
   'tests/body_scale.mjs',
   'tests/product_ephemeris_default.mjs',
+  'tests/horizons_inject.mjs',
   'tests/perf_budgets.mjs',
 ];
 

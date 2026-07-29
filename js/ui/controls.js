@@ -193,16 +193,41 @@ export function wireControls() {
     }
     state.ephemerisBackend = ephSel.value === 'sample-de' ? 'sample-de' : 'approx';
     if (state.ephemerisBackend === 'sample-de') {
-      state.fidelityLevel = 'L2-plan';
+      if (!state.horizonsEndpointInject) state.fidelityLevel = 'L2-plan';
       // Lazy-load sample table for browser
       import('../physics/ephemeris-sample.js').then((m) => m.ensureSampleTableLoaded()).catch(() => {});
       notify('PLANNING EPHEMERIS: SAMPLE-DE (L2-PLAN) — NOT SPICE');
-    } else if (state.fidelityLevel === 'L2-plan') {
+    } else if (state.fidelityLevel === 'L2-plan' || state.fidelityLevel === 'L2-horizons') {
       state.fidelityLevel = 'L1';
       notify('PLANNING EPHEMERIS: APPROX (L1)');
     }
     rerenderIfRoute();
   };
+
+  const hzInject = document.getElementById('flag-horizons-inject');
+  const hzInjectWrap = document.getElementById('horizons-inject-wrap');
+  if (hzInject) {
+    hzInject.checked = !!state.horizonsEndpointInject && !state.classroomMode;
+    if (hzInjectWrap) hzInjectWrap.style.display = state.classroomMode ? 'none' : 'flex';
+    hzInject.onchange = () => {
+      if (state.classroomMode) {
+        hzInject.checked = false;
+        state.horizonsEndpointInject = false;
+        notify('CLASSROOM MODE FORCES OFFLINE — NO HORIZONS INJECT');
+        return;
+      }
+      state.horizonsEndpointInject = !!hzInject.checked;
+      if (state.horizonsEndpointInject) {
+        notify('HORIZONS INJECT ON — next Compute fetches live endpoints (not SPICE)');
+      } else {
+        if (state.fidelityLevel === 'L2-horizons') {
+          state.fidelityLevel = state.ephemerisBackend === 'sample-de' ? 'L2-plan' : 'L1';
+        }
+        import('../physics/ephemeris-horizons-inject.js').then((m) => m.clearHorizonsInjectCache?.()).catch(() => {});
+        notify('HORIZONS INJECT OFF — offline sample/approx only');
+      }
+    };
+  }
   if (ascentSel) ascentSel.onchange = () => {
     state.ascentLossBudget_m_s = Number(ascentSel.value) || 0;
     notify(state.ascentLossBudget_m_s

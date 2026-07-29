@@ -766,6 +766,7 @@ html, body {
 .fidelity-badge.fidelity-L2,
 .fidelity-badge.fidelity-L2-compare { color: var(--amber); border-color: rgba(255,152,0,0.35); }
 .fidelity-badge.fidelity-L2-plan { color: var(--green); border-color: rgba(0,230,118,0.35); }
+.fidelity-badge.fidelity-L2-horizons { color: #ce93d8; border-color: rgba(206,147,216,0.45); }
 
 .planet-label.ghost-label {
   font-size: 8px; letter-spacing: 1px; color: var(--amber);
@@ -1121,6 +1122,11 @@ input[type="range"]::-webkit-slider-thumb {
               <option value="approx">Approximate Positions (L1)</option>
               <option value="sample-de" selected>Offline sample table (L2-plan product default · not DE/SPICE)</option>
             </select>
+            <label style="font-size:10px;display:flex;gap:6px;align-items:center;margin-top:6px" id="horizons-inject-wrap">
+              <input type="checkbox" id="flag-horizons-inject" title="Optional network: inject Horizons VECTORS at dep/arr for Need (not SPICE)">
+              Horizons endpoint inject (network · educational · not SPICE)
+            </label>
+            <p class="surface-hint" style="margin-top:4px">Inject fetches live JPL Horizons for origin/dest (and flybys) before Compute. Classroom forces off. Offline sample-DE remains default.</p>
           </div>
           <div class="route-field-row" id="ascent-loss-row">
             <label>Ascent loss budget (edu)</label>
@@ -1386,8 +1392,9 @@ input[type="range"]::-webkit-slider-thumb {
     <table>
       <tr><td><span class="pill">L1</span></td><td>Offline JPL Approximate Positions. Classroom mode forces L1. Nominal error classes (λ, φ, ρ) from the JPL SSD table appear on the Measurement Card — not formal covariances.</td></tr>
       <tr><td><span class="pill amber">L2-compare</span></td><td>After an explicit Horizons VECTOR compare only. Records that a Δr check was run; <strong>does not by itself change planning geometry</strong>. Not SPICE.</td></tr>
-      <tr><td><span class="pill" style="color:var(--green);border-color:rgba(0,230,118,0.4)">L2-plan</span> product default</td><td>Offline sample-table endpoints for Lambert Need (8 planets, limited epoch window). Falls back to L1 approx when OOR. Animation still uses Approximate Positions. <strong>Not DE/SPICE kernels, not navigation.</strong> Use top-bar <strong>ACCURATE</strong> for schematic path + sample-DE + n-body residual overlay.</td></tr>
-      <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">L3</span> not a mode</td><td>SPICE kernels / formal covariance / navigation solutions are <strong>not a planning mode</strong>. Educational path: L2-plan samples + optional Horizons compare. No <code>.bsp</code> kernels shipped. Three.js is display only.</td></tr>
+      <tr><td><span class="pill" style="color:var(--green);border-color:rgba(0,230,118,0.4)">L2-plan</span> product default</td><td>Offline sample-table endpoints for Lambert Need (8 planets, <strong>2015–2055 @ 3 d</strong>). Falls back to L1 approx when OOR. Animation still uses Approximate Positions. <strong>Not DE/SPICE kernels, not navigation.</strong></td></tr>
+      <tr><td><span class="pill" style="color:#ce93d8;border-color:rgba(206,147,216,0.45)">L2-horizons</span> opt-in</td><td>Optional <strong>network</strong> inject of JPL Horizons VECTORS at departure/arrival (and flybys) for Need. Checkbox under Planning ephemeris. Classroom forces off. <strong>Not SPICE, not flight ops.</strong></td></tr>
+      <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">L3</span> not a mode</td><td>SPICE kernels / formal covariance / navigation solutions are <strong>not a planning mode</strong>. Educational path: L2-plan samples + optional Horizons inject/compare. No <code>.bsp</code> kernels shipped. Three.js is display only.</td></tr>
     </table>
     <p>JPL Approximate Positions accuracy table: <a href="https://ssd.jpl.nasa.gov/planets/approx_pos.html" target="_blank" style="color:var(--cyan)">ssd.jpl.nasa.gov/planets/approx_pos.html</a>. Export records <code>measurement.fidelity</code> and <code>methodology.ephemeris_backend</code>.</p>
 

@@ -40,6 +40,12 @@ export const state = {
   // K5: planning geometry backend — animation always approx Kepler
   // Product default sample-de when table loaded; falls back to approx OOR.
   ephemerisBackend: 'sample-de', // 'approx' | 'sample-de'
+  /**
+   * Opt-in live Horizons endpoint inject for Lambert Need (network).
+   * Classroom always false. Populates inject cache before compute.
+   * NOT SPICE / NOT default offline path.
+   */
+  horizonsEndpointInject: false,
 
   display: {
     mode: 'cinematic',
@@ -150,6 +156,7 @@ export function applyProductEphemerisDefaults() {
 export function forceOfflineL1Ephemeris() {
   state.fidelityLevel = 'L1';
   state.ephemerisBackend = 'approx';
+  state.horizonsEndpointInject = false;
   if (state.pathAccuracy) {
     state.pathAccuracy.preferSampleDeOuter = false;
     state.pathAccuracy.nbodyOverlay = false;

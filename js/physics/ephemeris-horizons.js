@@ -13,7 +13,7 @@
  * (js/physics/kepler.js). Enable comparison only via explicit UI opt-in.
  */
 
-import { AU } from '../constants.js';
+import { AU, DAY } from '../constants.js';
 
 /** Public Horizons API endpoint (text format). */
 export const HORIZONS_API_URL = 'https://ssd.jpl.nasa.gov/api/horizons.api';
@@ -280,6 +280,35 @@ export function scenePosToEcliptic(scenePos) {
     y: scenePos.z,
     z: scenePos.y,
   };
+}
+
+/**
+ * Ecliptic AU → HELIOS scene AU (inverse of scenePosToEcliptic).
+ * scene {x,y,z} = ecliptic {X, Z, Y}.
+ */
+export function eclipticPosToScene(ecl) {
+  return {
+    x: ecl.x,
+    y: ecl.z,
+    z: ecl.y,
+  };
+}
+
+/**
+ * Horizons velocity in AU/day (ecliptic) → HELIOS scene m/s.
+ * Same Y↔Z axis map as positions.
+ * @param {{vx:number,vy:number,vz:number}} eclVel_AU_day
+ * @returns {number[]} [vx,vy,vz] m/s scene axes
+ */
+export function eclipticVelToScene_m_s(eclVel_AU_day) {
+  // AU/day → m/s
+  const s = AU / DAY;
+  // ecliptic vx,vy,vz → scene vx, vz, vy
+  return [
+    eclVel_AU_day.vx * s,
+    eclVel_AU_day.vz * s,
+    eclVel_AU_day.vy * s,
+  ];
 }
 
 /**

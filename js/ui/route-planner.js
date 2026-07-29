@@ -41,6 +41,7 @@ export function stampPlanningEphemeris(td) {
     : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx');
   td.ephemerisBackend = backend;
   td.classroomMode = !!state.classroomMode;
+  td.horizonsEndpointInject = !!(state.horizonsEndpointInject && !state.classroomMode);
   // Multi-rev Lambert (PR7b) — opt-in via pathAccuracy flag
   td.maxRevolutions = (state.pathAccuracy?.multiRevLambert && !state.classroomMode)
     ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
@@ -368,25 +369,83 @@ export function computeRoute() {
     notify('SET ORIGIN AND DESTINATION FIRST'); return;
   }
 
-  // Ensure sample-DE table is loaded before planning when requested (product default).
-  if (!state.classroomMode && state.ephemerisBackend === 'sample-de') {
-    import('../physics/ephemeris-sample.js').then(async (m) => {
-      const meta = m.getSampleMeta?.();
-      if (!meta) {
-        notify('LOADING L2-PLAN SAMPLE TABLE…');
-        await m.ensureSampleTableLoaded();
-        if (!m.getSampleMeta?.()) {
-          notify('SAMPLE TABLE UNAVAILABLE — PLANNING WITH L1 APPROX');
-          // Keep requested backend; provider falls back per-body OOR
-        } else {
-          notify('L2-PLAN SAMPLE TABLE READY');
-        }
-      }
-      computeRouteBody();
-    }).catch(() => computeRouteBody());
+  // Preload sample-DE + optional Horizons inject before planning (never in classroom).
+  if (!state.classroomMode
+      && (state.ephemerisBackend === 'sample-de' || state.horizonsEndpointInject)) {
+    preparePlanningEphemeris().then(() => computeRouteBody()).catch(() => computeRouteBody());
     return;
   }
   computeRouteBody();
+}
+
+/** Load sample table + optional live Horizons endpoint inject. */
+async function preparePlanningEphemeris() {
+  if (state.classroomMode) return;
+
+  if (state.ephemerisBackend === 'sample-de') {
+    const m = await import('../physics/ephemeris-sample.js');
+    if (!m.getSampleMeta?.()) {
+      notify('LOADING L2-PLAN SAMPLE TABLE…');
+      await m.ensureSampleTableLoaded();
+      if (!m.getSampleMeta?.()) {
+        notify('SAMPLE TABLE UNAVAILABLE — PLANNING WITH L1 APPROX FALLBACK');
+      } else {
+        notify('L2-PLAN SAMPLE TABLE READY');
+      }
+    }
+  }
+
+  if (state.horizonsEndpointInject) {
+    await runHorizonsEndpointInject();
+  }
+}
+
+/**
+ * Fetch Horizons states for route endpoints (dep/arr + flybys) and cache for provider.
+ */
+async function runHorizonsEndpointInject() {
+  const { injectHorizonsEndpoints, clearHorizonsInjectCache } = await import(
+    '../physics/ephemeris-horizons-inject.js'
+  );
+  clearHorizonsInjectCache();
+
+  const dateInput = document.getElementById('depart-date');
+  let departureSimTime;
+  const inputDate = inputValueToDate(dateInput?.value);
+  if (inputDate && !isNaN(inputDate.getTime())) {
+    departureSimTime = dateToSimTime(inputDate);
+  } else {
+    departureSimTime = timeState.simTime;
+  }
+
+  const endpoints = [];
+  // Rough arrival from current transfer or Hohmann seed
+  let arrT = departureSimTime + 200 * DAY;
+  try {
+    const h = hohmannTransfer(state.routeOrigin, state.routeDestination, departureSimTime);
+    if (h?.arrivalSimTime) arrT = h.arrivalSimTime;
+    if (state.userTofDays) arrT = departureSimTime + state.userTofDays * DAY;
+  } catch { /* */ }
+
+  endpoints.push({ body: state.routeOrigin, timeSec: departureSimTime });
+  endpoints.push({ body: state.routeDestination, timeSec: arrT });
+  for (const f of state.flybys || []) {
+    const b = resolveFlybyBody(f);
+    if (b && f.simTime != null) endpoints.push({ body: b, timeSec: f.simTime });
+  }
+
+  notify(`HORIZONS INJECT · fetching ${endpoints.length} endpoint(s)…`);
+  const res = await injectHorizonsEndpoints(endpoints, {
+    onProgress: (i, n) => {
+      if (i === 1 || i === n) notify(`HORIZONS INJECT ${i}/${n}`);
+    },
+  });
+  if (res.ok > 0) {
+    state.fidelityLevel = 'L2-horizons';
+    notify(`HORIZONS INJECT OK · ${res.ok} hit · ${res.fail} miss (Need uses inject when present)`);
+  } else {
+    notify(`HORIZONS INJECT FAILED · ${res.errors?.[0] || 'no hits'} — falling back to sample/approx`);
+  }
 }
 
 function computeRouteBody() {

@@ -67,7 +67,7 @@ for (const ep of EPOCHS) {
 
 // Sample asset meta
 const samples = JSON.parse(readFileSync(resolve(ROOT, 'assets/ephemeris-samples-v1.json'), 'utf8'));
-check('sample asset version 1', samples.version === 1);
+check('sample asset version ≥ 2', samples.version >= 2);
 check('sample has 8 bodies', Object.keys(samples.bodies).length === 8);
 check('sample n > 100', samples.n > 100);
 const bytes = Buffer.byteLength(JSON.stringify(samples));

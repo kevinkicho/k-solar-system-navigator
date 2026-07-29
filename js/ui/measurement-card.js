@@ -12,19 +12,22 @@ import { computeNeedNow } from './mission-budget-ui.js';
 /** Normalize legacy 'L2' → 'L2-compare'. */
 export function normalizeFidelity(level) {
   if (level === 'L2-plan') return 'L2-plan';
+  if (level === 'L2-horizons') return 'L2-horizons';
   if (level === 'L2' || level === 'L2-compare') return 'L2-compare';
   return 'L1';
 }
 
 export function fidelityBadgeLabel(level) {
   const f = normalizeFidelity(level);
+  if (f === 'L2-horizons') return 'L2-horizons · live endpoint inject (not SPICE)';
   if (f === 'L2-plan') return 'L2-plan · offline sample table (not DE/SPICE)';
-  if (f === 'L2-compare') return 'L2-compare · Horizons Δr check (planning still L1)';
+  if (f === 'L2-compare') return 'L2-compare · Horizons Δr check only';
   return 'L1 · JPL approx (offline)';
 }
 
 export function fidelityCssClass(level) {
   const f = normalizeFidelity(level);
+  if (f === 'L2-horizons') return 'L2-horizons';
   if (f === 'L2-plan') return 'L2-plan';
   if (f === 'L2-compare') return 'L2-compare';
   return 'L1';
@@ -93,6 +96,9 @@ export function buildMeasurementCard(td) {
       <div class="info-row"><span class="key">Approx error (origin)</span><span class="val" style="font-size:10px">${e1}</span></div>
       <div class="info-row"><span class="key">Approx error (dest)</span><span class="val" style="font-size:10px">${e2}</span></div>
       <div class="info-row"><span class="key">Error note</span><span class="val" style="font-size:9px;opacity:0.8">JPL nominal table 1800–2050 — not 1σ covariance, not DE/SPICE</span></div>`;
+  } else if (fidelity === 'L2-horizons' || state.horizonsEndpointInject) {
+    errorRows = `
+      <div class="info-row"><span class="key">Planning backend</span><span class="val amber">Horizons endpoint inject (network) + sample/approx fallback — not SPICE</span></div>`;
   } else {
     errorRows = `
       <div class="info-row"><span class="key">Planning backend</span><span class="val amber">offline sample table (educational) — not DE/SPICE kernels</span></div>`;

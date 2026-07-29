@@ -165,7 +165,9 @@ function actionsHtml(missionReady) {
 function trustStripHtml(td, dossier) {
   let eph = state.classroomMode
     ? 'L1 approx (classroom)'
-    : (state.ephemerisBackend === 'sample-de' ? 'L2-plan sample-DE' : 'L1 approx');
+    : (state.horizonsEndpointInject || state.fidelityLevel === 'L2-horizons'
+      ? 'L2-horizons inject'
+      : (state.ephemerisBackend === 'sample-de' ? 'L2-plan sample-DE' : 'L1 approx'));
   if (td?.sampleFallback || dossier?.fidelity?.sampleFallback) {
     eph += ' · partial approx fallback';
   }
