@@ -73,18 +73,62 @@ export async function loadUserPrefs() {
   }
 }
 
+function stripUndefined(value) {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(stripUndefined).filter((v) => v !== undefined);
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) return value; // FieldValue, Timestamp, …
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (v === undefined) continue;
+    const c = stripUndefined(v);
+    if (c !== undefined) out[k] = c;
+  }
+  return out;
+}
+
 export async function saveUserPrefs(extra = {}) {
   if (!isFirebaseEnabled()) return;
   const user = currentUser();
   if (!user) return;
   try {
-    await setDoc(prefsRef(user.uid), {
+    await setDoc(prefsRef(user.uid), stripUndefined({
       ...prefsFromState(),
       ...extra,
       updatedAt: serverTimestamp(),
       ownerUid: user.uid,
-    }, { merge: true });
+    }), { merge: true });
   } catch (err) {
     console.warn('[HELIOS] saveUserPrefs', err);
+  }
+}
+
+/** Ensure users/{uid} profile doc exists (first sign-in). */
+export async function ensureUserProfile(user) {
+  if (!isFirebaseEnabled() || !user?.uid) return;
+  const db = getFirebaseDb();
+  if (!db) return;
+  try {
+    const ref = doc(db, 'users', user.uid);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      await setDoc(ref, stripUndefined({
+        email: user.email || null,
+        displayName: user.displayName || null,
+        lastLoginAt: serverTimestamp(),
+      }), { merge: true });
+      return;
+    }
+    await setDoc(ref, stripUndefined({
+      email: user.email || null,
+      displayName: user.displayName || null,
+      photoURL: user.photoURL || null,
+      createdAt: serverTimestamp(),
+      lastLoginAt: serverTimestamp(),
+      app: 'helios',
+    }));
+  } catch (err) {
+    console.warn('[HELIOS] ensureUserProfile', err);
   }
 }

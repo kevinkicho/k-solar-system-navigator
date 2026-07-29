@@ -1,24 +1,19 @@
 rules_version = '2';
 
-// HELIOS cloud plans — owner-only under users/{uid}/**
-// Web client config is public; these rules are the real access control.
+// HELIOS — owner-only user data. Web config is public; rules are access control.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    // Per-user tree (plans, future prefs, etc.)
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId;
-    }
-
-    // Optional user profile doc at users/{uid}
+    // Profile + all nested data (plans, prefs, …)
     match /users/{userId} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
+
+      match /{document=**} {
+        allow read, write: if isOwner(userId);
+      }
     }
   }
 }

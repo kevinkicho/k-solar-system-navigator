@@ -18,6 +18,25 @@ function plansCol(uid) {
   return collection(db, 'users', uid, 'plans');
 }
 
+/** Firestore rejects `undefined` field values — strip recursively. */
+export function stripUndefined(value) {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return value.map(stripUndefined).filter((v) => v !== undefined);
+  }
+  // Keep FieldValue, Timestamp, Date, and other non-plain objects intact
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) return value;
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (v === undefined) continue;
+    const cleaned = stripUndefined(v);
+    if (cleaned !== undefined) out[k] = cleaned;
+  }
+  return out;
+}
+
 /**
  * Build a compact plan record from current transfer.
  * schema_version 2 adds plan_request for full recompute restore (cloud v2).
@@ -96,6 +115,7 @@ export function planSummaryFromTransfer(td) {
 
 /**
  * Save current transfer summary to Firestore (+ optional Storage mission JSON + RTDB lastRoute).
+ * Firestore is written first so Storage latency/hangs never block the plan doc.
  * @returns {Promise<string>} plan id
  */
 export async function savePlanToCloud(td, opts = {}) {
@@ -108,18 +128,22 @@ export async function savePlanToCloud(td, opts = {}) {
   const isNew = !opts.id;
   const id = opts.id || `${summary.originId}_${summary.destId}_${Date.now().toString(36)}`;
   const ref = doc(plansCol(user.uid), id);
-  const payload = {
+  const payload = stripUndefined({
     ...summary,
     title: opts.title || summary.label,
     notes: opts.notes || '',
     updatedAt: serverTimestamp(),
     ownerUid: user.uid,
-  };
+    // Client wall clock for list fallback when serverTimestamp not yet resolved
+    updatedAtMs: Date.now(),
+  });
   // Only stamp createdAt on first write (auto id). Re-saves merge without clobbering it.
   if (isNew) payload.createdAt = serverTimestamp();
 
-  // Best-effort full mission JSON to Storage (does not block Firestore save)
-  let storagePath = null;
+  // 1) Firestore first (source of truth for cloud plan list)
+  await setDoc(ref, payload, { merge: true });
+
+  // 2) Best-effort Storage mission JSON — patch doc if URL available
   if (opts.withMissionBlob !== false) {
     try {
       const { buildPlanObject } = await import('../ui/mission-export.js');
@@ -127,25 +151,26 @@ export async function savePlanToCloud(td, opts = {}) {
       const planObj = buildPlanObject(td);
       const url = await uploadMissionBlob(id, planObj);
       if (url) {
-        storagePath = `users/${user.uid}/plans/${id}.json`;
-        payload.mission_blob = storagePath;
-        payload.mission_blob_url = url;
-        payload.has_mission_blob = true;
+        await setDoc(ref, stripUndefined({
+          mission_blob: `users/${user.uid}/plans/${id}.json`,
+          mission_blob_url: url,
+          has_mission_blob: true,
+          updatedAt: serverTimestamp(),
+          updatedAtMs: Date.now(),
+        }), { merge: true });
       }
     } catch (err) {
       console.warn('[HELIOS] mission blob upload skipped', err);
     }
   }
 
-  await setDoc(ref, payload, { merge: true });
-
-  // RTDB last-route bookmark
+  // 3) RTDB last-route bookmark
   try {
     const { saveLastRoute } = await import('./rtdb.js');
     await saveLastRoute(td);
   } catch { /* */ }
 
-  // Touch prefs so vehicle/view stay in sync
+  // 4) Touch prefs so vehicle/view stay in sync
   try {
     const { saveUserPrefs } = await import('./prefs.js');
     await saveUserPrefs({ last_plan_id: id });
@@ -159,9 +184,22 @@ export async function listCloudPlans(max = 20) {
   if (!isFirebaseEnabled()) return [];
   const user = currentUser();
   if (!user) return [];
-  const q = query(plansCol(user.uid), orderBy('updatedAt', 'desc'), limit(max));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  try {
+    const q = query(plansCol(user.uid), orderBy('updatedAt', 'desc'), limit(max));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    // Missing index / missing updatedAt on legacy docs → unscoped fallback
+    console.warn('[HELIOS] listCloudPlans orderBy failed — fallback', err?.code || err);
+    const snap = await getDocs(query(plansCol(user.uid), limit(max * 2)));
+    const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    rows.sort((a, b) => {
+      const am = a.updatedAtMs || a.updatedAt?.toMillis?.() || 0;
+      const bm = b.updatedAtMs || b.updatedAt?.toMillis?.() || 0;
+      return bm - am;
+    });
+    return rows.slice(0, max);
+  }
 }
 
 export async function getCloudPlan(planId) {

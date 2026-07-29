@@ -34,11 +34,15 @@ export function watchAuth(cb) {
   }
   const unsub = onAuthStateChanged(auth, (user) => {
     state.firebase = {
+      ...(state.firebase || {}),
       enabled: isFirebaseEnabled(),
       uid: user?.uid || null,
       email: user?.email || null,
       displayName: user?.displayName || null,
     };
+    if (user) {
+      import('./prefs.js').then((m) => m.ensureUserProfile?.(user)).catch(() => {});
+    }
     for (const fn of listeners) {
       try { fn(user); } catch (e) { console.warn(e); }
     }

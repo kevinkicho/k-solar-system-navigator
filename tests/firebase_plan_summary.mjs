@@ -1,7 +1,7 @@
 /**
  * Offline unit test for cloud plan summary (no live Firebase).
  */
-import { planSummaryFromTransfer } from '../js/firebase/plans.js';
+import { planSummaryFromTransfer, stripUndefined } from '../js/firebase/plans.js';
 import { DAY } from '../js/constants.js';
 
 function assert(cond, msg) {
@@ -46,5 +46,14 @@ const multi = planSummaryFromTransfer({
 });
 assert(multi.isMultiLeg === true, 'multi flag');
 assert(multi.need_dv_m_s === 12000, 'multi need');
+
+// Firestore rejects undefined — ensure strip + summary clean
+const dirty = { a: 1, b: undefined, nested: { c: 2, d: undefined }, arr: [1, undefined, 3] };
+const clean = stripUndefined(dirty);
+assert(clean.b === undefined && !('b' in clean), 'strip top');
+assert(!('d' in clean.nested), 'strip nested');
+assert(JSON.stringify(s).indexOf('undefined') < 0, 'summary serializable');
+const s2 = stripUndefined(s);
+assert(s2.plan_request && s2.plan_request.o, 'stripped plan_request');
 
 console.log('firebase_plan_summary: ok');
