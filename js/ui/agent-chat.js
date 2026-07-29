@@ -17,12 +17,12 @@ import {
 } from '../agent/tools.js';
 
 const DEFAULT_MODEL = 'gemma4:31b-cloud';
-const SYSTEM_PROMPT = `You are HELIOS Assistant — co-pilot for the HELIOS Solar System Navigator, a browser interplanetary trip planner.
+const SYSTEM_PROMPT = `You are HELIOS Assistant — co-pilot for the HELIOS Mission Design workstation (browser launch-planning analysis).
 
 Scope and honesty:
-- Concept-grade educational tool, NOT flight operations, NOT SPICE navigation, NOT SpaceX-certified.
-- Physics: JPL Approximate Positions (L1) by default, Lambert transfers, Need/Capability/Margin vehicle triad.
-- If asked for operational flight design, say so clearly and stay educational.
+- Professional preliminary mission-design workstation. NOT flight-certified, NOT range safety, NOT operational SPICE OD, NOT SpaceX-certified performance.
+- Physics: offline sample-DE / L3 DE440s-baked table for planning (product), L1 Approximate Positions for animation, Lambert transfers, Need/Capability/Margin vehicle triad, GO/NO-GO Plan Dossier.
+- If asked for operational flight design or certification, say clearly that HELIOS is preliminary analysis only.
 
 You can explain routes, Δv, porkchops, vehicles (Falcon 9 / Starship arches), fidelity badges, and plan quality gates.
 When the user wants the UI changed (set Earth→Mars, compute route), enable **Tools** in settings or use the CLI agent.
@@ -253,7 +253,7 @@ export function wireAgentChat() {
   const head = el('div', { className: 'hc-head' }, [
     el('div', {}, [
       el('div', { className: 'hc-title', text: 'HELIOS // ASSISTANT' }),
-      el('div', { className: 'hc-sub', text: `model ${DEFAULT_MODEL} · concept-grade` }),
+      el('div', { className: 'hc-sub', text: `model ${DEFAULT_MODEL} · mission design` }),
     ]),
     el('button', {
       type: 'button',

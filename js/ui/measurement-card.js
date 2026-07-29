@@ -20,11 +20,11 @@ export function normalizeFidelity(level) {
 
 export function fidelityBadgeLabel(level) {
   const f = normalizeFidelity(level);
-  if (f === 'L3-plan') return 'L3-plan · DE440s SPICE-baked offline table (not certified ops)';
-  if (f === 'L2-horizons') return 'L2-horizons · live endpoint inject (not SPICE runtime)';
+  if (f === 'L3-plan') return 'L3-plan · DE440s SPICE-baked offline table (preliminary · not certified OD)';
+  if (f === 'L2-horizons') return 'L2-horizons · live endpoint inject (analysis · not live SPICE runtime)';
   if (f === 'L2-plan') return 'L2-plan · offline sample table';
   if (f === 'L2-compare') return 'L2-compare · Horizons Δr check only';
-  return 'L1 · JPL approx (offline)';
+  return 'L1 · JPL Approximate Positions (offline)';
 }
 
 export function fidelityCssClass(level) {
@@ -101,16 +101,19 @@ export function buildMeasurementCard(td) {
       <div class="info-row"><span class="key">Error note</span><span class="val" style="font-size:9px;opacity:0.8">JPL nominal table 1800–2050 — not 1σ covariance, not DE/SPICE</span></div>`;
   } else if (fidelity === 'L2-horizons' || state.horizonsEndpointInject) {
     errorRows = `
-      <div class="info-row"><span class="key">Planning backend</span><span class="val amber">Horizons endpoint inject (network) + sample/approx fallback — not SPICE</span></div>`;
+      <div class="info-row"><span class="key">Planning backend</span><span class="val amber">Horizons endpoint inject (network) + sample/approx fallback</span></div>`;
+  } else if (fidelity === 'L3-plan') {
+    errorRows = `
+      <div class="info-row"><span class="key">Planning backend</span><span class="val">DE440s SPICE-baked offline table (JSON · not live .bsp)</span></div>`;
   } else {
     errorRows = `
-      <div class="info-row"><span class="key">Planning backend</span><span class="val amber">offline sample table (educational) — not DE/SPICE kernels</span></div>`;
+      <div class="info-row"><span class="key">Planning backend</span><span class="val">offline sample table (L2-plan)</span></div>`;
   }
 
   let html = `
       <div class="measurement-card" data-fidelity="${cssFid}" data-backend="${backend}" id="measurement-card">
-      <div class="result-subtitle">MISSION MEASUREMENT
-        <span class="fidelity-badge fidelity-${cssFid}" title="L1 = offline JPL Approximate Positions. L2-compare = Horizons Δr check only (planning still L1). L2-plan = offline educational sample table (not DE/SPICE). L3 SPICE is out of product scope.">${cssFid}</span>
+      <div class="result-subtitle">NEED / CAPABILITY / MARGIN
+        <span class="fidelity-badge fidelity-${cssFid}" title="L1 approx · L2-plan sample table · L3-plan DE440s bake · L2-horizons inject. Preliminary analysis — not certified OD.">${cssFid}</span>
       </div>
       <div class="info-row"><span class="key">Ephemeris fidelity</span><span class="val">${fidelityLabel}</span></div>
       <div class="info-row"><span class="key">Planning backend</span><span class="val">${backend}</span></div>
@@ -119,7 +122,7 @@ export function buildMeasurementCard(td) {
       <div class="info-row"><span class="key">Vehicle</span><span class="val">${presetDisplayName(state.vehicleId)}</span></div>`;
 
   if (isLegacy) {
-    html += `<div class="info-row"><span class="key">Architecture</span><span class="val amber">LEGACY DEMO — booster-only Δv, not cargo architecture</span></div>`;
+    html += `<div class="info-row"><span class="key">Architecture</span><span class="val amber">LEGACY STACK — booster-only Δv, not cargo architecture</span></div>`;
   } else if (state.vehicleId === 'sh-starship') {
     html += `<div class="info-row"><span class="key">Architecture</span><span class="val">${state.starshipArch}${state.starshipArch === 'tanker-n' ? ` · N=${state.tankerCount}` : ''}</span></div>`;
   } else if (state.vehicleId === 'falcon9') {
@@ -138,7 +141,7 @@ export function buildMeasurementCard(td) {
       <div class="info-row"><span class="key">C₃ (departure)</span><span class="val">${fmtC3(need.c3_m2_s2)}</span></div>
       ${need.vinf_dep_m_s != null ? `<div class="info-row"><span class="key">V∞ dep</span><span class="val">${formatVelocity(need.vinf_dep_m_s)}</span></div>` : ''}
       ${need.aeroassist_factor > 0 ? `<div class="info-row"><span class="key">Aeroassist factor</span><span class="val">${need.aeroassist_factor.toFixed(2)}</span></div>` : ''}
-      ${(state.ascentLossBudget_m_s > 0) ? `<div class="info-row"><span class="key">Ascent loss budget (edu)</span><span class="val amber">${formatVelocity(state.ascentLossBudget_m_s)} <span style="font-size:9px;opacity:0.7">not in Lambert Need</span></span></div>` : ''}
+      ${(state.ascentLossBudget_m_s > 0) ? `<div class="info-row"><span class="key">Ascent loss budget</span><span class="val amber">${formatVelocity(state.ascentLossBudget_m_s)} <span style="font-size:9px;opacity:0.7">not in Lambert Need</span></span></div>` : ''}
 
       <div style="height:8px"></div>
       <div class="result-subtitle">CAPABILITY</div>`;

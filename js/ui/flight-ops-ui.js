@@ -26,8 +26,8 @@ export function setFlightOpsMode(on, opts = {}) {
   syncFlightOpsUi();
   if (!opts.silent) {
     notify(state.flightOpsMode
-      ? 'FLIGHT-OPS MODE (EDUCATIONAL) — not certified / not range safety'
-      : 'FLIGHT-OPS MODE OFF');
+      ? 'OPS REVIEW ON — preliminary analysis · not certified / not range safety'
+      : 'OPS REVIEW OFF');
   }
   // Refresh results if any
   if (state.transferData) {
@@ -130,7 +130,7 @@ export function wireFlightOpsUi() {
     wrap.id = 'flight-ops-panel';
     wrap.hidden = true;
     wrap.innerHTML = `
-      <div class="panel-title" style="font-size:11px;margin-top:8px">Flight ops (educational)</div>
+      <div class="panel-title" style="font-size:11px;margin-top:8px">Ops review (analysis)</div>
       <div id="flight-ops-panel-body" class="route-section"></div>
     `;
     const plan = document.getElementById('rail-pane-plan') || document.getElementById('right-panel');

@@ -180,7 +180,7 @@ export function buildPlanDossier(td, opts = {}) {
     completeness,
     confidence_label: confidenceLabel(quality.confidence_0_100, quality.status),
     confidence_note:
-      'Educational plan-completeness confidence — not navigation covariance or flight certification.',
+      'Analysis-completeness confidence for preliminary design — not navigation covariance or flight certification.',
   };
 
   td.dossier = dossier;
@@ -285,19 +285,37 @@ function buildCompleteness(td, need, capability, margin, asymptotePkg, quality) 
  * Status banner + recovery + checklist HTML.
  * Compact by default: non-OK gates + recovery; details expand for trust/DLA/ascent.
  */
+/** IMDH-style completeness checklist for Results. */
+export function completenessBoardHtml(dossier) {
+  const items = dossier?.completeness?.items;
+  if (!items?.length) return '';
+  const rows = items.map((i) => {
+    const cls = i.na ? 'cb-na' : (i.ok ? 'cb-ok' : 'cb-miss');
+    const mark = i.na ? 'N/A' : (i.ok ? 'OK' : 'MISS');
+    return `<div class="cb-row"><span>${i.label}</span><span class="${cls}">${mark}</span></div>`;
+  }).join('');
+  const ok = items.filter((i) => i.ok || i.na).length;
+  return `
+    <div class="completeness-board" id="completeness-board">
+      <div class="cb-title">Analysis checklist · ${ok}/${items.length}</div>
+      ${rows}
+    </div>`;
+}
+
 export function planStatusBannerHtml(dossier) {
   if (!dossier) return '';
   const st = dossier.status;
   const color = st === 'pass' ? 'green' : st === 'pass_with_warnings' ? 'amber' : 'red-val';
-  const title = st === 'pass' ? 'PLAN PASS'
-    : st === 'pass_with_warnings' ? 'PASS · WARNINGS'
-      : 'PLAN FAILED';
+  const title = st === 'pass' ? 'GO'
+    : st === 'pass_with_warnings' ? 'GO · WARNINGS'
+      : 'NO-GO';
 
   const gateLines = (dossier.gates || [])
-    .filter((g) => g.level !== 'ok')
+    .filter((g) => g.level !== 'ok' && g.level !== 'pass')
     .map((g) => {
       const mark = g.level === 'fail' ? '✗' : '!';
-      return `<div class="info-row"><span class="key">${mark} ${g.code}</span><span class="val ${g.level === 'fail' ? 'red-val' : 'amber'}">${g.message}</span></div>`;
+      const msg = g.message || g.title || g.detail || g.code;
+      return `<div class="info-row"><span class="key">${mark} ${g.code}</span><span class="val ${g.level === 'fail' ? 'red-val' : 'amber'}">${msg}</span></div>`;
     })
     .join('');
 
@@ -329,31 +347,34 @@ export function planStatusBannerHtml(dossier) {
   const al = dossier.ascent_loss;
   if (al && al.budget_m_s > 0) {
     ascent = `
-      <div class="info-row"><span class="key">Ascent loss (edu)</span><span class="val">${formatVelocity(al.budget_m_s)}</span></div>
+      <div class="info-row"><span class="key">Ascent loss (analysis)</span><span class="val">${formatVelocity(al.budget_m_s)}</span></div>
       <div class="info-row"><span class="key">Note</span><span class="val" style="font-size:9px">${al.note}</span></div>`;
   }
 
   const siteLine = dossier.launch_site && dossier.launch_site.id !== 'any'
-    ? `<div class="info-row"><span class="key">Launch site (edu)</span><span class="val">${dossier.launch_site.name}</span></div>`
+    ? `<div class="info-row"><span class="key">Launch site band</span><span class="val">${dossier.launch_site.name}</span></div>`
     : '';
 
   const multiPark = dossier.inputs?.multi_leg
     ? `<div class="info-row"><span class="key">Mission parking</span><span class="val amber">n/a multi-leg</span></div>`
     : '';
 
+  const ready = dossier.mission_ready;
+  const flyStudy = dossier.launch_enabled ?? dossier.mission_ready;
+
   return `
     <div class="plan-status-banner" data-status="${st}" id="plan-status-banner">
-      <div class="result-subtitle">STATUS · <span class="${color}">${title}</span>
-        · conf ${dossier.confidence_0_100}
+      <div class="result-subtitle">GATE BOARD · <span class="${color}">${title}</span>
+        · completeness conf ${dossier.confidence_0_100}
       </div>
-      <div class="info-row"><span class="key">Ready / Launch</span><span class="val ${dossier.mission_ready ? 'green' : 'red-val'}">${
-        dossier.mission_ready ? 'YES' : 'NO'
-      } / ${(dossier.launch_enabled ?? dossier.mission_ready) ? 'ENABLED' : 'BLOCKED'}</span></div>
+      <div class="info-row"><span class="key">Mission ready / Fly study</span><span class="val ${ready ? 'green' : 'red-val'}">${
+        ready ? 'YES' : 'NO'
+      } / ${flyStudy ? 'ENABLED' : 'BLOCKED'}</span></div>
       ${dateNote}
       ${gateLines || '<div class="info-row"><span class="key">Gates</span><span class="val green">All critical gates OK</span></div>'}
       ${actions ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0">${actions}</div>` : ''}
       <details class="results-details nested">
-        <summary>Methodology · completeness (${checkOk}/${checkN}) · trust</summary>
+        <summary>Methodology · checklist (${checkOk}/${checkN}) · trust</summary>
         <div class="results-details-body">
           <p style="font-size:9px;opacity:0.8;margin:4px 0">${dossier.confidence_note}</p>
           ${siteLine}${multiPark}${asym}${ascent}

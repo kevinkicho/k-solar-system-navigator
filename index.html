@@ -2,11 +2,32 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>HELIOS // Solar System Navigator</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<title>HELIOS // Mission Design · Launch Planning</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
+  /* Industrial mission-design console (default) */
+  --bg-deep: #06090f;
+  --bg-panel: rgba(10, 14, 22, 0.94);
+  --cyan: #4db8d9;
+  --cyan-dim: rgba(77, 184, 217, 0.22);
+  --cyan-glow: rgba(77, 184, 217, 0.06);
+  --amber: #e0a050;
+  --red: #e04860;
+  --green: #3dcc8a;
+  --text: #c5d0dc;
+  --text-dim: #6a7a8c;
+  --border: rgba(90, 120, 150, 0.22);
+  --border-bright: rgba(120, 160, 190, 0.4);
+  --font-display: 'Orbitron', monospace;
+  --font-mono: 'IBM Plex Mono', 'Share Tech Mono', 'Courier New', monospace;
+  --go: #3dcc8a;
+  --nogo: #e04860;
+  --warn: #e0a050;
+}
+/* Classic neon navigator (opt-in) */
+body.theme-classic {
   --bg-deep: #040810;
   --bg-panel: rgba(6, 14, 28, 0.92);
   --cyan: #00d4ff;
@@ -19,8 +40,10 @@
   --text-dim: #5a7a90;
   --border: rgba(0, 160, 220, 0.2);
   --border-bright: rgba(0, 200, 255, 0.45);
-  --font-display: 'Orbitron', monospace;
   --font-mono: 'Share Tech Mono', 'Courier New', monospace;
+  --go: #00e676;
+  --nogo: #ff2d55;
+  --warn: #ff9800;
 }
 html, body {
   width: 100%; height: 100%;
@@ -38,6 +61,12 @@ html, body {
 .scanlines {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   z-index: 1; pointer-events: none;
+  /* Very subtle in industrial mode; classic theme restores via body.theme-classic */
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(90,120,150,0.008) 3px, rgba(90,120,150,0.008) 6px);
+  opacity: 0.45;
+}
+body.theme-classic .scanlines {
+  opacity: 1;
   background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,180,255,0.012) 2px, rgba(0,180,255,0.012) 4px);
 }
 
@@ -51,18 +80,24 @@ html, body {
   border-bottom: 1px solid var(--border);
 }
 #top-bar .logo {
-  font-family: var(--font-display); font-weight: 900; font-size: 16px;
-  letter-spacing: 6px; color: var(--cyan);
-  text-shadow: 0 0 20px rgba(0,212,255,0.5), 0 0 40px rgba(0,212,255,0.2);
+  font-family: var(--font-display); font-weight: 900; font-size: 15px;
+  letter-spacing: 5px; color: var(--cyan);
+  text-shadow: none;
   text-decoration: none; cursor: pointer;
   display: inline-flex; align-items: baseline; gap: 0;
-  border-radius: 4px; padding: 4px 6px 4px 2px;
-  transition: color 0.15s, text-shadow 0.15s, background 0.15s;
+  border-radius: 3px; padding: 4px 6px 4px 2px;
+  transition: color 0.15s, background 0.15s;
 }
 #top-bar a.logo:hover {
+  color: #8ecfe0;
+  background: rgba(77, 184, 217, 0.08);
+}
+body.theme-classic #top-bar .logo {
+  text-shadow: 0 0 20px rgba(0,212,255,0.5), 0 0 40px rgba(0,212,255,0.2);
+}
+body.theme-classic #top-bar a.logo:hover {
   color: #7aecff;
   text-shadow: 0 0 24px rgba(0,212,255,0.75), 0 0 48px rgba(0,212,255,0.35);
-  background: rgba(0, 212, 255, 0.06);
 }
 #top-bar a.logo:focus-visible {
   outline: 1px solid var(--cyan);
@@ -893,18 +928,19 @@ input[type="range"]::-webkit-slider-thumb {
 <div class="scanlines"></div>
 
 <div id="top-bar">
-  <a class="logo" href="/" id="logo-home" title="Return to main HELIOS site" aria-label="HELIOS — return to main site">HELIOS<span>SOLAR SYSTEM NAVIGATOR</span></a>
+  <a class="logo" href="/" id="logo-home" title="HELIOS mission design workstation" aria-label="HELIOS — Mission Design">HELIOS<span>MISSION DESIGN</span></a>
   <div class="center-info">
     <div><span class="label">Date</span><span id="sim-date">2026-04-14</span></div>
     <div><span class="label">MJD</span><span id="sim-mjd">60780</span></div>
     <div><span class="label">Frame</span><span class="frame-badge">J2000 · ECLIPTIC</span></div>
+    <div><span class="label">Eph</span><span id="fidelity-chip" class="fidelity-chip" title="Planning ephemeris fidelity">L2-plan</span></div>
   </div>
   <div class="right-info">
     <span id="view-mode-badge" title="Display scale mode">VIEW: CINEMATIC</span>
     <button type="button" id="btn-physics-accurate" class="map-mode-btn" aria-pressed="false"
       title="Physics-accurate view: schematic frames + physical path. Numbers always from Lambert — Three.js is display only.">ACCURATE</button>
     <button type="button" id="btn-flight-ops" class="map-mode-btn" aria-pressed="false"
-      title="Educational flight-ops mode — light-time, ops gates, OEM-like export. NOT certified / NOT range safety.">OPS</button>
+      title="Ops review mode — light-time, analysis gates, OEM-like export. Preliminary analysis only — not certified / not range safety.">OPS</button>
     <button type="button" id="btn-true-scale" class="map-mode-btn" aria-pressed="false"
       title="Semi-true body radii (R/AU × boost). Pure 1:1 is invisible at system scale.">1:R</button>
     <button type="button" id="btn-map-mode" class="map-mode-btn" aria-pressed="false"
@@ -949,10 +985,17 @@ input[type="range"]::-webkit-slider-thumb {
 
   <div class="rail-pane" data-pane="plan" id="rail-pane-plan" role="tabpanel" hidden>
     <div class="route-section">
-      <h3>Route Planner</h3>
+      <h3>Launch Campaign</h3>
+      <nav class="campaign-steps" id="campaign-steps" aria-label="Campaign workflow">
+        <button type="button" class="campaign-step" data-step="route" title="Origin, destination, sites">1 Route</button>
+        <button type="button" class="campaign-step" data-step="window" title="Departure epoch &amp; launch windows">2 Window</button>
+        <button type="button" class="campaign-step" data-step="vehicle" title="Vehicle stack &amp; cargo">3 Vehicle</button>
+        <button type="button" class="campaign-step" data-step="compute" title="Compute trajectory">4 Compute</button>
+        <button type="button" class="campaign-step" data-step="review" title="GO / NO-GO review">5 Review</button>
+      </nav>
       <div class="scenario-row">
-        <select id="scenario-select" title="Load a pre-baked mission profile">
-          <option value="">Load scenario…</option>
+        <select id="scenario-select" title="Load a mission template">
+          <option value="">Mission template…</option>
         </select>
         <div id="scenario-summary"></div>
       </div>
@@ -1003,7 +1046,7 @@ input[type="range"]::-webkit-slider-thumb {
             <div class="geo-radius-readout" id="origin-radius-readout" aria-live="polite">Radius from center: —</div>
             <div class="geo-pg-readout" id="origin-pg-readout" hidden aria-live="polite"></div>
             <div class="geo-lon-system" id="origin-lon-system"></div>
-            <p class="surface-hint" id="origin-surface-hint">Geographic site: planetocentric lat/lon + height above reference. Derived r = R_ell(φ) + h. IAU-class W(t) · concept-grade · not SPICE.</p>
+            <p class="surface-hint" id="origin-surface-hint">Geographic site: planetocentric lat/lon + height above reference. Derived r = R_ell(φ) + h. IAU-class W(t) · preliminary · not live SPICE PCK.</p>
           </div>
         </div>
       </details>
@@ -1043,7 +1086,7 @@ input[type="range"]::-webkit-slider-thumb {
             <div class="geo-radius-readout" id="dest-radius-readout" aria-live="polite">Radius from center: —</div>
             <div class="geo-pg-readout" id="dest-pg-readout" hidden aria-live="polite"></div>
             <div class="geo-lon-system" id="dest-lon-system"></div>
-            <p class="surface-hint" id="dest-surface-hint">Geographic site: planetocentric lat/lon + height above reference. Derived r = R_ell(φ) + h. IAU-class W(t) · concept-grade · not SPICE.</p>
+            <p class="surface-hint" id="dest-surface-hint">Geographic site: planetocentric lat/lon + height above reference. Derived r = R_ell(φ) + h. IAU-class W(t) · preliminary · not live SPICE PCK.</p>
           </div>
         </div>
       </details>
@@ -1068,7 +1111,7 @@ input[type="range"]::-webkit-slider-thumb {
       </div>
       <div class="route-field-row">
         <label>Vehicle / architecture</label>
-        <select id="vehicle-select" title="Vehicle architecture (concept-grade)">
+        <select id="vehicle-select" title="Vehicle architecture (illustrative performance models)">
           <option value="sh-starship">Super Heavy + Starship</option>
           <option value="falcon9">Falcon 9 (illustrative C3 table)</option>
           <option value="abstract">Abstract Δv budget</option>
@@ -1084,7 +1127,7 @@ input[type="range"]::-webkit-slider-thumb {
           <div class="route-field-row" id="starship-arch-row">
             <label>Starship architecture</label>
             <select id="starship-arch" title="SS architecture mode">
-              <option value="legacy-demo">Legacy demo (booster-only Δv)</option>
+              <option value="legacy-demo">Legacy stack (booster-only Δv)</option>
               <option value="unrefueled">Unrefueled LEO→TMI (injection)</option>
               <option value="tanker-n">Tanker refuel (N tankers)</option>
             </select>
@@ -1121,19 +1164,19 @@ input[type="range"]::-webkit-slider-thumb {
           </div>
           <div class="route-field-row" id="ephemeris-backend-row">
             <label>Planning ephemeris</label>
-            <select id="ephemeris-backend" title="Product default: L2-plan offline sample table (not DE/SPICE). Classroom forces L1 approx.">
+            <select id="ephemeris-backend" title="Product default: offline sample table (L2/L3-plan). Classroom forces L1 approx.">
               <option value="approx">Approximate Positions (L1)</option>
-              <option value="sample-de" selected>Offline sample table (L2-plan product default · not DE/SPICE)</option>
+              <option value="sample-de" selected>Offline sample table (L2/L3-plan · DE440s bake when available)</option>
             </select>
             <label style="font-size:10px;display:flex;gap:6px;align-items:center;margin-top:6px" id="horizons-inject-wrap">
-              <input type="checkbox" id="flag-horizons-inject" title="Optional network: inject Horizons VECTORS at dep/arr for Need (not SPICE)">
-              Horizons endpoint inject (network · educational · not SPICE)
+              <input type="checkbox" id="flag-horizons-inject" title="Optional network: inject Horizons VECTORS at dep/arr for Need">
+              Horizons endpoint inject (network · analysis · not live SPICE)
             </label>
-            <p class="surface-hint" style="margin-top:4px">Inject fetches live JPL Horizons for origin/dest (and flybys) before Compute. Classroom forces off. Offline sample-DE remains default.</p>
+            <p class="surface-hint" style="margin-top:4px">Inject fetches live JPL Horizons for origin/dest (and flybys) before Compute. Classroom forces off. Offline sample-DE remains product default.</p>
           </div>
           <div class="route-field-row" id="ascent-loss-row">
-            <label>Ascent loss budget (edu)</label>
-            <select id="ascent-loss-budget" title="Educational ascent gravity/drag loss class — not added into Lambert Need">
+            <label>Ascent loss budget (analysis)</label>
+            <select id="ascent-loss-budget" title="Ascent gravity/drag loss class — not added into Lambert Need">
               <option value="0">Off (default)</option>
               <option value="1500">1.5 km/s class</option>
               <option value="2000">2.0 km/s class</option>
@@ -1186,7 +1229,7 @@ input[type="range"]::-webkit-slider-thumb {
             <label style="font-size:10px;display:flex;gap:6px;align-items:center" id="flag-nbody-wrap">
               <input type="checkbox" id="flag-nbody"> n-body residual overlay
             </label>
-            <p class="surface-hint" style="margin-top:4px">n-body is educational residual only — never changes Need/Δv.</p>
+            <p class="surface-hint" style="margin-top:4px">n-body residual is analysis-only — never changes Need/Δv.</p>
           </div>
           <div class="route-field-row">
             <label>Multi-leg window density</label>
@@ -1217,9 +1260,10 @@ input[type="range"]::-webkit-slider-thumb {
         </div>
       </div>
 
-      <button class="route-btn" id="calc-route">Compute Transfer</button>
-      <button class="route-btn" id="find-windows" style="font-size:10px;padding:8px;margin-top:4px;">Find Launch Windows</button>
-      <button class="route-btn clear" id="clear-route">Clear Route</button>
+      <button class="route-btn" id="calc-route">Compute trajectory</button>
+      <button class="route-btn" id="find-windows" style="font-size:10px;padding:8px;margin-top:4px;">Search launch windows</button>
+      <button class="route-btn clear" id="clear-route">Clear campaign</button>
+      <p class="product-class-footer" id="product-class-footer-plan">HELIOS · Preliminary mission design · Not flight-certified · Not range safety</p>
     </div>
   </div>
 
@@ -1227,6 +1271,7 @@ input[type="range"]::-webkit-slider-thumb {
     <div class="route-section" style="padding-top:8px">
       <div id="transfer-results"></div>
       <div id="mission-controls"></div>
+      <p class="product-class-footer" id="product-class-footer-results">HELIOS · Preliminary mission design · Not flight-certified · Not range safety</p>
     </div>
   </div>
 </div>
@@ -1352,16 +1397,16 @@ input[type="range"]::-webkit-slider-thumb {
 
 <div id="tooltip"></div>
 <div id="classroom-banner" hidden aria-hidden="true">
-  CLASSROOM MODE · schematic · abstract Δv budget · offline L1 ephemeris · concept-grade only (not flight ops)
+  CLASSROOM MODE · schematic · abstract Δv · offline L1 · methodology-first (not flight ops)
 </div>
-<div id="help-hint">SCROLL to zoom &middot; DRAG to orbit &middot; RIGHT-DRAG to pan &middot; CLICK to select &middot; RIGHT-CLICK to set route</div>
+<div id="help-hint">SCROLL zoom · DRAG orbit · RIGHT-DRAG pan · CLICK select · RIGHT-CLICK set route · Plan rail = launch campaign</div>
 <div id="notification"></div>
 
 <div id="about-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title">
   <div id="about-modal">
-    <h2 id="about-title">HELIOS<span class="sub">Solar System Navigator — physics & methodology</span></h2>
+    <h2 id="about-title">HELIOS<span class="sub">Mission Design Workstation — physics & methodology</span></h2>
 
-    <p>HELIOS is a physics-accurate interplanetary mission planner. Trajectories are computed against real Keplerian dynamics; the displayed Δv numbers are what an actual spacecraft would need.</p>
+    <p><strong>Professional preliminary launch planning</strong> in the browser: Lambert trajectories, launch-window search, vehicle Need/Capability/Margin, Plan Dossier GO/NO-GO gates, and DE440s-class offline ephemeris when baked. Numbers come from real Keplerian / patched-conic analysis — not a free-hand sketch. <strong>Not flight-certified software, not range safety, not SpaceX performance warranty, not a substitute for institutional flight dynamics (GMAT/STK/SPICE OD).</strong></p>
 
     <h3>Frame & ephemeris</h3>
     <table>
@@ -1387,9 +1432,9 @@ input[type="range"]::-webkit-slider-thumb {
     <p><code>e = 1 + r_p · V∞² / μ_planet</code> &nbsp; · &nbsp; <code>δ_max = 2·asin(1/e_min)</code></p>
     <p>Infeasible swingbys are flagged <span class="pill amber">TOO SHARP</span> with the required-vs-minimum periapsis shown.</p>
 
-    <h3>Vehicle model (concept-grade)</h3>
-    <p>Results use a <strong>Need / Capability / Margin</strong> measurement triad. Sample architectures: <strong>Falcon 9</strong> (illustrative payload-vs-C3 table), <strong>Starship + Super Heavy</strong> (legacy demo booster-only Δv, unrefueled LEO→TMI injection, N-tanker refuel), and abstract Δv budgets. Numbers are educational only — <strong>not SpaceX-certified, not flight operations</strong>.</p>
-    <p>Legacy demo mode keeps Super Heavy transfer Δv with Starship propellant reserved; cargo-aware arches use rocket-equation Starship capability at requested cargo mass. Margin may be Δv, cargo kg, or tankers depending on the primary metric.</p>
+    <h3>Vehicle model (illustrative performance)</h3>
+    <p>Results use a <strong>Need / Capability / Margin</strong> triad for launch planning review. Architectures: <strong>Falcon 9</strong> (illustrative payload-vs-C3 table), <strong>Starship + Super Heavy</strong> (legacy stack booster-only Δv, unrefueled LEO→TMI injection, N-tanker refuel), and abstract Δv budgets. <strong>Not SpaceX-certified performance; not flight operations.</strong></p>
+    <p>Legacy stack mode keeps Super Heavy transfer Δv with Starship propellant reserved; cargo-aware arches use rocket-equation Starship capability at requested cargo mass. Margin may be Δv, cargo kg, or tankers depending on the primary metric.</p>
 
     <h3>Ephemeris fidelity badges</h3>
     <table>
@@ -1398,8 +1443,8 @@ input[type="range"]::-webkit-slider-thumb {
       <tr><td><span class="pill" style="color:var(--green);border-color:rgba(0,230,118,0.4)">L2-plan</span></td><td>Offline sample table (Horizons-baked or bootstrap). Rebuild: <code>npm run build:ephemeris</code>.</td></tr>
       <tr><td><span class="pill" style="color:#ce93d8;border-color:rgba(206,147,216,0.45)">L2-horizons</span> opt-in</td><td>Live Horizons VECTORS inject at dep/arr for Need. Classroom off. Not SPICE runtime.</td></tr>
       <tr><td><span class="pill" style="color:#80cbc4;border-color:rgba(128,203,196,0.5)">L3-plan</span></td><td>Offline table <strong>baked from NAIF de440s.bsp via spiceypy</strong> (<code>python scripts/build-ephemeris-from-spice.py</code>). Browser loads JSON only — not live <code>.bsp</code> at runtime. <strong>Not flight-certified OD.</strong></td></tr>
-      <tr><td><span class="pill" style="color:var(--amber);border-color:rgba(255,152,0,0.4)">OPS mode</span></td><td>Educational flight-ops workflow (light-time, ops gates, OEM-like export). Top bar <strong>OPS</strong>. <strong>NOT range safety, NOT mission assurance, NOT certified flight software.</strong></td></tr>
-      <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">Certified ops</span></td><td><strong>Out of scope forever for this SPA</strong> — real flight ops needs institutional SPICE pipelines, OD, covariance, ground system certification. HELIOS is a training / concept planner.</td></tr>
+      <tr><td><span class="pill" style="color:var(--amber);border-color:rgba(255,152,0,0.4)">OPS mode</span></td><td>Ops review workflow (light-time, analysis gates, OEM-like export). Top bar <strong>OPS</strong>. <strong>NOT range safety, NOT mission assurance, NOT certified flight software.</strong></td></tr>
+      <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">Certified ops</span></td><td><strong>Out of scope for this SPA</strong> — real flight ops needs institutional SPICE pipelines, OD, covariance, and ground-system certification. HELIOS is a preliminary mission-design workstation.</td></tr>
     </table>
     <p>JPL Approximate Positions accuracy table: <a href="https://ssd.jpl.nasa.gov/planets/approx_pos.html" target="_blank" style="color:var(--cyan)">ssd.jpl.nasa.gov/planets/approx_pos.html</a>. Export records <code>measurement.fidelity</code> and <code>methodology.ephemeris_backend</code>.</p>
 
@@ -1412,8 +1457,8 @@ input[type="range"]::-webkit-slider-thumb {
       <tr><td>Share / export</td><td>Sites in hash <code>os</code>/<code>ds</code> and mission JSON; multi-leg terminals and flyby geo sites when enabled</td></tr>
     </table>
 
-    <h3>Launch geometry (educational)</h3>
-    <p>Educational launch-site latitude bands (Cape / Vandenberg / Kourou class) gate asymptote |DLA| honesty. Parking-orbit Need uses circular parking at site altitude or body-kind default. <strong>Not range safety, not launch-window products, not flight design.</strong></p>
+    <h3>Launch geometry (analysis)</h3>
+    <p>Launch-site latitude bands (Cape / Vandenberg / Kourou class) gate asymptote |DLA| honesty for planning review. Parking-orbit Need uses circular parking at site altitude or body-kind default. <strong>Not range safety, not certified launch-window products.</strong></p>
 
     <h3>Multi-leg window search</h3>
     <p>Nearest-feasible and multi-leg window searches are <strong>local coarse or thorough seeds</strong> (workerized), not global mission optimization. Prefer denser “thorough” mode in Plan → Advanced when exploring multi-leg routes.</p>

@@ -199,14 +199,22 @@ export function wireControls() {
           state.fidelityLevel = m.sampleTableIsSpiceDe?.() ? 'L3-plan' : 'L2-plan';
         }
         notify(state.fidelityLevel === 'L3-plan'
-          ? 'PLANNING: L3-PLAN DE440s SPICE-BAKED TABLE (not certified ops)'
+          ? 'PLANNING: L3-PLAN DE440s SPICE-BAKED TABLE (preliminary · not certified OD)'
           : 'PLANNING: L2-PLAN SAMPLE TABLE');
+        import('./product-chrome.js').then((c) => {
+          c.syncFidelityChip?.();
+          c.syncProductClassFooters?.();
+        }).catch(() => {});
       }).catch(() => {
         if (!state.horizonsEndpointInject) state.fidelityLevel = 'L2-plan';
       });
     } else if (['L2-plan', 'L2-horizons', 'L3-plan'].includes(state.fidelityLevel)) {
       state.fidelityLevel = 'L1';
       notify('PLANNING EPHEMERIS: APPROX (L1)');
+      import('./product-chrome.js').then((c) => {
+        c.syncFidelityChip?.();
+        c.syncProductClassFooters?.();
+      }).catch(() => {});
     }
     rerenderIfRoute();
   };

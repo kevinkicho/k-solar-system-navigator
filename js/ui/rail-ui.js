@@ -1,6 +1,8 @@
 /**
- * Right-rail tabs (Inspect / Plan / Results) + mobile map-first chips.
+ * Right-rail tabs (Inspect / Plan / Results) + mobile map-first chips
+ * + launch-campaign step strip.
  */
+import { state } from '../state.js';
 
 /** @param {'inspect'|'plan'|'results'} tab */
 export function activateRailTab(tab) {
@@ -12,6 +14,70 @@ export function activateRailTab(tab) {
   document.querySelectorAll('.rail-pane').forEach((p) => {
     p.hidden = p.dataset.pane !== tab;
   });
+  try { syncCampaignSteps(); } catch { /* */ }
+}
+
+/** Highlight campaign workflow steps from current plan state. */
+export function syncCampaignSteps() {
+  const host = document.getElementById('campaign-steps');
+  if (!host) return;
+  const hasRoute = !!(state.routeOrigin && state.routeDestination);
+  const hasWindow = !!(document.getElementById('depart-date')?.value) || !!state.transferData;
+  const hasVehicle = !!state.vehicleId;
+  const hasCompute = !!state.transferData;
+  const ready = !!(state.transferData?.dossier?.mission_ready
+    || state.transferData?.dossier?.launch_enabled);
+  const blocked = !!(state.transferData && state.transferData.dossier
+    && !(state.transferData.dossier.launch_enabled ?? state.transferData.dossier.mission_ready));
+
+  const flags = {
+    route: hasRoute,
+    window: hasWindow,
+    vehicle: hasVehicle,
+    compute: hasCompute,
+    review: hasCompute,
+  };
+  let active = 'route';
+  if (!hasRoute) active = 'route';
+  else if (!hasWindow) active = 'window';
+  else if (!hasVehicle) active = 'vehicle';
+  else if (!hasCompute) active = 'compute';
+  else active = 'review';
+
+  host.querySelectorAll('.campaign-step').forEach((btn) => {
+    const step = btn.dataset.step;
+    btn.classList.toggle('active', step === active);
+    btn.classList.toggle('done', !!flags[step] && step !== active);
+    btn.classList.toggle('blocked', step === 'review' && blocked && !ready);
+  });
+}
+
+function wireCampaignSteps() {
+  const host = document.getElementById('campaign-steps');
+  if (!host || host.dataset.wired) return;
+  host.dataset.wired = '1';
+  host.querySelectorAll('.campaign-step').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const step = btn.dataset.step;
+      if (step === 'review') {
+        activateRailTab('results');
+        syncMobileChipsFromRail('results');
+        return;
+      }
+      activateRailTab('plan');
+      syncMobileChipsFromRail('plan');
+      if (step === 'window') {
+        document.getElementById('depart-date')?.focus();
+      } else if (step === 'vehicle') {
+        document.getElementById('vehicle-select')?.focus();
+      } else if (step === 'compute') {
+        document.getElementById('calc-route')?.focus();
+      } else if (step === 'route') {
+        document.getElementById('route-origin')?.focus();
+      }
+    });
+  });
+  syncCampaignSteps();
 }
 
 export function wireRailUi() {
@@ -25,6 +91,7 @@ export function wireRailUi() {
 
   // Default: Plan (primary workflow). Inspect remains one click away.
   activateRailTab('plan');
+  wireCampaignSteps();
 
   // ?debug=1 shows FPS + cursor AU readout
   try {

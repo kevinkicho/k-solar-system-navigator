@@ -60,6 +60,7 @@ const SUITE = [
   'tests/product_ephemeris_default.mjs',
   'tests/horizons_inject.mjs',
   'tests/flight_ops.mjs',
+  'tests/mission_package.mjs',
   'tests/perf_budgets.mjs',
 ];
 

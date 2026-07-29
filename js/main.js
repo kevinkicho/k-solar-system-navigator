@@ -54,6 +54,7 @@ import { wireCameraFocus } from './ui/camera-focus.js';
 import { wirePhysicsView } from './ui/physics-view.js';
 import { wireFlightOpsUi } from './ui/flight-ops-ui.js';
 import { applyBodyScales } from './scene/body-scale.js';
+import { applyProductTheme, syncFidelityChip, syncProductClassFooters } from './ui/product-chrome.js';
 
 // Mission + animation.
 import { abortMission, launchMission, wireMissionStudyBar } from './mission.js';
@@ -88,8 +89,11 @@ if (params.get('mode') === 'classroom') {
     if (!state.classroomMode && m.sampleTableIsSpiceDe?.()) {
       state.fidelityLevel = 'L3-plan';
     }
+    syncFidelityChip();
+    syncProductClassFooters();
   }).catch(() => {});
 }
+applyProductTheme();
 
 // Build body list, set initial time + departure-date input, fade help hint.
 buildBodyList();

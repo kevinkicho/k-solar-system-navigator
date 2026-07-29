@@ -30,7 +30,7 @@ export function buildPathCsv(td, opts = {}) {
     '# HELIOS transfer path CSV',
     `# origin=${td.body1?.name || '?'} dest=${td.body2?.name || '?'}`,
     `# geometry=${geom} frame=scene_AU offset=${state.pathOffsetPolicy || 'time_varying'}`,
-    '# disclaimer=concept-grade Kepler conic — not SPICE / not flight ops',
+    '# disclaimer=preliminary Kepler conic analysis — not live SPICE / not flight-certified',
     'i,frac,t_sim_s,tof_days,x_AU,y_AU,z_AU',
   ];
   for (let i = 0; i < pts.length; i++) {

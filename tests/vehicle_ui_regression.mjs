@@ -54,6 +54,13 @@ check('flight-ops UI exists', existsSync(resolve(ROOT, 'js/ui/flight-ops-ui.js')
 check('main wires flight ops', /wireFlightOpsUi/.test(mainJs));
 check('SPICE bake script exists', existsSync(resolve(ROOT, 'scripts/build-ephemeris-from-spice.py')));
 check('kernel download script exists', existsSync(resolve(ROOT, 'scripts/download-kernels.py')));
+check('Mission Design branding', /MISSION DESIGN/.test(indexHtml));
+check('Campaign steps in Plan rail', /campaign-steps/.test(indexHtml) && /Compute trajectory/.test(indexHtml));
+check('Product class footer markup', /product-class-footer/.test(indexHtml));
+check('Mission package module', existsSync(resolve(ROOT, 'js/ui/mission-package.js')));
+check('route-display GO/NO-GO board', /missionReviewBoardHtml|mission-review-board/.test(
+  readFileSync(resolve(ROOT, 'js/ui/route-display.js'), 'utf8')));
+check('product-chrome module', existsSync(resolve(ROOT, 'js/ui/product-chrome.js')));
 
 // PR15+ porkchop cargo readout + heatmap
 check('pc-cargo element in HTML', /id=["']pc-cargo["']/.test(indexHtml));

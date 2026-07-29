@@ -1,6 +1,8 @@
-# HELIOS // Solar System Navigator
+# HELIOS // Mission Design · Launch Planning
 
-A real-time 3D solar system simulator with accurate orbital mechanics, real stellar data, and interplanetary mission planning — including gravity-assist trajectories and a porkchop-plot launch-window finder.
+A **professional preliminary mission-design workstation** in the browser: real-time 3D solar system, Lambert trajectories, launch-window search, vehicle Need/Capability/Margin, GO/NO-GO Plan Dossier, and DE440s-class offline ephemeris — for interplanetary launch campaign analysis.
+
+**Not flight-certified software. Not range safety. Not SpaceX performance warranty. Not a GMAT/STK/SPICE-OD replacement.**
 
 ## Screenshots
 
@@ -23,13 +25,15 @@ A real-time 3D solar system simulator with accurate orbital mechanics, real stel
 Five deep-space probes rendered as labelled tetrahedron markers with velocity-direction trails, anchored at J2000 state vectors and linearly propagated (validated against NASA tracking to within a few percent through 2026):
 - Voyager 1 · Voyager 2 · Pioneer 10 · Pioneer 11 · New Horizons
 
-### Mission planner (concept-grade educational)
+### Mission design / launch planning
 - **Robust Lambert solver** — bracketed bisection on the universal-variable equation. Convergence-safe across the full single-revolution regime; rejects degenerate 180° geometries and validates every solution by propagating back to the target (≤1000 km miss required).
-- **Physics / visuals decoupling** — inclinations are visually exaggerated for dramatic 3D tilt, but all Δv and orbit-parameter computations use real inclinations, so displayed numbers are physically accurate.
-- **Plan Dossier quality gates** — every compute produces pass / warn / fail gates, confidence (completeness, not OD covariance), and Launch enablement only when `mission_ready` / `launch_enabled`.
-- **Need / Capability / Margin triad** — educational vehicle stacks: Falcon 9 (illustrative C₃ payload table), Starship + Super Heavy (**product default: unrefueled Starship injection** arch; optional legacy-demo SH-only or N-tanker). **Not SpaceX-certified, not flight ops.**
-- **Ephemeris fidelity** — product ships an offline sample table (8 planets, **2015–2055 @ 3 d**, HELIOS scene axes). Preferred bake: **NAIF DE440s via spiceypy** → **L3-plan** badge (`npm run kernels:download` + `npm run build:ephemeris:spice`, or `npm run build:ephemeris` which tries SPICE then Horizons then approx bootstrap). Opt-in **L2-horizons** live inject for Need. Optional L2-compare (Δr only). Animation stays L1 Approximate Positions. Classroom forces offline L1. **Browser loads JSON only — not live `.bsp` at runtime. Not certified OD / not range safety.**
-- **Flight-ops mode (educational)** — top-bar **OPS**: light-time readout, ops gates in Plan Dossier, OEM-like export. Training workflow only — **NOT** mission assurance or certified flight software.
+- **Physics / visuals decoupling** — cinematic tilt is display-only; all Δv and orbit-parameter computations use real inclinations.
+- **GO / NO-GO Mission Review Board** — every compute produces pass / warn / fail gates, analysis-completeness confidence (not OD covariance), and Fly study enablement only when `mission_ready` / `launch_enabled`.
+- **Need / Capability / Margin triad** — illustrative vehicle stacks: Falcon 9 (C₃ payload table), Starship + Super Heavy (**product default: unrefueled Starship injection**; optional legacy stack or N-tanker). **Not SpaceX-certified performance.**
+- **Launch campaign workflow** — Plan rail steps: Route → Window → Vehicle → Compute → Review. **Mission package** export (JSON + path CSV + brief; OEM-like when OPS on).
+- **Ephemeris fidelity** — product ships an offline sample table (8 planets, **2015–2055 @ 3 d**). Preferred bake: **NAIF DE440s via spiceypy** → **L3-plan** (`npm run kernels:download` + `npm run build:ephemeris:spice`). Opt-in **L2-horizons** live inject. Classroom forces offline L1. **Browser loads JSON only — not live `.bsp`. Not certified OD.**
+- **Ops review mode** — top-bar **OPS**: light-time, analysis gates, OEM-like export. **NOT** mission assurance or certified flight software.
+- **Theme** — industrial mission console by default; `?theme=classic` restores the neon navigator look.
 - **Geographic sites** — optional origin/dest **lat / lon / altitude** (planetocentric east-lon; height above reference). Gas/ice giants use a **1-bar cloud-deck** sphere with high default parking; oblate bodies use local ellipsoid *R*(φ) and dual planetographic readout; body-fixed orientation uses IAU-class *W(t)* (+ leading Moon/Mercury libration) and ICRF pole α₀/δ₀ → ecliptic. Sites round-trip in share hash (`os`/`ds`) and mission JSON; multi-leg applies sites on **terminals only**.
 - **Porkchop-plot launch-window finder** — sweep a grid of (departure date × transit duration) and heat-map Δv or SS injection-class cargo (workerized). Click a cell or use the auto-selected minimum to drive dates.
 - **Gravity-assist / multi-leg routing** — patched-conic flybys; infeasible swingbys flagged **TOO SHARP**. Multi-leg / nearest-feasible window search is a **coarse local seed** (workerized), not a global mission-design optimum.
@@ -204,7 +208,7 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 - **Classroom mode** — `?mode=classroom` → schematic + abstract budget + methodology banner
 - **Debug** — `?debug=1` logs Need / Capability / Margin objects to the browser console after compute
 
-> **Not flight design.** Vehicle numbers are educational illustrations — not SpaceX-certified performance.
+> **Preliminary analysis only.** Vehicle numbers are illustrative models — not SpaceX-certified performance or flight design products.
 
 ## Data sources
 

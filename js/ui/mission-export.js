@@ -66,13 +66,13 @@ export function buildPlanObject(td) {
     units: { distance: 'm', velocity: 'm/s', angle: 'deg', time: 'ISO-8601 UTC', mass: 'kg' },
     methodology: {
       ephemeris: (state.ephemerisBackend === 'sample-de' && !state.classroomMode)
-        ? 'Offline sample-table endpoints (educational) + JPL Approximate Positions for animation'
+        ? 'Offline sample-table endpoints (L2/L3-plan; DE440s bake when present) + JPL Approximate Positions for animation'
         : 'JPL Approximate Positions of Major Planets 1800-2050',
       ephemeris_backend: state.classroomMode
         ? 'approx'
         : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
       transfer: 'Lambert universal-variable, dual geometry (physical Δv / visual line)',
-      disclaimer: 'Educational / concept-grade sketch — not flight operations; not SpaceX-certified performance; not SPICE navigation.',
+      disclaimer: 'Preliminary mission design — not flight-certified software; not range safety; not SpaceX-certified performance; not operational SPICE OD.',
       display_mode: state.display?.mode || 'cinematic',
       fidelity: state.fidelityLevel === 'L2' ? 'L2-compare' : (state.fidelityLevel || 'L1'),
     },

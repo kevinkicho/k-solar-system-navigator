@@ -12,14 +12,16 @@ import {
 import { timeState } from './time-system.js';
 import { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 import { exportMissionPlan } from './mission-export.js';
+import { exportMissionPackage } from './mission-package.js';
 import { buildMeasurementCard } from './measurement-card.js';
-import { planStatusBannerHtml, buildPlanDossier } from './plan-dossier.js';
+import { planStatusBannerHtml, buildPlanDossier, completenessBoardHtml } from './plan-dossier.js';
 import { bindPlanRecoveryButtons } from './plan-recovery.js';
-import { activateRailTab } from './rail-ui.js';
+import { activateRailTab, syncCampaignSteps } from './rail-ui.js';
 import { wireSavePlanButton } from './firebase-ui.js';
 import { exportPathCsv } from './path-export.js';
 import { measurePathResidual } from './trajectory-hud.js';
 import { isSchematic } from '../display-scale.js';
+import { syncFidelityChip, syncProductClassFooters } from './product-chrome.js';
 export { updateTransferOrbitVisual } from './route-orbit-visual.js';
 export { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 
@@ -39,14 +41,14 @@ function bindMissionControlButtons(td, { canLaunch }) {
   if (launchBtn) {
     if (canLaunch) {
       launchBtn.disabled = false;
-      launchBtn.title = 'Launch animated mission along the transfer';
+      launchBtn.title = 'Fly study — animate transfer along the computed path (analysis only)';
       launchBtn.onclick = () => _launchMission && _launchMission();
     } else {
       launchBtn.disabled = true;
-      launchBtn.title = 'Plan not mission-ready — see Plan Status gates';
+      launchBtn.title = 'NO-GO — plan not mission-ready; open gate board for blockers';
       launchBtn.onclick = () => {
         import('./format.js').then(({ notify }) =>
-          notify('LAUNCH BLOCKED — PLAN NOT MISSION-READY'));
+          notify('FLY STUDY BLOCKED — PLAN NOT MISSION-READY (NO-GO)'));
       };
     }
   }
@@ -63,7 +65,7 @@ function bindMissionControlButtons(td, { canLaunch }) {
       timeState.setSpeed(3);
       timeState.updateDisplay();
       import('./format.js').then(({ notify }) =>
-        notify('JUMPED TO DEPARTURE — ghosts meet live planets'));
+        notify('EPOCH → DEPARTURE — burn ghosts align with live planets'));
     };
   }
   const exp = document.getElementById('btn-export-plan');
@@ -71,6 +73,13 @@ function bindMissionControlButtons(td, { canLaunch }) {
 
   const pathCsv = document.getElementById('btn-export-path-csv');
   if (pathCsv) pathCsv.onclick = () => exportPathCsv(td);
+
+  const pkg = document.getElementById('btn-export-package');
+  if (pkg) {
+    pkg.onclick = () => exportMissionPackage(td).catch(() => {
+      import('./format.js').then(({ notify }) => notify('MISSION PACKAGE FAILED'));
+    });
+  }
 
   wireSavePlanButton(td);
 
@@ -100,24 +109,72 @@ function bindMissionControlButtons(td, { canLaunch }) {
   });
 }
 
-function heroCardHtml({
-  title, b1, b2, transitLabel, needLabel, feasible, feasibleLabel, fidelityPill, visualWarn, surfaceNote,
+/**
+ * Mission Review Board — industrial GO / NO-GO hero.
+ */
+function missionReviewBoardHtml({
+  go, status, b1, b2, transitLabel, needLabel, c3Label, vinfLabel,
+  depLabel, fidelityPill, gatePass, gateWarn, gateFail,
+  asymptoteHtml, surfaceNote, visualWarn, classroom,
 }) {
-  const feasCls = feasible ? 'green' : 'red-val';
+  const boardCls = go ? 'go' : (status === 'pass_with_warnings' ? 'warn' : 'nogo');
+  const statusWord = go
+    ? (status === 'pass_with_warnings' ? 'GO · WARN' : 'GO')
+    : 'NO-GO';
+  const statusCls = go
+    ? (status === 'pass_with_warnings' ? 'warn' : 'go')
+    : 'nogo';
+  const sub = classroom
+    ? 'Classroom analysis · methodology-first'
+    : 'Preliminary mission design · not flight-certified';
   return `
-    <div class="results-hero" id="results-hero">
-      <div class="results-hero-title">${title}</div>
-      <div class="results-hero-route"><span class="green">${b1}</span> → <span class="amber">${b2}</span></div>
-      <div class="results-hero-metrics">
-        <div class="hero-metric"><span class="hm-k">Transit</span><span class="hm-v highlight">${transitLabel}</span></div>
-        <div class="hero-metric"><span class="hm-k">Need Δv</span><span class="hm-v">${needLabel}</span></div>
-        <div class="hero-metric"><span class="hm-k">Feasible</span><span class="hm-v ${feasCls}">${feasibleLabel}</span></div>
-        <div class="hero-metric"><span class="hm-k">Fidelity</span><span class="hm-v">${fidelityPill}</span></div>
+    <div class="mission-review-board ${boardCls}" id="results-hero" data-go="${go ? '1' : '0'}">
+      <div class="mrb-header">
+        <span class="mrb-status ${statusCls}">${statusWord}</span>
+        <span class="mrb-sub">${sub}</span>
+      </div>
+      <div class="mrb-route"><span class="green">${b1}</span> → <span class="amber">${b2}</span></div>
+      <div class="mrb-metrics">
+        <div class="info-row"><span class="key">Departure</span><span class="val">${depLabel || '—'}</span></div>
+        <div class="info-row"><span class="key">Transit</span><span class="val highlight">${transitLabel}</span></div>
+        <div class="info-row"><span class="key">Need Δv</span><span class="val">${needLabel}</span></div>
+        <div class="info-row"><span class="key">C₃ dep</span><span class="val">${c3Label || '—'}</span></div>
+        <div class="info-row"><span class="key">V∞ dep</span><span class="val">${vinfLabel || '—'}</span></div>
+        <div class="info-row"><span class="key">Fidelity</span><span class="val">${fidelityPill}</span></div>
+      </div>
+      ${asymptoteHtml || ''}
+      <div class="mrb-gatesum">
+        <span class="gs-pass">PASS ${gatePass}</span>
+        <span class="gs-warn">WARN ${gateWarn}</span>
+        <span class="gs-fail">FAIL ${gateFail}</span>
       </div>
       ${surfaceNote || ''}
-      <p class="results-hero-note">Green/orange ghosts = planet positions <em>at burn times</em>, not “now”. Use Jump to Departure to align the scene.</p>
+      <p class="mrb-note">Scene ghosts = planet states <em>at burn epochs</em>, not “now”. Use Jump to Departure to align the 3D view. Fly study is animation only.</p>
       ${visualWarn || ''}
     </div>`;
+}
+
+/** @deprecated keep name for any external callers */
+function heroCardHtml(opts) {
+  return missionReviewBoardHtml({
+    go: !!opts.feasible,
+    status: opts.feasible ? 'pass' : 'fail',
+    b1: opts.b1,
+    b2: opts.b2,
+    transitLabel: opts.transitLabel,
+    needLabel: opts.needLabel,
+    c3Label: '—',
+    vinfLabel: '—',
+    depLabel: '—',
+    fidelityPill: opts.fidelityPill,
+    gatePass: 0,
+    gateWarn: 0,
+    gateFail: opts.feasible ? 0 : 1,
+    asymptoteHtml: '',
+    surfaceNote: opts.surfaceNote,
+    visualWarn: opts.visualWarn,
+    classroom: !!state.classroomMode,
+  });
 }
 
 function surfaceNoteHtml(td) {
@@ -140,24 +197,53 @@ function surfaceNoteHtml(td) {
     lines.push(`Dest: ${d.label}${r}${sys}`);
   }
   const cs = o?.coordinateSystemLabel || d?.coordinateSystemLabel || 'Planetocentric geographic';
-  return `<p class="results-hero-surface" title="${cs} · r = R_ref + h · concept-grade">📍 ${lines.join(' · ')}<br><span style="opacity:0.75;font-size:9px">${cs}</span></p>`;
+  return `<p class="results-hero-surface" title="${cs} · r = R_ref + h · preliminary">📍 ${lines.join(' · ')}<br><span style="opacity:0.75;font-size:9px">${cs}</span></p>`;
+}
+
+function asymptoteHeroHtml(dossier) {
+  const g = dossier?.geometry;
+  if (!g) return '';
+  const parts = [];
+  if (g.dla_eq_deg != null && g.rla_eq_deg != null) {
+    parts.push(`<div class="info-row"><span class="key">DLA / RLA (eq≈)</span><span class="val amber">${g.dla_eq_deg.toFixed(1)}° / ${g.rla_eq_deg.toFixed(1)}°</span></div>`);
+  } else if (g.dla_ecliptic_deg != null) {
+    parts.push(`<div class="info-row"><span class="key">DLA / RLA (ecl.)</span><span class="val">${g.dla_ecliptic_deg.toFixed(1)}° / ${(g.rla_ecliptic_deg ?? 0).toFixed(1)}°</span></div>`);
+  }
+  if (!parts.length) return '';
+  return `<div class="mrb-metrics" style="margin-top:2px">${parts.join('')}</div>`;
+}
+
+function gateCounts(dossier) {
+  let pass = 0; let warn = 0; let fail = 0;
+  for (const g of dossier?.gates || []) {
+    if (g.level === 'fail') fail++;
+    else if (g.level === 'warn') warn++;
+    else pass++;
+  }
+  return { pass, warn, fail };
+}
+
+function fmtC3Hero(c3) {
+  if (c3 == null || !isFinite(c3)) return '—';
+  return `${(c3 / 1e6).toFixed(2)} km²/s²`;
 }
 
 function actionsHtml(missionReady) {
-  const launchLabel = missionReady ? 'Launch' : 'Launch (blocked)';
+  const launchLabel = missionReady ? 'Fly study' : 'Fly study (NO-GO)';
   const launchTitle = missionReady
-    ? 'Launch animated mission along the transfer'
-    : 'Plan not mission-ready — open Plan status for gates (often vehicle margin)';
+    ? 'Animate transfer along the computed path — analysis only, not a range launch'
+    : 'NO-GO — open gate board (often vehicle margin or site DLA)';
   return `
     <div class="results-actions" id="mission-controls">
       <button class="route-btn launch" id="btn-launch"${missionReady ? '' : ' disabled'}
         title="${launchTitle}">${launchLabel}</button>
       <button class="route-btn secondary" id="btn-open-windows">Windows</button>
       <button class="route-btn secondary" id="btn-goto-depart">Jump to Departure</button>
-      <button class="route-btn secondary" id="btn-export-plan">Export</button>
-      <button class="route-btn secondary" id="btn-export-path-csv" title="Download path samples CSV (Kepler conic, scene-frame AU)">Path CSV</button>
+      <button class="route-btn secondary" id="btn-export-package" title="Mission JSON + path CSV + mission brief (+ OEM if OPS)">Mission package</button>
+      <button class="route-btn secondary" id="btn-export-plan">Export JSON</button>
+      <button class="route-btn secondary" id="btn-export-path-csv" title="Path samples CSV (Kepler conic, scene-frame AU)">Path CSV</button>
       <button class="route-btn secondary" id="btn-save-cloud" title="Save plan summary to Firebase (sign-in required)">Save to cloud</button>
-      <button class="route-btn secondary" id="btn-share-link">Share</button>
+      <button class="route-btn secondary" id="btn-share-link" title="Copy baselined plan link">Baseline link</button>
     </div>`;
 }
 
@@ -174,7 +260,7 @@ function trustStripHtml(td, dossier) {
     eph += ' · partial approx fallback';
   }
   if (state.physicsAccurate) eph += ' · ACCURATE view';
-  if (state.flightOpsMode) eph += ' · OPS(edu)';
+  if (state.flightOpsMode) eph += ' · OPS review';
   const scene = state.physicsAccurate
     ? 'physics-accurate'
     : (state.mapMode
@@ -299,10 +385,14 @@ export function renderRouteUI() {
   } else {
     renderSingleLegRouteUI(td);
   }
-  // Keep educational OPS panel in sync after every Results re-render
   if (state.flightOpsMode) {
     import('./flight-ops-ui.js').then((m) => m.refreshFlightOpsPanel?.()).catch(() => {});
   }
+  try {
+    syncCampaignSteps();
+    syncFidelityChip();
+    syncProductClassFooters();
+  } catch { /* */ }
 }
 
 function renderSingleLegRouteUI(td) {
@@ -392,35 +482,45 @@ function renderSingleLegRouteUI(td) {
     && (dossier?.gates || []).some((g) => g.code === 'G_VEHICLE_FEASIBLE' && g.level === 'fail');
   const designHint = vehicleBlocked
     ? `<div class="vd-inline-hint" role="status">
-        Vehicle specs don’t meet Need (${needLabel}).
+        Vehicle capability does not meet Need (${needLabel}).
         <button type="button" class="btn-tiny" id="btn-design-vehicle">Design vehicle for Need</button>
         <button type="button" class="btn-tiny" id="btn-apply-abstract-need">Apply abstract budget</button>
       </div>`
     : '';
 
   const res = document.getElementById('transfer-results');
-  const heroTitle = !lambertOk
-    ? 'Estimate only'
-    : (missionReady ? 'Transfer ready' : 'Transfer solved · launch blocked');
+  const gc = gateCounts(dossier);
+  const c3 = card?.need?.c3_m2_s2;
+  const vinf = card?.need?.vinf_dep_m_s;
+  const depIso = dossier?.geometry?.departure_iso
+    || (td.departureSimTime != null ? simTimeToDate(td.departureSimTime).toISOString() : null);
   res.innerHTML = `
     <div class="transfer-results">
-      ${heroCardHtml({
-        title: heroTitle,
+      ${missionReviewBoardHtml({
+        go: missionReady,
+        status: dossier?.status || (missionReady ? 'pass' : 'fail'),
         b1: td.body1?.name || 'Origin',
         b2: td.body2?.name || 'Dest',
         transitLabel: `${(td.transferTime / DAY).toFixed(0)} d`,
         needLabel,
-        feasible: missionReady,
-        feasibleLabel: missionReady ? 'YES' : 'NO',
+        c3Label: fmtC3Hero(c3),
+        vinfLabel: vinf != null && isFinite(vinf) ? formatVelocity(vinf) : '—',
+        depLabel: depIso ? depIso.slice(0, 16).replace('T', ' ') + 'Z' : '—',
         fidelityPill: fidelityPill(dossier),
+        gatePass: gc.pass,
+        gateWarn: gc.warn,
+        gateFail: gc.fail,
+        asymptoteHtml: asymptoteHeroHtml(dossier),
         visualWarn: visualWarnHtml(td) + designHint,
         surfaceNote: surfaceNoteHtml(td),
+        classroom: !!state.classroomMode,
       })}
+      ${completenessBoardHtml(dossier)}
       ${trustStripHtml(td, dossier)}
       ${actionsHtml(missionReady)}
       ${detailsBlock('det-lambert', 'Transfer detail', false, lambertBlock)}
       ${detailsBlock('det-mission', 'Mission parking Δv', false, missionBlock)}
-      ${detailsBlock('det-plan', 'Plan status & recovery', !missionReady, planStatusBannerHtml(dossier, { compact: false }))}
+      ${detailsBlock('det-plan', 'Gate board & recovery', !missionReady, planStatusBannerHtml(dossier, { compact: false }))}
       ${detailsBlock('det-measure', 'Need / Capability / Margin', true, measureHtml)}
     </div>`;
 
@@ -530,23 +630,37 @@ function renderMultiLegRouteUI() {
     <div class="info-row"><span class="key">Total Δv (heliocentric)</span><span class="val amber">${formatVelocity(totalDv)}</span></div>
     <div class="info-row"><span class="key" style="font-size:9px;opacity:0.7">Note</span><span class="val" style="font-size:9px;opacity:0.7">Mission parking is single-leg only · multi-leg search is a coarse seed</span></div>`;
 
+  const gc = gateCounts(dossier);
+  const c3 = card?.need?.c3_m2_s2;
+  const vinf = card?.need?.vinf_dep_m_s;
+  const depIso = dossier?.geometry?.departure_iso
+    || (td.departureSimTime != null ? simTimeToDate(td.departureSimTime).toISOString() : null);
   res.innerHTML = `
     <div class="transfer-results">
-      ${heroCardHtml({
-        title: allOk ? 'Multi-leg route' : 'Multi-leg incomplete',
+      ${missionReviewBoardHtml({
+        go: missionReady,
+        status: dossier?.status || (missionReady ? 'pass' : 'fail'),
         b1: b1n,
         b2: b2n,
         transitLabel: `${(td.transferTime / DAY).toFixed(0)} d`,
         needLabel,
-        feasible: missionReady,
-        feasibleLabel: missionReady ? 'YES' : 'NO',
+        c3Label: fmtC3Hero(c3),
+        vinfLabel: vinf != null && isFinite(vinf) ? formatVelocity(vinf) : '—',
+        depLabel: depIso ? depIso.slice(0, 16).replace('T', ' ') + 'Z' : '—',
         fidelityPill: fidelityPill(dossier),
+        gatePass: gc.pass,
+        gateWarn: gc.warn,
+        gateFail: gc.fail,
+        asymptoteHtml: asymptoteHeroHtml(dossier),
         visualWarn: visualWarnHtml(td),
+        surfaceNote: surfaceNoteHtml(td),
+        classroom: !!state.classroomMode,
       })}
+      ${completenessBoardHtml(dossier)}
       ${trustStripHtml(td, dossier)}
       ${actionsHtml(missionReady)}
       ${detailsBlock('det-ml', 'Legs & flybys', true, detail)}
-      ${detailsBlock('det-plan', 'Plan status & recovery', !missionReady, planStatusBannerHtml(dossier))}
+      ${detailsBlock('det-plan', 'Gate board & recovery', !missionReady, planStatusBannerHtml(dossier))}
       ${detailsBlock('det-measure', 'Need / Capability / Margin', true, card.html || '')}
     </div>`;
 
