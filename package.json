@@ -20,7 +20,12 @@
     "build:ephemeris:spice": "python scripts/build-ephemeris-from-spice.py",
     "kernels:download": "python scripts/download-kernels.py",
     "firebase:smoke": "node scripts/firebase-admin-smoke.mjs",
-    "firebase:seed": "node scripts/firebase-admin-seed.mjs"
+    "firebase:seed": "node scripts/firebase-admin-seed.mjs",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build",
+    "web:prepare": "node web/scripts/prepare-spa-assets.mjs",
+    "deploy:apphosting": "npm --prefix web run build && npx -y firebase-tools@latest deploy --only apphosting --project k-solar-system-navigator",
+    "deploy:hosting": "npx -y firebase-tools@latest deploy --only hosting --project k-solar-system-navigator"
   },
   "devDependencies": {
     "firebase-admin": "^13.10.0",

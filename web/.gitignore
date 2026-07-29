@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+public/js/
+public/css/
+public/assets/
+public/spa.html
+public/helios-body.html
+public/helios-base.css
+public/helios-build.json
+*.log
+.env*.local

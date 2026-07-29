@@ -5,6 +5,21 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
+  "apphosting": {
+    "backendId": "helios",
+    "rootDir": "web",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "functions",
+      "tests",
+      "docs",
+      ".agents",
+      ".claude"
+    ]
+  },
   "hosting": {
     "public": ".",
     "ignore": [
@@ -12,6 +27,7 @@
       "**/.*",
       "**/node_modules/**",
       "functions/**",
+      "web/**",
       "tests/**",
       "docs/**",
       "scripts/**",

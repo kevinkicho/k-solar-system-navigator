@@ -74,6 +74,34 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 - **CSS2DRenderer** — planet/moon/spacecraft labels + path tick labels
 - **Node.js** — static file server + Ollama chat proxy + agent C2 bus
 - **Firebase** (optional) — Auth + Firestore plans; modular SDK via import map (gstatic CDN)
+- **Firebase App Hosting** — Next.js SSR shell (`web/`) wrapping the HELIOS client SPA + `/api/*` routes
+
+### Firebase App Hosting (primary cloud deploy)
+
+App Hosting requires the project **Blaze** plan and a framework backend (Next.js). HELIOS keeps its vanilla ESM + Three.js planner as a **client SPA**; the Next.js app provides an **SSR product shell**, metadata, and API routes.
+
+```bash
+# Local App Hosting-style server
+npm run web:prepare   # copy js/css/assets into web/public
+npm run web:dev       # http://localhost:3000
+
+# Production build
+npm run web:build
+
+# Deploy App Hosting backend (backendId: helios)
+npx -y firebase-tools@latest deploy --only apphosting --project k-solar-system-navigator
+```
+
+| Path | Role |
+|------|------|
+| `/` | SSR shell + client boot of HELIOS (`js/main.js`) |
+| `/spa.html` | Static SPA fallback (classic single file) |
+| `/api/health` | Health / product-class probe |
+| `/api/planning/window-shortlist` | Server ranking of client window candidates |
+
+Classic **Firebase Hosting** (`npm run deploy:hosting`) remains available for the pure static SPA at the project root.
+
+Config: `web/apphosting.yaml`, `firebase.json` → `apphosting.backendId: helios`, `rootDir: web`.
 
 ## AI assistant (Ollama Cloud)
 
