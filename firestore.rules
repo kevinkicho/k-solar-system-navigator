@@ -15,5 +15,12 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
     }
+
+    // Public product catalog (dense SPICE pack index). Read-only for clients.
+    // Written by Admin SDK / CI (service account), not browser.
+    match /helios/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }

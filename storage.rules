@@ -1,7 +1,8 @@
 rules_version = '2';
 
-// HELIOS Storage — owner-only under users/{uid}/**
-// Reserved for mission JSON blobs / exports; not used heavily yet.
+// HELIOS Storage
+// - users/{uid}/** : owner-only mission JSON blobs
+// - ephemeris/**   : public read dense SPICE packs (educational, not secrets)
 service firebase.storage {
   match /b/{bucket}/o {
     match /users/{userId}/{allPaths=**} {
@@ -10,6 +11,13 @@ service firebase.storage {
       allow create, update: if request.auth != null
         && request.auth.uid == userId
         && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // Dense SPICE sample packs (Float32 bins + meta + registry)
+    // Public read — large educational ephemeris assets; write is admin-only (CLI/SDK).
+    match /ephemeris/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
     }
   }
 }

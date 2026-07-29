@@ -29,6 +29,22 @@ function getFns() {
 }
 
 /**
+ * Fetch dense SPICE catalog from Cloud Function (optional).
+ * @returns {Promise<object|null>}
+ */
+export async function fetchDenseSpkCatalogHttp() {
+  if (state.classroomMode || !isFirebaseEnabled()) return null;
+  try {
+    const url = 'https://us-central1-k-solar-system-navigator.cloudfunctions.net/denseSpkCatalog';
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Server re-rank of window shortlist (requires deployed refineWindowShortlist).
  * @returns {Promise<object|null>}
  */

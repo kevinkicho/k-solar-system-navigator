@@ -93,6 +93,27 @@ async function fetchPack(packId) {
   if (typeof fetch !== 'function') return null;
   _loading.add(packId);
   try {
+    // 1) Firebase Storage CDN (when Firebase enabled and pack uploaded)
+    try {
+      const cloud = await import('../firebase/dense-spk-cloud.js');
+      if (cloud.isDenseCloudAvailable?.()) {
+        const names = {};
+        const regPack = _registry?.packs?.find((p) => p.pack_id === packId);
+        if (regPack?.bin) names.bin = regPack.bin;
+        if (regPack?.meta) names.meta = regPack.meta;
+        const hit = await cloud.fetchDensePackFromStorage(packId, names);
+        if (hit?.meta && hit.buffer) {
+          const entry = {
+            meta: { ...hit.meta, _delivery: 'firebase-storage' },
+            f32: new Float32Array(hit.buffer),
+          };
+          _packs.set(packId, entry);
+          return entry;
+        }
+      }
+    } catch { /* fall through to Hosting */ }
+
+    // 2) Classic Hosting / App Hosting static assets (offline + classroom fallback)
     const base = new URL('../../assets/dense-spk/', import.meta.url);
     const metaUrl = new URL(`${packId}.meta.json`, base);
     const meta = await fetchJson(metaUrl);
@@ -102,7 +123,7 @@ async function fetchPack(packId) {
     const resB = await fetch(binUrl);
     if (!resB.ok) return null;
     const f32 = new Float32Array(await resB.arrayBuffer());
-    const entry = { meta, f32 };
+    const entry = { meta: { ...meta, _delivery: 'hosting' }, f32 };
     _packs.set(packId, entry);
     return entry;
   } catch {
@@ -114,9 +135,23 @@ async function fetchPack(packId) {
 
 async function loadRegistry() {
   if (_registry || typeof fetch !== 'function') return _registry;
+
+  // Prefer Firebase RTDB / Firestore / Storage registry when online
+  try {
+    const cloud = await import('../firebase/dense-spk-cloud.js');
+    if (cloud.isDenseCloudAvailable?.()) {
+      const reg = await cloud.fetchDenseSpkRegistryCloud();
+      if (reg?.packs) {
+        _registry = reg;
+        return _registry;
+      }
+    }
+  } catch { /* Hosting fallback */ }
+
   try {
     const url = new URL('../../assets/dense-spk/registry.json', import.meta.url);
     _registry = await fetchJson(url);
+    if (_registry) _registry._source = 'hosting';
   } catch {
     _registry = null;
   }
@@ -318,6 +353,7 @@ export function denseSpkCoverageSummary() {
       size_miB: meta.size_miB,
       mode: meta.mode,
       tier: meta.tier || 'A',
+      delivery: meta._delivery || 'local',
     });
   }
   const available = (_registry?.packs || []).map((p) => ({
@@ -327,12 +363,14 @@ export function denseSpkCoverageSummary() {
     lazy: p.lazy,
     loaded: _packs.has(p.pack_id),
   }));
+  const regSrc = _registry?._source || 'none';
   return {
     n_packs: packs.length,
     packs,
     registry: available,
+    registry_source: regSrc,
     note: packs.length
-      ? `Dense SPICE loaded: ${packs.map((p) => `${p.pack_id}(T${p.tier || 'A'})`).join(', ')}`
-      : 'No dense SPICE packs loaded — continuous Kepler / DE table fallback.',
+      ? `Dense SPICE loaded: ${packs.map((p) => `${p.pack_id}(T${p.tier || 'A'}/${p.delivery || '?'})`).join(', ')} · registry=${regSrc}`
+      : `No dense SPICE packs loaded (registry=${regSrc}) — continuous Kepler / DE table fallback.`,
   };
 }

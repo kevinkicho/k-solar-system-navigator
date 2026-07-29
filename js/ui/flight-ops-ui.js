@@ -104,16 +104,20 @@ export function refreshFlightOpsPanel() {
   const denseSum = denseSpkCoverageSummary();
   const denseLine = denseSum.n_packs
     ? denseSum.packs.map((p) =>
-      `${p.pack_id} ${p.step_min}min ${String(p.t0 || '').slice(0, 10)}→${String(p.t1 || '').slice(0, 10)}`,
+      `${p.pack_id} ${p.step_min}min [${p.delivery || '?'}] ${String(p.t0 || '').slice(0, 10)}→${String(p.t1 || '').slice(0, 10)}`,
     ).join(' · ')
     : 'No dense SPICE packs — continuous Kepler / DE table fallback';
+  const regLine = denseSum.registry_source
+    ? `registry=${denseSum.registry_source}`
+    : '';
 
   host.innerHTML = `
     <p class="surface-hint">${opsDisclaimer()}</p>
     <div class="info-row"><span class="key">Kernel / table</span><span class="val">${escapeHtml(String(src))}</span></div>
     <div class="info-row"><span class="key">Fidelity</span><span class="val">${escapeHtml(state.fidelityLevel || '—')}</span></div>
     <div class="info-row"><span class="key">Sample step / span</span><span class="val">${escapeHtml(step)} · ${escapeHtml(span)}</span></div>
-    <div class="info-row"><span class="key">Mars moons</span><span class="val">${escapeHtml(denseLine)}</span></div>
+    <div class="info-row"><span class="key">Dense SPICE</span><span class="val">${escapeHtml(denseLine)}</span></div>
+    ${regLine ? `<div class="info-row"><span class="key">Pack catalog</span><span class="val">${escapeHtml(regLine)}</span></div>` : ''}
     <div class="info-row"><span class="key">Coverage</span><span class="val ${cov.any_oor ? 'amber' : 'green'}">${escapeHtml(cov.note || '—')}</span></div>
     <div class="result-subtitle" style="margin-top:8px">Accuracy budget (soft targets)</div>
     <div class="info-row"><span class="key">Domain</span><span class="val">${escapeHtml(acc.domain)}</span></div>

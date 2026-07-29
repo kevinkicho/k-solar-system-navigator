@@ -8,6 +8,8 @@ import {onRequest} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {initializeApp, getApps} from "firebase-admin/app";
 import {getDatabase} from "firebase-admin/database";
+import {getFirestore} from "firebase-admin/firestore";
+import {getStorage} from "firebase-admin/storage";
 import {rankShortlistScored, type WindowCandidate} from "./window-score";
 
 if (!getApps().length) {
@@ -22,9 +24,70 @@ export const heliosHealth = onRequest((_req, res) => {
     ok: true,
     service: "helios-functions",
     product_class: "preliminary-not-flight-certified",
-    features: ["refineWindowShortlist-scored", "heliosHealth"],
+    features: [
+      "refineWindowShortlist-scored",
+      "heliosHealth",
+      "denseSpkCatalog",
+    ],
     timestamp: new Date().toISOString(),
   });
+});
+
+/**
+ * Dense SPICE pack catalog for clients (educational ephemeris CDN index).
+ * Prefers RTDB public/denseSpk/registry, then Firestore helios/denseSpkCatalog.
+ * Optionally lists Storage objects under ephemeris/dense-spk/.
+ */
+export const denseSpkCatalog = onRequest(async (_req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Cache-Control", "public, max-age=300");
+  try {
+    let registry: Record<string, unknown> | null = null;
+    try {
+      const snap = await getDatabase().ref("public/denseSpk/registry").get();
+      if (snap.exists()) {
+        registry = snap.val() as Record<string, unknown>;
+        registry.source = "rtdb";
+      }
+    } catch (err) {
+      logger.warn("denseSpkCatalog RTDB", err);
+    }
+    if (!registry) {
+      try {
+        const doc = await getFirestore().doc("helios/denseSpkCatalog").get();
+        if (doc.exists) {
+          registry = doc.data() as Record<string, unknown>;
+          registry.source = "firestore";
+        }
+      } catch (err) {
+        logger.warn("denseSpkCatalog Firestore", err);
+      }
+    }
+
+    let storageFiles: string[] = [];
+    try {
+      const bucket = getStorage().bucket();
+      const [files] = await bucket.getFiles({prefix: "ephemeris/dense-spk/"});
+      storageFiles = files.map((f) => f.name.replace("ephemeris/dense-spk/", ""));
+    } catch (err) {
+      logger.warn("denseSpkCatalog Storage list", err);
+    }
+
+    res.json({
+      ok: true,
+      product_class: "preliminary-not-flight-certified",
+      storage_prefix: "ephemeris/dense-spk",
+      registry,
+      storage_files: storageFiles,
+      note:
+        "Dense SPICE packs are educational sample tables (Float32). "
+        + "Not flight-certified OD. Clients may also use Hosting fallback.",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    logger.error("denseSpkCatalog", err);
+    res.status(500).json({ok: false, error: String(err)});
+  }
 });
 
 /**
