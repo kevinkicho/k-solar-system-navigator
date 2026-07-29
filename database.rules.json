@@ -11,7 +11,7 @@
         },
         "windowCampaigns": {
           "$cid": {
-            ".validate": "newData.hasChildren(['origin', 'dest', 'shortlist', 'at']) && newData.child('shortlist').isList() && newData.child('shortlist').hasChildren() && newData.child('at').isNumber()"
+            ".validate": "newData.hasChildren(['origin', 'dest', 'shortlist', 'at']) && newData.child('at').isNumber() && newData.child('origin').isString() && newData.child('dest').isString()"
           }
         }
       }
