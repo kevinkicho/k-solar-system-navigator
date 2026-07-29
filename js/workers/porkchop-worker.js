@@ -3,6 +3,7 @@
 
 import { findById } from '../data/catalog.js';
 import { fillGridRow } from '../physics/porkchop-grid.js';
+import { ensureSampleTableLoaded } from '../physics/ephemeris-sample.js';
 
 /** @type {number | null} */
 let activeRequestId = null;
@@ -26,7 +27,12 @@ function yieldTick() {
 }
 
 async function runSweep(msg) {
-  const { requestId, body1Id, body2Id, gridSpec } = msg;
+  const {
+    requestId, body1Id, body2Id, gridSpec,
+    backend = 'approx',
+    classroomMode = false,
+    maxRevolutions = 0,
+  } = msg;
   activeRequestId = requestId;
   cancelled.delete(requestId);
 
@@ -41,6 +47,15 @@ async function runSweep(msg) {
     });
     clearRequest(requestId);
     return;
+  }
+
+  const planOpts = {
+    backend: classroomMode ? 'approx' : (backend === 'sample-de' ? 'sample-de' : 'approx'),
+    classroomMode: !!classroomMode,
+    maxRevolutions: classroomMode ? 0 : Math.max(0, Math.min(2, maxRevolutions | 0)),
+  };
+  if (planOpts.backend === 'sample-de') {
+    await ensureSampleTableLoaded();
   }
 
   const { nx, ny } = gridSpec;
@@ -60,7 +75,7 @@ async function runSweep(msg) {
       return;
     }
 
-    const row = fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf);
+    const row = fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf, planOpts);
 
     if (row.minIx >= 0 && row.minDv < minDv) {
       minDv = row.minDv;
@@ -115,6 +130,7 @@ async function runSweep(msg) {
       c3Max: maxC3,
       vinfMin: minVI,
       vinfMax: maxVI,
+      backend: planOpts.backend,
     },
   });
   clearRequest(requestId);

@@ -92,6 +92,10 @@ export function sampleAvailable(body, timeSec) {
   return timeSec >= t0 - 1e-6 && timeSec <= t1 + 1e-6;
 }
 
+/**
+ * Catmull–Rom cubic Hermite on uniform knots (AU positions).
+ * Falls back to linear near table edges / short series.
+ */
 function interpSeries(series, timeSec) {
   const t0 = _table.t0_sim;
   const step = _table.step_sec;
@@ -101,13 +105,36 @@ function interpSeries(series, timeSec) {
   const i0 = Math.floor(u);
   const i1 = Math.min(n - 1, i0 + 1);
   const f = u - i0;
-  const a = series[i0];
-  const b = series[i1];
-  return {
-    x: a[0] + f * (b[0] - a[0]),
-    y: a[1] + f * (b[1] - a[1]),
-    z: a[2] + f * (b[2] - a[2]),
-  };
+  if (n < 3 || i0 === i1) {
+    const a = series[i0];
+    const b = series[i1];
+    return {
+      x: a[0] + f * (b[0] - a[0]),
+      y: a[1] + f * (b[1] - a[1]),
+      z: a[2] + f * (b[2] - a[2]),
+    };
+  }
+  // Catmull–Rom: p(f) with tangents from neighboring knots
+  const im1 = Math.max(0, i0 - 1);
+  const i2 = Math.min(n - 1, i1 + 1);
+  const p0 = series[im1];
+  const p1 = series[i0];
+  const p2 = series[i1];
+  const p3 = series[i2];
+  const f2 = f * f;
+  const f3 = f2 * f;
+  // Hermite basis with Catmull–Rom tangents m1 = (p2-p0)/2, m2 = (p3-p1)/2
+  const h00 = 2 * f3 - 3 * f2 + 1;
+  const h10 = f3 - 2 * f2 + f;
+  const h01 = -2 * f3 + 3 * f2;
+  const h11 = f3 - f2;
+  const out = [0, 0, 0];
+  for (let k = 0; k < 3; k++) {
+    const m1 = 0.5 * (p2[k] - p0[k]);
+    const m2 = 0.5 * (p3[k] - p1[k]);
+    out[k] = h00 * p1[k] + h10 * m1 + h01 * p2[k] + h11 * m2;
+  }
+  return { x: out[0], y: out[1], z: out[2] };
 }
 
 export function samplePosition3D(body, timeSec) {
@@ -117,15 +144,28 @@ export function samplePosition3D(body, timeSec) {
 }
 
 /**
- * Velocity via central difference on sample positions (m/s, scene axes).
+ * Velocity via central difference on cubic-interpolated positions (m/s, scene axes).
+ * Uses a fraction of the table step for stable Δv / C3.
  */
 export function sampleVelocity3D(body, timeSec) {
   if (!sampleAvailable(body, timeSec)) return null;
-  const dt = Math.min(DAY, (_table.step_sec || DAY) * 0.25);
+  const step = _table.step_sec || DAY;
+  // Half-step or 0.1 day, whichever smaller — better V∞ for outer TOFs
+  const dt = Math.min(0.1 * DAY, Math.max(3600, step * 0.15));
   const pa = samplePosition3D(body, timeSec - dt);
   const pb = samplePosition3D(body, timeSec + dt);
-  if (!pa || !pb) return null;
-  // Match kepler.js finite-diff convention: array [vx,vy,vz] m/s
+  if (!pa || !pb) {
+    // Edge: one-sided
+    const p0 = samplePosition3D(body, timeSec);
+    const p1 = samplePosition3D(body, timeSec + dt) || samplePosition3D(body, timeSec - dt);
+    if (!p0 || !p1) return null;
+    const s = samplePosition3D(body, timeSec + dt) ? 1 : -1;
+    return [
+      s * (p1.x - p0.x) * AU / dt,
+      s * (p1.y - p0.y) * AU / dt,
+      s * (p1.z - p0.z) * AU / dt,
+    ];
+  }
   return [
     (pb.x - pa.x) * AU / (2 * dt),
     (pb.y - pa.y) * AU / (2 * dt),

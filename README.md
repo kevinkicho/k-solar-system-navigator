@@ -107,7 +107,8 @@ Keep a browser tab on HELIOS so the **onboard agent** can execute C2 commands (`
 | Component | Method |
 |---|---|
 | Planet positions (animation / L1) | JPL "Approximate Positions of Major Planets" 1800–2050: linear element rates per Julian century + great-inequality corrections. Newton–Raphson for eccentric anomaly. Always used for scene animation. |
-| Planning ephemeris (L2/L3) | Offline sample table (`assets/ephemeris-samples-v1.json`) interpolated in the browser. Prefer bake from **NAIF de440s.bsp** via `scripts/build-ephemeris-from-spice.py` (spiceypy); fallbacks: live Horizons VECTORS series, then approx bootstrap. |
+| Planning ephemeris (L2/L3) | Offline sample table (`assets/ephemeris-samples-v1.json`) with **Catmull–Rom cubic** interp + velocity from positions. Prefer bake from **NAIF de440s.bsp** via spiceypy. **Porkchop / nearest-feasible / multi-leg** all use the same planning backend as Need (product sample-de / L3-plan). |
+| Path / residual | Shared `transfer-path.js` ship↔line identity; optional **Cowell n-body arrival miss** (analysis only — never feeds Need). Multi-rev Lambert when Advanced flag on (single + multi-leg). |
 | Optional Horizons inject | Opt-in live VECTORS endpoints for Lambert Need (`js/physics/ephemeris-horizons-inject.js`). Network, educational. **Not a closed-loop OD system.** CI uses mocked fetch. |
 | Flight-ops mode | Educational light-time, ops gates, OEM-like export (`js/physics/flight-ops.js`). **Not certified.** |
 | Transfer orbit | Lambert's problem via universal-variable formulation, bracketed-bisection solver |

@@ -21,7 +21,7 @@ const r0 = [AU, 0, 0];
 const v0 = [0, Math.sqrt(mu / AU), 0];
 const out = cowellPropagate(r0, v0, 0, 30 * DAY, 80);
 check('points produced', out.points_AU.length > 5, `n=${out.points_AU.length}`);
-check('residual hint string', /educational residual/i.test(out.residualHint || ''));
+check('residual hint string', /analysis residual|educational residual|not navigation/i.test(out.residualHint || ''));
 const last = out.points_AU[out.points_AU.length - 1];
 check('finite end', isFinite(last.x) && isFinite(last.y) && isFinite(last.z));
 

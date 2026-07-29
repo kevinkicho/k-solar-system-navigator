@@ -348,7 +348,16 @@ export function wirePorkchop() {
         }
         const endTime = performance.now() + 14;
         while (performance.now() < endTime && iy < ny) {
-          const row = fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf);
+          const planOpts = {
+            backend: state.classroomMode
+              ? 'approx'
+              : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
+            classroomMode: !!state.classroomMode,
+            maxRevolutions: (state.pathAccuracy?.multiRevLambert && !state.classroomMode)
+              ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
+              : 0,
+          };
+          const row = fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf, planOpts);
           applyRowStats(row, acc);
           iy++;
         }
@@ -486,6 +495,14 @@ export function wirePorkchop() {
           requestId,
           body1Id,
           body2Id,
+          // Match planning Need: product sample-de (L2/L3-plan) unless classroom
+          backend: state.classroomMode
+            ? 'approx'
+            : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
+          classroomMode: !!state.classroomMode,
+          maxRevolutions: (state.pathAccuracy?.multiRevLambert && !state.classroomMode)
+            ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
+            : 0,
           gridSpec: {
             departStart: gridSpec.departStart,
             departEnd: gridSpec.departEnd,

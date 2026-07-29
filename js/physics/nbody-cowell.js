@@ -91,8 +91,60 @@ export function cowellPropagate(r0_m, v0_m_s, t0, tof, nSteps = 200) {
 
   return {
     points_AU: points,
+    r_end_m: r.slice(),
+    v_end_m_s: v.slice(),
     residualHint:
-      'n-body coast overlay = educational residual under Approximate Positions — not navigation OD',
+      'n-body coast overlay = analysis residual under Approximate Positions — not navigation OD; never feeds Need/Δv',
+  };
+}
+
+/**
+ * Quantitative residual for a transfer: Cowell-propagate Lambert v1 and report
+ * arrival miss vs 2-body target. Analysis-only — never mutates Need.
+ *
+ * @param {object} td transfer with lambertOk, v1_lambert, dep, TOF, body2
+ * @returns {{ miss_km: number, miss_AU: number, residualHint: string }|null}
+ */
+export function transferNbodyResidual(td, opts = {}) {
+  if (!td?.lambertOk || !td.v1_lambert || td.departureSimTime == null || !(td.transferTime > 0)) {
+    return null;
+  }
+  // Prefer physical dep position if available
+  let r0;
+  if (td.dep3DPhysical) {
+    r0 = [td.dep3DPhysical.x * AU, td.dep3DPhysical.y * AU, td.dep3DPhysical.z * AU];
+  } else if (td.r1v_m) {
+    r0 = td.r1v_m.slice();
+  } else if (td.body1) {
+    const p = getBodyPosition3D(td.body1, td.departureSimTime, false);
+    r0 = [p.x * AU, p.y * AU, p.z * AU];
+  } else {
+    return null;
+  }
+  let rTarget;
+  if (td.arr3DPhysical) {
+    rTarget = [td.arr3DPhysical.x * AU, td.arr3DPhysical.y * AU, td.arr3DPhysical.z * AU];
+  } else if (td.r2v_m) {
+    rTarget = td.r2v_m.slice();
+  } else if (td.body2) {
+    const p = getBodyPosition3D(td.body2, td.arrivalSimTime ?? (td.departureSimTime + td.transferTime), false);
+    rTarget = [p.x * AU, p.y * AU, p.z * AU];
+  } else {
+    return null;
+  }
+  const nSteps = opts.nSteps ?? Math.min(800, Math.max(80, Math.floor(td.transferTime / DAY) * 4));
+  const out = cowellPropagate(r0, td.v1_lambert, td.departureSimTime, td.transferTime, nSteps);
+  const re = out.r_end_m;
+  const dx = re[0] - rTarget[0];
+  const dy = re[1] - rTarget[1];
+  const dz = re[2] - rTarget[2];
+  const miss_m = Math.hypot(dx, dy, dz);
+  return {
+    miss_km: miss_m / 1000,
+    miss_AU: miss_m / AU,
+    nSteps,
+    residualHint: out.residualHint,
+    note: 'Arrival miss of 2-body Lambert coast under Cowell n-body (analysis only — Need unchanged).',
   };
 }
 

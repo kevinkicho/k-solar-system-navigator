@@ -98,16 +98,92 @@ export function computeNeed(td, opts = {}) {
   const aero = clampAero(opts.aeroassistFactor ?? state.aeroassistFactor ?? 0);
 
   if (isMulti) {
+    const helioMulti = td.dvTotalMultiLeg ?? Infinity;
+    // Optional multi-leg mission Need: helio legs + terminal escape/capture sketch
+    // when costBasis is mission or phase is multi_leg_mission.
+    const wantMission = (opts.phase === 'multi_leg_mission')
+      || (opts.costBasis ?? state.costBasis) === 'mission';
+    let terminalDep = null;
+    let terminalArr = null;
+    let c3ml = null;
+    let vInfDepMl = null;
+    let vInfArrMl = null;
+    if (wantMission && isFinite(helioMulti) && td.body1 && td.body2 && td.legs?.length) {
+      try {
+        // Build a synthetic single-leg-like shell for mission-budget terminals
+        const L0 = td.legs[0];
+        const L1 = td.legs[td.legs.length - 1];
+        if (L0?.ok && L0.v1 && L1?.ok && L1.v2) {
+          const shell = {
+            body1: td.body1,
+            body2: td.body2,
+            lambertOk: true,
+            v1_lambert: L0.v1,
+            v2_lambert: L1.v2,
+            departureSimTime: L0.departSimTime,
+            arrivalSimTime: L1.arriveSimTime,
+            ephemerisBackend: td.ephemerisBackend,
+            classroomMode: td.classroomMode,
+            surfaceOriginPoint: td.surfaceOriginPoint,
+            surfaceDestPoint: td.surfaceDestPoint,
+            planetRelative: false,
+          };
+          const budget = computeMissionBudget(shell);
+          if (budget) {
+            // Terminal parking/injection only (do not re-count heliocentric leg Δv)
+            terminalDep = budget.departure?.total ?? null;
+            terminalArr = budget.arrival?.total ?? null;
+            vInfDepMl = budget.departure?.vInf ?? null;
+            vInfArrMl = budget.arrival?.vInf ?? null;
+            c3ml = vInfDepMl != null ? vInfDepMl * vInfDepMl : null;
+          }
+        }
+      } catch { /* keep helio-only */ }
+    }
+    if (wantMission && terminalDep != null && terminalArr != null && isFinite(helioMulti)) {
+      // Helio multi-leg already includes dep/arr hyperbolic burns vs planet vel;
+      // mission_parking adds parking→escape and capture→parking. Avoid double-count
+      // of V∞ by using (terminal parking totals − V∞ legs) ≈ parking overhead only.
+      // Practical sketch: Need = helio multi + (dep parking overhead) + (arr parking overhead)
+      // where overhead ≈ terminal - vInf when vInf known.
+      const depOver = (vInfDepMl != null && terminalDep > vInfDepMl)
+        ? terminalDep - vInfDepMl
+        : 0;
+      const arrOver = (vInfArrMl != null && terminalArr > vInfArrMl)
+        ? terminalArr - vInfArrMl
+        : 0;
+      const aero = clampAero(opts.aeroassistFactor ?? state.aeroassistFactor ?? 0);
+      const arrAdj = arrOver * (1 - aero);
+      const need = helioMulti + depOver + arrAdj;
+      return {
+        phase: 'multi_leg_mission',
+        multi_leg: true,
+        need_dv_m_s: need,
+        c3_m2_s2: c3ml,
+        vinf_dep_m_s: vInfDepMl,
+        vinf_arr_m_s: vInfArrMl,
+        helio_legs_m_s: helioMulti,
+        terminal_dep_overhead_m_s: depOver,
+        terminal_arr_overhead_m_s: arrAdj,
+        applicable: isFinite(need),
+        aeroassist_factor: aero,
+        reason: null,
+        note: 'Multi-leg mission Need = heliocentric legs + terminal parking overhead (patched-conic sketch).',
+      };
+    }
     return {
       phase: 'helio_leg',
       multi_leg: true,
-      need_dv_m_s: td.dvTotalMultiLeg ?? Infinity,
+      need_dv_m_s: helioMulti,
       c3_m2_s2: null,
       vinf_dep_m_s: null,
       vinf_arr_m_s: null,
-      applicable: isFinite(td.dvTotalMultiLeg),
+      applicable: isFinite(helioMulti),
       aeroassist_factor: 0,
-      reason: isFinite(td.dvTotalMultiLeg) ? null : 'multi-leg incomplete',
+      reason: isFinite(helioMulti) ? null : 'multi-leg incomplete',
+      note: wantMission
+        ? 'Multi-leg terminal parking unavailable — helio legs only.'
+        : 'Multi-leg Need = heliocentric leg sum (set cost basis → Mission for terminal parking sketch).',
     };
   }
 

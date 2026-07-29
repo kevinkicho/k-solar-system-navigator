@@ -184,6 +184,9 @@ function multiLegPlanOpts(waypoints, routeOpts = {}) {
   return {
     backend: routeOpts.ephemerisBackend || routeOpts.backend || w0.ephemerisBackend || w0.backend || 'approx',
     classroomMode: !!(routeOpts.classroomMode ?? w0.classroomMode),
+    maxRevolutions: Math.max(0, Math.min(2, Math.floor(
+      routeOpts.maxRevolutions ?? w0.maxRevolutions ?? 0,
+    ))),
   };
 }
 
@@ -220,10 +223,17 @@ function solvePlanetRelativeTransferOrbit(tData) {
 
   // Physical (real-inclination) parent-relative states.
   // Parent↔moon uses coplanar Hohmann endpoint construction.
+  const prPlan = planOpts(tData);
   const { st1, st2 } = planetRelativeEndpointStates(
     tData.body1, tData.body2, central,
     tData.departureSimTime, tData.arrivalSimTime,
-    { parkingAlt1_m: altDep, parkingAlt2_m: altArr, exaggerate: false },
+    {
+      parkingAlt1_m: altDep,
+      parkingAlt2_m: altArr,
+      exaggerate: false,
+      backend: prPlan.backend,
+      classroomMode: prPlan.classroomMode,
+    },
   );
   let depS = applySurfaceEndpoint(
     st1.posAU, st1.vel, tData.body1, tData.departureSimTime, originPt,
@@ -482,6 +492,7 @@ export function refreshVisualTransferGeometry(td) {
   const rebuilt = solveMultiLegRoute(td.waypoints || [], {
     ephemerisBackend: td.ephemerisBackend,
     classroomMode: td.classroomMode,
+    maxRevolutions: td.maxRevolutions ?? 0,
     surfaceOriginPoint: td.surfaceOriginPoint,
     surfaceDestPoint: td.surfaceDestPoint,
   });
@@ -539,7 +550,8 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
     }
     const r1P = [pA.x*AU, pA.y*AU, pA.z*AU];
     const r2P = [pB.x*AU, pB.y*AU, pB.z*AU];
-    const bestP = solveLambertBestBranch(r1P, r2P, tof, mu, vA, vB);
+    const maxRev = Math.max(0, Math.min(2, Math.floor(pOpts.maxRevolutions ?? 0)));
+    const bestP = solveLambertBestBranch(r1P, r2P, tof, mu, vA, vB, { maxRevolutions: maxRev });
 
     let pAV = getBodyPosition3D(a.body, a.simTime, true);
     let pBV = getBodyPosition3D(b.body, b.simTime, true);
@@ -577,6 +589,7 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
       visualBranchDiverged,
       dep3D: pAV, arr3D: pBV,
       longWay: bestP ? bestP.longWay : null,
+      revolutions: bestP ? (bestP.revolutions ?? 0) : 0,
       geoSiteFrom: !!ptA,
       geoSiteTo: !!ptB,
     });

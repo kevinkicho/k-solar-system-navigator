@@ -1,9 +1,12 @@
 // Pure porkchop / Lambert grid evaluation (no DOM).
-// Used by the UI porkchop panel and (later) module workers.
+// Used by the UI porkchop panel and module workers.
+// Planning ephemeris: pass opts.backend = 'sample-de' | 'approx' so windows match Need.
 
 import { AU, DAY, G_CONST, PI, TWO_PI } from '../constants.js';
 import { SUN_DATA } from '../data/bodies.js';
-import { getBodyPosition3D, getBodyVelocity3D } from './kepler.js';
+import {
+  getPlanningPosition3D, getPlanningVelocity3D,
+} from './ephemeris-provider.js';
 import { solveLambertBestBranch } from './lambert.js';
 import { v3dot, v3mag, v3sub } from './vec3.js';
 
@@ -33,17 +36,23 @@ export function defaultGridSpec(body1, body2, departStart, nx = 65, ny = 52) {
 
 /**
  * Evaluate a single grid cell.
- * @returns {{ dv, c3, vinf } | null}
+ * @param {object} [planOpts] { backend, classroomMode, maxRevolutions }
+ * @returns {{ dv, c3, vinf, revolutions } | null}
  */
-export function evaluateCell(body1, body2, dep, tof) {
+export function evaluateCell(body1, body2, dep, tof, planOpts = {}) {
   const mu = G_CONST * SUN_DATA.mass;
-  const d = getBodyPosition3D(body1, dep, false);
-  const a = getBodyPosition3D(body2, dep + tof, false);
+  const pOpts = {
+    backend: planOpts.backend || planOpts.ephemerisBackend || 'approx',
+    classroomMode: !!planOpts.classroomMode,
+  };
+  const d = getPlanningPosition3D(body1, dep, pOpts);
+  const a = getPlanningPosition3D(body2, dep + tof, pOpts);
   const r1v = [d.x * AU, d.y * AU, d.z * AU];
   const r2v = [a.x * AU, a.y * AU, a.z * AU];
-  const vb1 = getBodyVelocity3D(body1, dep, false);
-  const vb2 = getBodyVelocity3D(body2, dep + tof, false);
-  const best = solveLambertBestBranch(r1v, r2v, tof, mu, vb1, vb2);
+  const vb1 = getPlanningVelocity3D(body1, dep, pOpts);
+  const vb2 = getPlanningVelocity3D(body2, dep + tof, pOpts);
+  const maxRev = Math.max(0, Math.min(2, Math.floor(planOpts.maxRevolutions ?? 0)));
+  const best = solveLambertBestBranch(r1v, r2v, tof, mu, vb1, vb2, { maxRevolutions: maxRev });
   if (!best) return null;
   const vInfDep = v3sub(best.sol.v1, vb1);
   const vInfArr = v3sub(best.sol.v2, vb2);
@@ -51,14 +60,16 @@ export function evaluateCell(body1, body2, dep, tof) {
     dv: best.cost,
     c3: v3dot(vInfDep, vInfDep),
     vinf: v3mag(vInfArr),
+    revolutions: best.revolutions ?? 0,
   };
 }
 
 /**
  * Fill row iy of a porkchop grid (progressive UI / worker).
  * Arrays are Float64Array length nx*ny; writes row iy.
+ * @param {object} [planOpts] planning ephemeris opts
  */
-export function fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf) {
+export function fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf, planOpts = {}) {
   const { departStart, departEnd, tofMin, tofMax, nx, ny } = gridSpec;
   const tof = tofMin + ((iy + 0.5) / ny) * (tofMax - tofMin);
   let minDv = Infinity, maxDv = -Infinity;
@@ -68,7 +79,7 @@ export function fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf) {
 
   for (let ix = 0; ix < nx; ix++) {
     const dep = departStart + ((ix + 0.5) / nx) * (departEnd - departStart);
-    const cell = evaluateCell(body1, body2, dep, tof);
+    const cell = evaluateCell(body1, body2, dep, tof, planOpts);
     const idx = iy * nx + ix;
     if (cell) {
       data[idx] = cell.dv;
@@ -90,9 +101,10 @@ export function fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf) {
 }
 
 /**
- * Full synchronous sweep (offline tests).
+ * Full synchronous sweep (offline tests / main-thread).
+ * @param {object} [planOpts] { backend, classroomMode, maxRevolutions }
  */
-export function sweepPorkchopGrid(body1, body2, gridSpec) {
+export function sweepPorkchopGrid(body1, body2, gridSpec, planOpts = {}) {
   const { nx, ny } = gridSpec;
   const data = new Float64Array(nx * ny);
   const c3 = new Float64Array(nx * ny);
@@ -103,7 +115,7 @@ export function sweepPorkchopGrid(body1, body2, gridSpec) {
   let minCell = null;
 
   for (let iy = 0; iy < ny; iy++) {
-    const row = fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf);
+    const row = fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf, planOpts);
     if (row.minIx >= 0 && row.minDv < minDv) {
       minDv = row.minDv;
       minCell = { ix: row.minIx, iy };

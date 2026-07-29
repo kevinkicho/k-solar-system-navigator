@@ -259,6 +259,9 @@ function trustStripHtml(td, dossier) {
   if (td?.sampleFallback || dossier?.fidelity?.sampleFallback) {
     eph += ' · partial approx fallback';
   }
+  if (td?.endpointBackendSummary && !state.classroomMode) {
+    eph += ` · ${td.endpointBackendSummary}`;
+  }
   if (state.physicsAccurate) eph += ' · ACCURATE view';
   if (state.flightOpsMode) eph += ' · OPS review';
   const scene = state.physicsAccurate
@@ -387,6 +390,21 @@ export function renderRouteUI() {
   }
   if (state.flightOpsMode) {
     import('./flight-ops-ui.js').then((m) => m.refreshFlightOpsPanel?.()).catch(() => {});
+  }
+  // Quantitative n-body residual (analysis only) when flag on
+  if (state.pathAccuracy?.nbodyOverlay && !state.classroomMode && td && !td.isMultiLeg) {
+    import('../physics/nbody-cowell.js').then((m) => {
+      try {
+        const res = m.transferNbodyResidual?.(td);
+        if (res && td) {
+          td.nbodyResidual = res;
+          const el = document.getElementById('nbody-residual-row');
+          if (el) {
+            el.textContent = `n-body miss ≈ ${res.miss_km.toExponential(2)} km (${res.miss_AU.toExponential(2)} AU) · analysis only`;
+          }
+        }
+      } catch { /* */ }
+    }).catch(() => {});
   }
   try {
     syncCampaignSteps();

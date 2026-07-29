@@ -13,6 +13,9 @@
 import { AU, DAY, G_CONST, PI, TWO_PI } from '../constants.js';
 import { BODIES } from '../data/bodies.js';
 import { getBodyPosition3D, getBodyVelocity3D } from './kepler.js';
+import {
+  getPlanningPosition3D, getPlanningVelocity3D,
+} from './ephemeris-provider.js';
 import { defaultParkingAlt_m } from './surface-point.js';
 import { v3cross, v3mag, v3scale, v3sub } from './vec3.js';
 
@@ -121,10 +124,24 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
   }
 
   // Moon (or other satellite) relative to parent: heliocentric difference.
-  const pB = getBodyPosition3D(body, timeSec, exaggerate);
-  const pC = getBodyPosition3D(central, timeSec, exaggerate);
-  const vB = getBodyVelocity3D(body, timeSec, exaggerate);
-  const vC = getBodyVelocity3D(central, timeSec, exaggerate);
+  // Physical (exaggerate=false): use planning provider so DE/sample-de parents
+  // match Need when product is L2/L3-plan. Visual exaggerate still pure Kepler.
+  let pB; let pC; let vB; let vC;
+  if (!exaggerate) {
+    const pOpts = {
+      backend: opts.backend || opts.ephemerisBackend || 'approx',
+      classroomMode: !!opts.classroomMode,
+    };
+    pB = getPlanningPosition3D(body, timeSec, pOpts);
+    pC = getPlanningPosition3D(central, timeSec, pOpts);
+    vB = getPlanningVelocity3D(body, timeSec, pOpts);
+    vC = getPlanningVelocity3D(central, timeSec, pOpts);
+  } else {
+    pB = getBodyPosition3D(body, timeSec, true);
+    pC = getBodyPosition3D(central, timeSec, true);
+    vB = getBodyVelocity3D(body, timeSec, true);
+    vC = getBodyVelocity3D(central, timeSec, true);
+  }
   const x = pB.x - pC.x;
   const y = pB.y - pC.y;
   const z = pB.z - pC.z;

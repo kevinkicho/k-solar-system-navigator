@@ -56,7 +56,56 @@ function routePlanOpts() {
       ? 'approx'
       : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
     classroomMode: !!state.classroomMode,
+    maxRevolutions: (state.pathAccuracy?.multiRevLambert && !state.classroomMode)
+      ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
+      : 0,
   };
+}
+
+/**
+ * Per-endpoint backend stamps for honesty (mixed L2-plan / L1).
+ * @returns {Array<{body, bodyName, t, backend, sampleHit, horizonsHit}>}
+ */
+export function stampEndpointBackends(td) {
+  if (!td) return [];
+  const requested = state.classroomMode
+    ? 'approx'
+    : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx');
+  const pairs = [];
+  if (td.isMultiLeg && Array.isArray(td.legs)) {
+    for (const L of td.legs) {
+      const b1 = findByIdOrName(L.from) || L.fromBody;
+      const b2 = findByIdOrName(L.to) || L.toBody;
+      if (b1 && L.departSimTime != null) pairs.push([b1, L.departSimTime, 'dep']);
+      if (b2 && L.arriveSimTime != null) pairs.push([b2, L.arriveSimTime, 'arr']);
+    }
+  } else {
+    if (td.body1 && td.departureSimTime != null) pairs.push([td.body1, td.departureSimTime, 'dep']);
+    if (td.body2 && td.arrivalSimTime != null) pairs.push([td.body2, td.arrivalSimTime, 'arr']);
+  }
+  const stamps = [];
+  for (const [body, t, role] of pairs) {
+    const eff = effectiveBackend(body, t, requested, {
+      classroomMode: !!state.classroomMode,
+    });
+    stamps.push({
+      role,
+      bodyId: body?.id || body?.name || null,
+      bodyName: body?.name || String(body),
+      t,
+      backend: eff.backend,
+      sampleHit: !!eff.sampleHit,
+      horizonsHit: !!eff.horizonsHit,
+      requested,
+    });
+  }
+  td.endpointBackends = stamps;
+  const n = stamps.length;
+  const nSample = stamps.filter((s) => s.sampleHit || s.backend === 'horizons-inject').length;
+  td.endpointBackendSummary = n
+    ? `${nSample}/${n} endpoints on sample/inject (requested ${requested})`
+    : null;
+  return stamps;
 }
 
 /**
@@ -65,26 +114,9 @@ function routePlanOpts() {
 export function detectSampleFallback(td) {
   if (state.classroomMode || state.ephemerisBackend !== 'sample-de') return false;
   if (!td) return false;
-  const pairs = [];
-  if (td.isMultiLeg && Array.isArray(td.legs)) {
-    for (const L of td.legs) {
-      const b1 = findByIdOrName(L.from) || L.fromBody;
-      const b2 = findByIdOrName(L.to) || L.toBody;
-      if (b1 && L.departSimTime != null) pairs.push([b1, L.departSimTime]);
-      if (b2 && L.arriveSimTime != null) pairs.push([b2, L.arriveSimTime]);
-    }
-  } else {
-    if (td.body1 && td.departureSimTime != null) pairs.push([td.body1, td.departureSimTime]);
-    if (td.body2 && td.arrivalSimTime != null) pairs.push([td.body2, td.arrivalSimTime]);
-  }
-  for (const [body, t] of pairs) {
-    const { sampleHit } = effectiveBackend(body, t, 'sample-de', {
-      classroomMode: false,
-    });
-    // requested sample-de but sampleHit false means fallback
-    if (!sampleHit) return true;
-  }
-  return false;
+  const stamps = stampEndpointBackends(td);
+  if (!stamps.length) return false;
+  return stamps.some((s) => !s.sampleHit && s.backend === 'approx');
 }
 
 /** Ensure multi-leg td has body1/body2 for measurement card when possible. */
@@ -97,11 +129,19 @@ function tagMultiLegBodies(td) {
 }
 
 function finalizePlan(td, dossierOpts, notifyMsg) {
-  if (td && dossierOpts && 'sampleFallback' in dossierOpts) {
-    td.sampleFallback = !!dossierOpts.sampleFallback;
+  if (td) {
+    stampEndpointBackends(td);
+    if (dossierOpts && 'sampleFallback' in dossierOpts) {
+      td.sampleFallback = !!dossierOpts.sampleFallback;
+    } else {
+      td.sampleFallback = detectSampleFallback(td);
+    }
   }
   state.transferData = td;
-  buildPlanDossier(td, dossierOpts || {});
+  buildPlanDossier(td, {
+    ...(dossierOpts || {}),
+    sampleFallback: td?.sampleFallback,
+  });
   state.showTransferOrbit = true;
   updateTransferOrbitVisual();
   renderRouteUI();
