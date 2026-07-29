@@ -19,6 +19,8 @@ import { trustCardHtml } from './trust-card.js';
 import {
   COORD_SYSTEM_ID, geographicEndpointPackage,
 } from '../physics/surface-point.js';
+import { buildFlightOpsGates } from '../physics/flight-ops.js';
+import { getSampleMeta } from '../physics/ephemeris-sample.js';
 
 /**
  * Build full dossier and attach to td.dossier.
@@ -75,6 +77,15 @@ export function buildPlanDossier(td, opts = {}) {
     dla_ecliptic_deg: asymptotePkg?.ecliptic?.dla_deg ?? null,
   });
 
+  // Educational flight-ops gates (never claim certification)
+  if (state.flightOpsMode) {
+    const opsGates = buildFlightOpsGates(td, {
+      sampleMeta: getSampleMeta(),
+      horizonsInject: !!state.horizonsEndpointInject,
+    });
+    quality.gates = [...(quality.gates || []), ...opsGates];
+  }
+
   const recovery = recoveryFromGates(quality.gates, td);
 
   const orb = td.orbitPhysical;
@@ -91,6 +102,7 @@ export function buildPlanDossier(td, opts = {}) {
   const ascent = buildAscentBlock(vehEng, need);
 
   const completeness = buildCompleteness(td, need, capability, margin, asymptotePkg, quality);
+  const sampleMeta = getSampleMeta();
 
   const dossier = {
     dossier_version: 1,
@@ -161,6 +173,9 @@ export function buildPlanDossier(td, opts = {}) {
       ephemerisBackend: state.classroomMode
         ? 'approx'
         : (state.ephemerisBackend || 'approx'),
+      flightOpsMode: !!state.flightOpsMode,
+      sample_source: sampleMeta?.source || null,
+      sample_bake_source: sampleMeta?.bake_source || null,
     },
     completeness,
     confidence_label: confidenceLabel(quality.confidence_0_100, quality.status),

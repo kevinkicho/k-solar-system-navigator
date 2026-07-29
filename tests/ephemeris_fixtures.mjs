@@ -72,8 +72,15 @@ check('sample has 8 bodies', Object.keys(samples.bodies).length === 8);
 check('sample n > 100', samples.n > 100);
 check('sample window covers 2026', samples.t0_iso <= '2026-01-01' && samples.t1_iso >= '2027-01-01');
 check('sample bake source recorded',
-  samples.bake_source === 'horizons' || samples.bake_source === 'bootstrap'
-  || /horizons|bootstrap/i.test(samples.source || ''));
+  samples.bake_source === 'spice-de440s'
+  || samples.bake_source === 'horizons'
+  || samples.bake_source === 'bootstrap'
+  || /spice|de440|horizons|bootstrap/i.test(samples.source || ''));
+// Prefer SPICE DE440s bake when product ships L3-class table
+if (samples.bake_source === 'spice-de440s' || /spice|de440/i.test(samples.source || '')) {
+  check('SPICE bake has kernels list', Array.isArray(samples.kernels) && samples.kernels.length >= 1);
+  check('SPICE bake not flight-certified flag', samples.flight_ops_certified !== true);
+}
 const bytes = Buffer.byteLength(JSON.stringify(samples));
 check('sample soft budget ≤ 2.5 MiB', bytes <= 2.5 * 1024 * 1024, `${(bytes / 1024 / 1024).toFixed(2)} MiB`);
 

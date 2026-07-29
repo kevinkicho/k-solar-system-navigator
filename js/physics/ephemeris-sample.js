@@ -34,12 +34,25 @@ export function getSampleMeta() {
   return {
     version: _table.version,
     source: _table.source,
+    source_note: _table.source_note,
+    bake_source: _table.bake_source,
     frame: _table.frame,
     t0_iso: _table.t0_iso,
+    t1_iso: _table.t1_iso,
     step_days: _table.step_days,
     n: _table.n,
     bodies: Object.keys(_table.bodies || {}),
+    kernels: _table.kernels,
+    flight_ops_certified: _table.flight_ops_certified === true,
   };
+}
+
+/** True when offline table was baked from DE/SPICE kernels (L3-class). */
+export function sampleTableIsSpiceDe() {
+  const m = getSampleMeta();
+  if (!m) return false;
+  if (m.bake_source === 'spice-de440s') return true;
+  return /spice|de440/i.test(m.source || '');
 }
 
 export async function ensureSampleTableLoaded() {

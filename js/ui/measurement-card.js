@@ -11,6 +11,7 @@ import { computeNeedNow } from './mission-budget-ui.js';
 
 /** Normalize legacy 'L2' → 'L2-compare'. */
 export function normalizeFidelity(level) {
+  if (level === 'L3-plan' || level === 'L3') return 'L3-plan';
   if (level === 'L2-plan') return 'L2-plan';
   if (level === 'L2-horizons') return 'L2-horizons';
   if (level === 'L2' || level === 'L2-compare') return 'L2-compare';
@@ -19,14 +20,16 @@ export function normalizeFidelity(level) {
 
 export function fidelityBadgeLabel(level) {
   const f = normalizeFidelity(level);
-  if (f === 'L2-horizons') return 'L2-horizons · live endpoint inject (not SPICE)';
-  if (f === 'L2-plan') return 'L2-plan · offline sample table (not DE/SPICE)';
+  if (f === 'L3-plan') return 'L3-plan · DE440s SPICE-baked offline table (not certified ops)';
+  if (f === 'L2-horizons') return 'L2-horizons · live endpoint inject (not SPICE runtime)';
+  if (f === 'L2-plan') return 'L2-plan · offline sample table';
   if (f === 'L2-compare') return 'L2-compare · Horizons Δr check only';
   return 'L1 · JPL approx (offline)';
 }
 
 export function fidelityCssClass(level) {
   const f = normalizeFidelity(level);
+  if (f === 'L3-plan') return 'L3-plan';
   if (f === 'L2-horizons') return 'L2-horizons';
   if (f === 'L2-plan') return 'L2-plan';
   if (f === 'L2-compare') return 'L2-compare';

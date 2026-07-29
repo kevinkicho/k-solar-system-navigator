@@ -193,11 +193,18 @@ export function wireControls() {
     }
     state.ephemerisBackend = ephSel.value === 'sample-de' ? 'sample-de' : 'approx';
     if (state.ephemerisBackend === 'sample-de') {
-      if (!state.horizonsEndpointInject) state.fidelityLevel = 'L2-plan';
-      // Lazy-load sample table for browser
-      import('../physics/ephemeris-sample.js').then((m) => m.ensureSampleTableLoaded()).catch(() => {});
-      notify('PLANNING EPHEMERIS: SAMPLE-DE (L2-PLAN) — NOT SPICE');
-    } else if (state.fidelityLevel === 'L2-plan' || state.fidelityLevel === 'L2-horizons') {
+      import('../physics/ephemeris-sample.js').then(async (m) => {
+        await m.ensureSampleTableLoaded();
+        if (!state.horizonsEndpointInject) {
+          state.fidelityLevel = m.sampleTableIsSpiceDe?.() ? 'L3-plan' : 'L2-plan';
+        }
+        notify(state.fidelityLevel === 'L3-plan'
+          ? 'PLANNING: L3-PLAN DE440s SPICE-BAKED TABLE (not certified ops)'
+          : 'PLANNING: L2-PLAN SAMPLE TABLE');
+      }).catch(() => {
+        if (!state.horizonsEndpointInject) state.fidelityLevel = 'L2-plan';
+      });
+    } else if (['L2-plan', 'L2-horizons', 'L3-plan'].includes(state.fidelityLevel)) {
       state.fidelityLevel = 'L1';
       notify('PLANNING EPHEMERIS: APPROX (L1)');
     }

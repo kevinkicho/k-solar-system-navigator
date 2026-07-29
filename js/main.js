@@ -52,6 +52,7 @@ import { wireTrajectoryHud } from './ui/trajectory-hud.js';
 import { wireQualityTier } from './ui/quality-tier.js';
 import { wireCameraFocus } from './ui/camera-focus.js';
 import { wirePhysicsView } from './ui/physics-view.js';
+import { wireFlightOpsUi } from './ui/flight-ops-ui.js';
 import { applyBodyScales } from './scene/body-scale.js';
 
 // Mission + animation.
@@ -78,11 +79,14 @@ if (params.get('mode') === 'classroom') {
 } else {
   // Product default after Measurement Card (K25 / PR 9): unrefueled SS arch + L2-plan sample-DE.
   applyProductVehicleDefaults();
-  // Preload offline sample table so first Compute is L2-plan ready
-  import('./physics/ephemeris-sample.js').then((m) => m.ensureSampleTableLoaded()).then((table) => {
-    if (table) {
-      const ephSel = document.getElementById('ephemeris-backend');
-      if (ephSel && !state.classroomMode) ephSel.value = 'sample-de';
+  // Preload offline sample table so first Compute is L2/L3-plan ready
+  import('./physics/ephemeris-sample.js').then(async (m) => {
+    await m.ensureSampleTableLoaded();
+    const ephSel = document.getElementById('ephemeris-backend');
+    if (ephSel && !state.classroomMode) ephSel.value = 'sample-de';
+    // Promote badge to L3-plan when DE/SPICE-baked table is present
+    if (!state.classroomMode && m.sampleTableIsSpiceDe?.()) {
+      state.fidelityLevel = 'L3-plan';
     }
   }).catch(() => {});
 }
@@ -117,6 +121,7 @@ try {
   wireQualityTier();
   wireCameraFocus();
   wirePhysicsView();
+  wireFlightOpsUi();
   applyBodyScales();
 } catch (err) {
   console.error('[HELIOS] viz/map-mode wiring failed', err);

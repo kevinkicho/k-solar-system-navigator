@@ -27,8 +27,21 @@ const {
 
 const args = process.argv.slice(2);
 const forceBootstrap = args.includes('--bootstrap') || args.includes('--source=bootstrap');
+const forceHorizons = args.includes('--horizons') || args.includes('--source=horizons');
+const forceSpice = args.includes('--spice') || args.includes('--source=spice');
 const stepArg = args.find((a) => a.startsWith('--step='));
 const step_days = stepArg ? Math.max(1, Number(stepArg.split('=')[1]) || 3) : 3;
+
+/** Prefer SPICE DE bake when kernels + spiceypy available (most durable offline). */
+async function trySpiceBake() {
+  const { spawnSync } = await import('child_process');
+  const py = spawnSync('python', [resolve(ROOT, 'scripts/build-ephemeris-from-spice.py'), '--step', String(step_days)], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    stdio: 'inherit',
+  });
+  return py.status === 0;
+}
 
 // Expanded durable window
 const t0Date = Date.UTC(2015, 0, 1, 12, 0, 0);
@@ -133,12 +146,30 @@ async function buildAll(source) {
   return { bodies, n, meta };
 }
 
-let source = forceBootstrap ? 'bootstrap' : 'horizons';
+// Priority: spice → horizons → bootstrap (unless forced)
+let source = 'bootstrap';
 let bodies;
 let n;
 let extraMeta = {};
+let skipWrite = false;
 
-if (source === 'horizons') {
+if (!forceBootstrap && !forceHorizons && (forceSpice || true)) {
+  // Try SPICE first for durability (unless user forced horizons/bootstrap)
+  if (!forceHorizons) {
+    console.log('Trying SPICE DE440s bake (spiceypy + assets/kernels)…');
+    const ok = await trySpiceBake();
+    if (ok) {
+      console.log('SPICE bake succeeded — ephemeris-samples-v1.json already written by Python.');
+      skipWrite = true;
+      source = 'spice';
+    } else {
+      console.warn('SPICE bake unavailable — trying Horizons…');
+    }
+  }
+}
+
+if (!skipWrite && !forceBootstrap && (forceHorizons || source !== 'spice')) {
+  source = 'horizons';
   console.log(`Baking Horizons sample table ${new Date(t0Date).toISOString().slice(0, 10)} → ${new Date(t1Date).toISOString().slice(0, 10)} step=${step_days}d`);
   try {
     const out = await buildAll('horizons');
@@ -151,11 +182,15 @@ if (source === 'horizons') {
   }
 }
 
-if (source === 'bootstrap') {
+if (!skipWrite && source === 'bootstrap') {
   console.log(`Baking approx-bootstrap sample table step=${step_days}d`);
   const out = await buildAll('bootstrap');
   bodies = out.bodies;
   n = out.n;
+}
+
+if (skipWrite) {
+  process.exit(0);
 }
 
 const table = {

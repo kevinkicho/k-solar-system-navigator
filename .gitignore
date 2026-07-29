@@ -29,3 +29,12 @@ serviceAccount*.json
 **/service-account*.json
 google-services.json
 GoogleService-Info.plist
+
+# SPICE / DE binary kernels (large; download via scripts/download-kernels.py)
+# Baked JSON sample table IS committed (assets/ephemeris-samples-v1.json)
+assets/kernels/*.bsp
+assets/kernels/*.tls
+assets/kernels/*.tpc
+assets/kernels/*.tf
+assets/kernels/*.ti
+!assets/kernels/README.md

@@ -165,13 +165,16 @@ function actionsHtml(missionReady) {
 function trustStripHtml(td, dossier) {
   let eph = state.classroomMode
     ? 'L1 approx (classroom)'
-    : (state.horizonsEndpointInject || state.fidelityLevel === 'L2-horizons'
-      ? 'L2-horizons inject'
-      : (state.ephemerisBackend === 'sample-de' ? 'L2-plan sample-DE' : 'L1 approx'));
+    : (state.fidelityLevel === 'L3-plan'
+      ? 'L3-plan DE440s SPICE-baked'
+      : (state.horizonsEndpointInject || state.fidelityLevel === 'L2-horizons'
+        ? 'L2-horizons inject'
+        : (state.ephemerisBackend === 'sample-de' ? 'L2-plan sample-DE' : 'L1 approx')));
   if (td?.sampleFallback || dossier?.fidelity?.sampleFallback) {
     eph += ' · partial approx fallback';
   }
   if (state.physicsAccurate) eph += ' · ACCURATE view';
+  if (state.flightOpsMode) eph += ' · OPS(edu)';
   const scene = state.physicsAccurate
     ? 'physics-accurate'
     : (state.mapMode
@@ -195,7 +198,7 @@ function trustStripHtml(td, dossier) {
       <span class="pts-item"><em>Path</em> Kepler conic · ${geom}</span>
       <span class="pts-item"><em>Scene</em> ${scene}</span>
       <span class="pts-item"><em>Res</em> ${resTxt}</span>
-      <span class="pts-item pts-note">Chemical Lambert · not low-thrust · not SPICE · not DE kernels${nbody}</span>
+      <span class="pts-item pts-note">Chemical Lambert · not low-thrust · browser not live SPICE · not certified OD${nbody}</span>
     </div>`;
 }
 
@@ -291,8 +294,15 @@ export function renderRouteUI() {
     }
   } catch { /* */ }
 
-  if (td.isMultiLeg) { renderMultiLegRouteUI(); return; }
-  renderSingleLegRouteUI(td);
+  if (td.isMultiLeg) {
+    renderMultiLegRouteUI();
+  } else {
+    renderSingleLegRouteUI(td);
+  }
+  // Keep educational OPS panel in sync after every Results re-render
+  if (state.flightOpsMode) {
+    import('./flight-ops-ui.js').then((m) => m.refreshFlightOpsPanel?.()).catch(() => {});
+  }
 }
 
 function renderSingleLegRouteUI(td) {

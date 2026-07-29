@@ -34,8 +34,9 @@ export const state = {
   falcon9Variant: 'expendable', // 'expendable' | 'asds'
   aeroassistFactor: 0, // 0–0.9
   measurementPhase: null, // null → autoPhase
-  // K1: 'L1' | 'L2-compare' | 'L2-plan' (legacy 'L2' treated as L2-compare)
-  // Product default L2-plan (offline sample table endpoints) — classroom forces L1.
+  // K1: 'L1' | 'L2-compare' | 'L2-plan' | 'L2-horizons' | 'L3-plan'
+  // Product default L2/L3 from offline sample table — classroom forces L1.
+  // L3-plan = sample table baked from DE440s SPICE (browser still uses JSON, not live .bsp).
   fidelityLevel: 'L2-plan',
   // K5: planning geometry backend — animation always approx Kepler
   // Product default sample-de when table loaded; falls back to approx OOR.
@@ -46,6 +47,11 @@ export const state = {
    * NOT SPICE / NOT default offline path.
    */
   horizonsEndpointInject: false,
+  /**
+   * Educational flight-ops workflow mode (NOT certified, NOT range safety).
+   * Surfaces light-time, ops gates, OEM-like export; prefers L3-plan table when available.
+   */
+  flightOpsMode: false,
 
   display: {
     mode: 'cinematic',

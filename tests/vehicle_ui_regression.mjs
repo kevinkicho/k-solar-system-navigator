@@ -27,9 +27,11 @@ check('measurement-card module exists', existsSync(resolve(ROOT, 'js/ui/measurem
 check('Card uses data-fidelity', /data-fidelity=/.test(cardJs));
 check('Card shows fidelity badge', /fidelity-badge/.test(cardJs));
 check('Card classroom note path', /classroomMode/.test(cardJs));
-// Product default is L2-plan (sample-DE); classroom / forceOfflineL1 still L1
+// Product default is L2-plan (sample-DE); runtime may promote L3-plan when SPICE table loads; classroom still L1
 check('Product fidelity L2-plan in state', /fidelityLevel:\s*['"]L2-plan['"]/.test(stateJs)
   || /fidelityLevel:\s*['"]L1['"]/.test(stateJs));
+check('L3-plan fidelity documented in state', /L3-plan/.test(stateJs));
+check('flightOpsMode state flag', /flightOpsMode/.test(stateJs));
 check('Product sample-de backend default', /ephemerisBackend:\s*['"]sample-de['"]/.test(stateJs)
   || /ephemerisBackend:\s*['"]approx['"]/.test(stateJs));
 
@@ -42,8 +44,16 @@ check('Horizons re-renders route on L2-compare', rrAfterL2);
 check('approx error module exists', existsSync(resolve(ROOT, 'js/data/approx-ephemeris-errors.js')));
 check('ephemeris provider exists', existsSync(resolve(ROOT, 'js/physics/ephemeris-provider.js')));
 check('sample asset exists', existsSync(resolve(ROOT, 'assets/ephemeris-samples-v1.json')));
-check('About documents L1/L2/L3', /Ephemeris fidelity badges/.test(indexHtml) && /L3/.test(indexHtml) && /not a planning mode|never a planning mode/i.test(indexHtml));
-check('About: L3 not a mode', /not a planning mode|out of scope|never a planning mode/i.test(indexHtml));
+check('About documents L1/L2/L3', /Ephemeris fidelity badges/.test(indexHtml)
+  && /L3-plan/.test(indexHtml)
+  && (/not a planning mode|never a planning mode|does not by itself change planning|Out of scope forever/i.test(indexHtml)));
+check('About: certified ops out of scope', /out of scope|not flight-certified|NOT certified flight software/i.test(indexHtml));
+check('About documents OPS mode', /OPS mode|flight-ops workflow/i.test(indexHtml));
+check('flight-ops module exists', existsSync(resolve(ROOT, 'js/physics/flight-ops.js')));
+check('flight-ops UI exists', existsSync(resolve(ROOT, 'js/ui/flight-ops-ui.js')));
+check('main wires flight ops', /wireFlightOpsUi/.test(mainJs));
+check('SPICE bake script exists', existsSync(resolve(ROOT, 'scripts/build-ephemeris-from-spice.py')));
+check('kernel download script exists', existsSync(resolve(ROOT, 'scripts/download-kernels.py')));
 
 // PR15+ porkchop cargo readout + heatmap
 check('pc-cargo element in HTML', /id=["']pc-cargo["']/.test(indexHtml));
