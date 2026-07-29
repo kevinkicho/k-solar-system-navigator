@@ -1,19 +1,28 @@
 /**
  * Shared Need / budget helpers for route UI + mission plan export.
+ * Need always receives asymptote DLA when Lambert is solved so site
+ * plane-change sketches are factually tied to the transfer.
  */
 import { getTransferBudget } from '../physics/vehicles.js';
 import { state } from '../state.js';
 import { computeNeed, needDeltaV, autoPhase } from '../physics/need.js';
+import { needOptsFromTransfer } from '../physics/need-geometry.js';
 
-/** Required Δv via Need calculator (K18/K25-safe). */
-export function requiredDeltaV(td) {
-  if (!td) return Infinity;
-  return needDeltaV(td, {
+function baseNeedOpts() {
+  return {
     vehicleId: state.vehicleId,
     starshipArch: state.starshipArch ?? 'legacy-demo',
     costBasis: state.costBasis,
     aeroassistFactor: state.aeroassistFactor ?? 0,
-  });
+    launchSiteId: state.launchSiteId || 'any',
+    lightTimeCompare: !!state.lightTimeNeedCompare,
+  };
+}
+
+/** Required Δv via Need calculator (K18/K25-safe). */
+export function requiredDeltaV(td) {
+  if (!td) return Infinity;
+  return needDeltaV(td, needOptsFromTransfer(td, baseNeedOpts()));
 }
 
 export function transferBudgetNow() {
@@ -26,12 +35,7 @@ export function transferBudgetNow() {
 
 /** Full Need object for Measurement Card / export. */
 export function computeNeedNow(td) {
-  return computeNeed(td, {
-    vehicleId: state.vehicleId,
-    starshipArch: state.starshipArch ?? 'legacy-demo',
-    costBasis: state.costBasis,
-    aeroassistFactor: state.aeroassistFactor ?? 0,
-  });
+  return computeNeed(td, needOptsFromTransfer(td, baseNeedOpts()));
 }
 
 export { autoPhase, computeNeed, needDeltaV };

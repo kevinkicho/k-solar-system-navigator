@@ -262,6 +262,7 @@ function trustStripHtml(td, dossier) {
   if (td?.endpointBackendSummary && !state.classroomMode) {
     eph += ` · ${td.endpointBackendSummary}`;
   }
+  if (td?.revolutions > 0) eph += ` · multi-rev N=${td.revolutions}`;
   if (state.physicsAccurate) eph += ' · ACCURATE view';
   if (state.flightOpsMode) eph += ' · OPS review';
   const scene = state.physicsAccurate
@@ -324,7 +325,7 @@ function visualWarnHtml(td) {
     parts.push(`<div class="visual-fallback-note" role="status">Path offset=time_varying: includes sun barycenter motion (educational) — not third-body gravity on the coast.</div>`);
   }
   if (td.revolutions > 0) {
-    parts.push(`<div class="visual-fallback-note" role="status">Multi-rev Lambert N=${td.revolutions} (feature-flagged educational branch).</div>`);
+    parts.push(`<div class="visual-fallback-note" role="status">Multi-rev Lambert N=${td.revolutions} (flag and/or auto when TOF&gt;400 d — educational branch, not certified).</div>`);
   }
   if (state.pathAccuracy?.nbodyOverlay && !state.classroomMode) {
     parts.push(`<div class="visual-fallback-note" role="status">n-body coast overlay = educational residual under Approximate Positions — not navigation OD. Need/Δv unchanged.</div>`);

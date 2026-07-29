@@ -149,6 +149,9 @@ export function buildMeasurementCard(td) {
       <div style="height:8px"></div>
       <div class="result-subtitle">NEED · phase ${need.phase}${need.multi_leg ? ' (multi-leg)' : ''}</div>
       <div class="info-row"><span class="key">Required Δv</span><span class="val amber">${need.need_dv_m_s != null && isFinite(need.need_dv_m_s) ? formatVelocity(need.need_dv_m_s) : '—'}</span></div>
+      ${need.geometric_need_dv_m_s != null && need.plane_change_addon_m_s > 0
+        ? `<div class="info-row"><span class="key">Geometric Lambert</span><span class="val">${formatVelocity(need.geometric_need_dv_m_s)}</span></div>`
+        : ''}
       <div class="info-row"><span class="key">C₃ (departure)</span><span class="val">${fmtC3(need.c3_m2_s2)}</span></div>
       ${need.vinf_dep_m_s != null ? `<div class="info-row"><span class="key">V∞ dep</span><span class="val">${formatVelocity(need.vinf_dep_m_s)}</span></div>` : ''}
       ${need.aeroassist_factor > 0 ? `<div class="info-row"><span class="key">Aeroassist factor</span><span class="val">${need.aeroassist_factor.toFixed(2)}</span></div>` : ''}

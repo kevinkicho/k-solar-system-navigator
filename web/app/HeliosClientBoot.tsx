@@ -11,6 +11,7 @@ const IMPORT_MAP = {
     'firebase/firestore': 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js',
     'firebase/database': 'https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js',
     'firebase/storage': 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js',
+    'firebase/functions': 'https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js',
   },
 };
 

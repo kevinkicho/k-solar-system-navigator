@@ -747,7 +747,7 @@ export function wirePorkchop() {
             }
           }).catch(() => {});
         }
-        // Cloud RTDB save when signed in (non-blocking)
+        // Cloud RTDB save + optional Functions re-rank (non-blocking)
         import('../firebase/rtdb.js').then(({ saveWindowCampaign }) => {
           saveWindowCampaign({
             origin: body1.name,
@@ -757,6 +757,19 @@ export function wirePorkchop() {
             backend: planOpts.backend,
           }).then((id) => {
             if (id) notify('WINDOW CAMPAIGN SAVED TO CLOUD');
+          }).catch(() => {});
+        }).catch(() => {});
+        import('../firebase/functions-client.js').then(({ refineWindowShortlistCloud }) => {
+          refineWindowShortlistCloud({
+            origin: body1.name,
+            dest: body2.name,
+            shortlist,
+            fidelity: state.fidelityLevel,
+            save: false,
+          }).then((data) => {
+            if (data?.ok && data.shortlist?.length) {
+              pcState.cloudShortlist = data.shortlist;
+            }
           }).catch(() => {});
         }).catch(() => {});
       } catch (err) {

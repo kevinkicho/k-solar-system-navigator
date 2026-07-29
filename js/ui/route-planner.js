@@ -27,6 +27,7 @@ import {
 } from '../physics/surface-point.js';
 import { refreshSurfacePointUi, syncSurfaceSlotLabels } from './surface-point-ui.js';
 import { activateRailTab } from './rail-ui.js';
+import { resolveMaxRevolutionsForTof } from '../physics/planning-defaults.js';
 
 // Mission abort handler — injected by main.js so route-planner can cancel an
 // in-flight mission without importing mission.js (which would create a cycle).
@@ -42,12 +43,26 @@ export function stampPlanningEphemeris(td) {
   td.ephemerisBackend = backend;
   td.classroomMode = !!state.classroomMode;
   td.horizonsEndpointInject = !!(state.horizonsEndpointInject && !state.classroomMode);
-  // Multi-rev Lambert (PR7b) — opt-in via pathAccuracy flag
-  td.maxRevolutions = (state.pathAccuracy?.multiRevLambert && !state.classroomMode)
-    ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
-    : 0;
+  // Multi-rev: explicit flag, or auto for long TOF outer transfers (realism)
+  td.maxRevolutions = resolveMaxRevolutions(td);
   td.pathOffsetPolicy = state.pathOffsetPolicy || 'time_varying';
   return td;
+}
+
+/**
+ * Multi-rev Nmax for planning.
+ * - Classroom: 0
+ * - User flag: pathAccuracy.multiRevMax (≤2)
+ * - Auto: TOF > 400 d → allow N=1 (outer-system / long Type-II class)
+ */
+export function resolveMaxRevolutions(td = null) {
+  const tof = td?.transferTime
+    ?? (state.userTofDays != null ? state.userTofDays * 86400 : null);
+  return resolveMaxRevolutionsForTof(tof, {
+    classroomMode: !!state.classroomMode,
+    multiRevLambert: !!state.pathAccuracy?.multiRevLambert,
+    multiRevMax: state.pathAccuracy?.multiRevMax ?? 1,
+  });
 }
 
 function routePlanOpts() {
@@ -56,9 +71,7 @@ function routePlanOpts() {
       ? 'approx'
       : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
     classroomMode: !!state.classroomMode,
-    maxRevolutions: (state.pathAccuracy?.multiRevLambert && !state.classroomMode)
-      ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
-      : 0,
+    maxRevolutions: resolveMaxRevolutions(),
   };
 }
 

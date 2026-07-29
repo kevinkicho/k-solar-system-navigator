@@ -8,6 +8,7 @@ import {
   getPlanningPosition3D, getPlanningVelocity3D,
 } from './ephemeris-provider.js';
 import { solveLambertBestBranch } from './lambert.js';
+import { resolveMaxRevolutionsForTof } from './planning-defaults.js';
 import { v3dot, v3mag, v3sub } from './vec3.js';
 
 export function synodicPeriod(b1, b2) {
@@ -51,7 +52,13 @@ export function evaluateCell(body1, body2, dep, tof, planOpts = {}) {
   const r2v = [a.x * AU, a.y * AU, a.z * AU];
   const vb1 = getPlanningVelocity3D(body1, dep, pOpts);
   const vb2 = getPlanningVelocity3D(body2, dep + tof, pOpts);
-  const maxRev = Math.max(0, Math.min(2, Math.floor(planOpts.maxRevolutions ?? 0)));
+  // Per-cell multi-rev: honor flag/explicit max, else auto N=1 for TOF > 400 d
+  const maxRev = resolveMaxRevolutionsForTof(tof, {
+    classroomMode: !!planOpts.classroomMode,
+    multiRevLambert: !!planOpts.multiRevLambert,
+    multiRevMax: planOpts.multiRevMax ?? planOpts.maxRevolutions,
+    maxRevolutions: planOpts.maxRevolutions,
+  });
   const best = solveLambertBestBranch(r1v, r2v, tof, mu, vb1, vb2, { maxRevolutions: maxRev });
   if (!best) return null;
   const vInfDep = v3sub(best.sol.v1, vb1);

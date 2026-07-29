@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
+// firebase/functions loaded only by functions-client.js (optional Functions)
 import { FIREBASE_PUBLIC_CONFIG } from './public-config.js';
 import { state } from '../state.js';
 
@@ -125,6 +126,11 @@ export function getFirebaseAuth() {
 export function getFirebaseDb() {
   if (!_initTried) initFirebase();
   return _db;
+}
+
+export function getFirebaseApp() {
+  if (!_initTried) initFirebase();
+  return _app;
 }
 
 export function getFirebaseRtdb() {

@@ -261,12 +261,14 @@ export function computeNeed(td, opts = {}) {
     };
   }
 
-  // helio_leg — optional plane-change addon for Earth dep educational honesty
+  // helio_leg — report geometric Need and optional plane-change addon separately
+  // so users can distinguish ballistic Δv from educational site plane-change.
   const helioNeed = isFinite(helio) ? helio + planeAddon : helio;
   const base = {
     phase: 'helio_leg',
     multi_leg: false,
     need_dv_m_s: helioNeed,
+    geometric_need_dv_m_s: isFinite(helio) ? helio : null,
     c3_m2_s2: c3,
     vinf_dep_m_s: vInfDep,
     vinf_arr_m_s: vInfArr,
@@ -275,6 +277,9 @@ export function computeNeed(td, opts = {}) {
     applicable: isFinite(helioNeed),
     aeroassist_factor: 0,
     reason: isFinite(helio) ? null : 'helio Δv unavailable',
+    fidelity_note: td.ephemerisBackend === 'sample-de'
+      ? 'Planning ephemeris: offline sample table (L2/L3-class).'
+      : 'Planning ephemeris: JPL Approximate Positions (L1).',
   };
 
   // Optional light-time compare (analysis only — does not replace geometric Need)
