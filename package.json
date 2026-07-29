@@ -24,6 +24,7 @@
     "build:ephemeris:dense-b": "python scripts/build-dense-spk-pack.py --all-tier-b",
     "budget:dense-spice": "node scripts/dense-spice-budget.mjs",
     "upload:dense-spk": "node scripts/upload-dense-spk-firebase.mjs",
+    "smoke:live": "node scripts/live-smoke.mjs",
     "kernels:download": "python scripts/download-kernels.py",
     "kernels:download:tier-b": "python scripts/download-kernels.py --tier-b",
     "firebase:smoke": "node scripts/firebase-admin-smoke.mjs",

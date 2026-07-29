@@ -263,6 +263,25 @@ function trustStripHtml(td, dossier) {
     eph += ` · ${td.endpointBackendSummary}`;
   }
   if (td?.revolutions > 0) eph += ` · multi-rev N=${td.revolutions}`;
+  // Dense SPICE pack honesty (parent-relative / helio sample packs)
+  let denseTxt = '';
+  try {
+    if (!state.classroomMode) {
+      const parts = [];
+      if (td?.prEphSource) parts.push(String(td.prEphSource));
+      if (td?.prEphRecovery) parts.push(`recovery=${td.prEphRecovery}`);
+      // Loaded pack delivery sources (Storage CDN vs Hosting)
+      import('../physics/dense-spk-pack.js').then((d) => {
+        const sum = d.denseSpkCoverageSummary?.();
+        const el = document.getElementById('path-trust-dense');
+        if (el && sum?.packs?.length) {
+          const del = [...new Set(sum.packs.map((p) => p.delivery || 'local'))].join('+');
+          el.textContent = `Dense ${sum.packs.map((p) => p.pack_id).slice(0, 4).join(',')} [${del}]`;
+        }
+      }).catch(() => {});
+      if (parts.length) denseTxt = parts.join(' · ');
+    }
+  } catch { /* */ }
   if (state.physicsAccurate) eph += ' · ACCURATE view';
   if (state.flightOpsMode) eph += ' · OPS review';
   const scene = state.physicsAccurate
@@ -283,12 +302,13 @@ function trustStripHtml(td, dossier) {
     : '';
   return `
     <div class="path-trust-strip" id="path-trust-strip" role="status"
-      title="Concept-grade: Need/Δv from physical Lambert + planning ephemeris. Three.js is display only. Not SPICE.">
+      title="Concept-grade: Need/Δv from physical Lambert + planning ephemeris. Dense packs = pre-baked SPICE samples, not live .bsp. Not certified OD.">
       <span class="pts-item"><em>Eph</em> ${eph}</span>
+      <span class="pts-item" id="path-trust-dense"><em>Dense</em> ${denseTxt || '—'}</span>
       <span class="pts-item"><em>Path</em> Kepler conic · ${geom}</span>
       <span class="pts-item"><em>Scene</em> ${scene}</span>
       <span class="pts-item"><em>Res</em> ${resTxt}</span>
-      <span class="pts-item pts-note">Chemical Lambert · not low-thrust · browser not live SPICE · not certified OD${nbody}</span>
+      <span class="pts-item pts-note">Chemical Lambert · not low-thrust · baked SPICE samples not live kernels · not certified OD${nbody}</span>
     </div>`;
 }
 

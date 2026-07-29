@@ -213,6 +213,42 @@ export async function ensureDensePack(packId) {
 }
 
 /**
+ * After Firebase init: re-resolve registry + re-fetch packs preferring Storage CDN.
+ * Safe to call multiple times; overwrites Hosting-sourced Tier A entries when Storage works.
+ */
+export async function warmDensePacksFromCloud(bodyHints = []) {
+  try {
+    const cloud = await import('../firebase/dense-spk-cloud.js');
+    if (!cloud.isDenseCloudAvailable?.()) {
+      return { warmed: false, reason: 'firebase-off' };
+    }
+    cloud.clearDenseCloudCache?.();
+    // Force registry re-read
+    _registry = null;
+    await loadRegistry();
+    const regSrc = _registry?._source || 'unknown';
+
+    // Prefer re-fetch of Tier A via Storage (drop Hosting copies so fetchPack runs cloud path)
+    for (const id of TIER_A_PACKS) {
+      _packs.delete(id);
+      await fetchPack(id);
+    }
+    // Optional body-driven Tier B warm
+    if (bodyHints.length) {
+      await ensureDensePackForBodies(bodyHints);
+    }
+    const sum = denseSpkCoverageSummary();
+    return {
+      warmed: true,
+      registry_source: regSrc,
+      packs: sum.packs.map((p) => `${p.pack_id}:${p.delivery}`),
+    };
+  } catch (err) {
+    return { warmed: false, reason: String(err?.message || err) };
+  }
+}
+
+/**
  * Ensure dense packs covering the given bodies are loaded (lazy Tier B).
  * @param {Array<object|string>} bodies
  * @returns {Promise<{ loaded: string[], missing: string[] }>}

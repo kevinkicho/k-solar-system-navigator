@@ -92,6 +92,25 @@ if (params.get('mode') === 'classroom') {
     syncFidelityChip();
     syncProductClassFooters();
   }).catch(() => {});
+  // Warm Firebase + dense SPICE from Storage CDN after SPA paints
+  // (sample table may already have loaded Hosting packs — re-prefer Storage).
+  queueMicrotask(() => {
+    import('./firebase/app.js').then(async ({ initFirebase, isFirebaseEnabled }) => {
+      try {
+        initFirebase();
+        if (!isFirebaseEnabled() || state.classroomMode) return;
+        const dense = await import('./physics/dense-spk-pack.js');
+        const warm = await dense.warmDensePacksFromCloud([
+          { name: 'Phobos' }, { name: 'Earth' }, { name: 'Moon' },
+        ]);
+        if (warm?.warmed) {
+          console.info('[HELIOS] dense SPICE warm', warm.registry_source, warm.packs?.join?.(', '));
+        }
+      } catch (err) {
+        console.warn('[HELIOS] dense SPICE warm', err?.message || err);
+      }
+    }).catch(() => {});
+  });
 }
 applyProductTheme();
 

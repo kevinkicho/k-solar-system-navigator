@@ -168,18 +168,16 @@ function wireDensePrefetchButtons() {
   bind('btn-prefetch-triton', () => prefetchDensePacks(['triton']));
   bind('btn-prefetch-tier-b', () => prefetchDensePacks(['galilean', 'titan', 'triton']));
   bind('btn-refresh-dense-catalog', async () => {
-    try {
-      const cloud = await import('../firebase/dense-spk-cloud.js');
-      cloud.clearDenseCloudCache?.();
-    } catch { /* */ }
-    // Force registry reload by clearing module state via re-import path
-    const dense = await import('../physics/dense-spk-pack.js');
-    // ensureDenseSpkPacksLoaded is cached; pack ensure still fetches
     notify('REFRESHING DENSE CATALOG…');
-    await dense.ensureDensePackForBodies?.([
-      { name: 'Io' }, { name: 'Titan' }, { name: 'Triton' }, { name: 'Phobos' },
+    const dense = await import('../physics/dense-spk-pack.js');
+    const warm = await dense.warmDensePacksFromCloud([
+      { name: 'Io' }, { name: 'Titan' }, { name: 'Triton' }, { name: 'Phobos' }, { name: 'Moon' },
     ]);
-    notify('DENSE CATALOG REFRESHED');
+    if (warm?.warmed) {
+      notify(`DENSE CATALOG · ${warm.registry_source || '?'} · ${(warm.packs || []).length} packs`);
+    } else {
+      notify(`DENSE CATALOG · ${warm?.reason || 'hosting fallback'}`);
+    }
     refreshFlightOpsPanel();
   });
 }
