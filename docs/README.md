@@ -17,7 +17,7 @@ HELIOS on `main` is a **concept-grade educational** interplanetary trip planner 
 | **Geographic sites** | Planetocentric lat/lon/*h*; 1-bar giants; oblate *R*(φ); ICRF pole + *W(t)* (+ Moon/Mercury libration); share `os`/`ds`; multi-leg terminals |
 | **Server / agent** | Loopback static + Ollama proxy; FAB chat stream; CLI + C2 claim/lease; optional API token |
 | **UI** | Inspect/Plan/Results rail; Advanced accordion; results hero; body picker + dossier modal; map-first mobile chips |
-| **Tests** | `npm test` = physics + server path jail + agent API + snapshot/launch contracts; `npm run test:ui:ci` Playwright |
+| **Tests** | `npm run precommit` = full CI mirror (`npm test` + Playwright `test:ui:ci`); `npm test` alone skips UI |
 
 ## Document catalog
 

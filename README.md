@@ -216,11 +216,12 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 | `npm start` | Local path-jailed static server (ESM) |
 | `npm test` / `npm run test:physics` | Offline physics + catalog + share + multi-leg suite |
 | `npm run test:server` | Path-jail HTTP tests |
-| `npm run test:ui:ci` | Playwright UI smoke (starts its own server) |
+| `npm run test:ui:ci` | Playwright UI smoke (starts its own server; boots with `?firebase=0`) |
+| `npm run precommit` / `npm run ci` | **Full CI mirror** — `npm test` + `test:ui:ci` (run before every push) |
 | `npm run build:stars` | Rebuild `assets/stars-mag75.json` from `hyg_v42.csv` |
 | `npm run build:ephemeris` | Rebuild `assets/ephemeris-samples-v1.json` (L2-plan samples) |
 
-**CI:** GitHub Actions runs physics offline tests on every push/PR to `main`, plus a Playwright Chromium UI smoke job.
+**CI:** GitHub Actions runs physics offline tests on every push/PR to `main`, plus a Playwright Chromium UI smoke job. **`npm test` alone is not enough** — always run `npm run precommit` before pushing so the UI job cannot fail from unrun local changes.
 
 ### Trip planner & cargo-aware measurements
 

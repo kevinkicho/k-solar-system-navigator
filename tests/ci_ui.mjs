@@ -30,6 +30,26 @@ if (!appUrl) {
   console.log(`CI UI server at ${appUrl}`);
 }
 
+// Force offline Firebase in CI so dense-SPK Storage warm never hits CORS on localhost.
+// HELIOS_URL may already have query params — append carefully.
+function withFirebaseOff(url) {
+  try {
+    const u = new URL(url);
+    if (!u.searchParams.has('firebase')) u.searchParams.set('firebase', '0');
+    return u.toString();
+  } catch {
+    return url.includes('?') ? `${url}&firebase=0` : `${url}?firebase=0`;
+  }
+}
+const bootUrl = withFirebaseOff(appUrl);
+console.log(`CI UI boot URL (firebase=0): ${bootUrl}`);
+
+/** Console noise that must not fail CI (network optional features, CDN, CORS). */
+function isBenignConsoleError(text) {
+  return /favicon|404|Failed to load resource|net::ERR|CORS policy|Access-Control-Allow-Origin|firebasestorage\.googleapis\.com|firestore\.googleapis\.com|identitytoolkit|securetoken|googleapis\.com.*(?:blocked|CORS)/i
+    .test(text || '');
+}
+
 const errors = [];
 const browser = await chromium.launch({
   headless: true,
@@ -38,12 +58,14 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 page.on('pageerror', (err) => errors.push(err.message));
 page.on('console', (msg) => {
-  if (msg.type() === 'error' && !msg.text().includes('404')) errors.push(msg.text());
+  if (msg.type() === 'error' && !msg.text().includes('404') && !isBenignConsoleError(msg.text())) {
+    errors.push(msg.text());
+  }
 });
 
 try {
   section('1. BOOT');
-  await page.goto(appUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.goto(bootUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
   // Playwright signature: waitForFunction(fn, arg, options) — pass null arg so timeout is honored.
   await page.waitForFunction(
     () => {
@@ -55,11 +77,12 @@ try {
     null,
     { timeout: 60000 },
   );
-  if (errors.length) {
-    console.log('  page errors during boot:', errors.slice(0, 5).join(' | '));
+  const bootReal = errors.filter((e) => !isBenignConsoleError(e));
+  if (bootReal.length) {
+    console.log('  page errors during boot:', bootReal.slice(0, 5).join(' | '));
   }
   check('__HELIOS hook + 8 planets', true);
-  check('no boot page errors', errors.length === 0, errors.slice(0, 3).join('; '));
+  check('no boot page errors', bootReal.length === 0, bootReal.slice(0, 3).join('; '));
 
   const canvas = await page.locator('#renderer-container canvas').count();
   check('WebGL canvas present', canvas >= 1);
@@ -195,10 +218,8 @@ try {
   await page.screenshot({ path: join(OUT, 'ci-ui-route.png') });
 
   section('5. CONSOLE HYGIENE');
-  // Ignore benign network noise: favicon, 404s, CORS from optional Storage CDN
-  // (localhost CI uses Hosting packs; production origins may hit Storage with CORS).
-  const realErrors = errors.filter((e) =>
-    !/favicon|404|Failed to load resource|net::ERR|CORS policy|Access-Control-Allow-Origin|firebasestorage\.googleapis\.com/i.test(e));
+  // Ignore benign network noise (favicon, 404s, optional Firebase/CDN/CORS).
+  const realErrors = errors.filter((e) => !isBenignConsoleError(e));
   check(`no critical page errors (got ${realErrors.length})`, realErrors.length === 0,
     realErrors.slice(0, 3).join(' | '));
 } finally {
