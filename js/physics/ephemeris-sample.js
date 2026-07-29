@@ -9,6 +9,12 @@
 
 import { AU, DAY } from '../constants.js';
 import { BODIES } from '../data/bodies.js';
+import { moonSampleCadenceOk, bodyPeriodSec } from './moon-fidelity.js';
+import {
+  ensureMarsMoonsDenseLoaded,
+  sampleMarsMoonRelativeAU,
+  marsMoonDenseAvailable,
+} from './mars-moons-dense.js';
 
 let _table = null;
 let _moonTable = null;
@@ -155,6 +161,7 @@ export async function ensureSampleTableLoaded() {
         if (resM.ok) _moonTable = await resM.json();
       } catch { /* */ }
     }
+    await ensureMarsMoonsDenseLoaded().catch(() => null);
     return _table;
   }
   if (_loadPromise) return _loadPromise;
@@ -166,6 +173,7 @@ export async function ensureSampleTableLoaded() {
         if (res.ok) _table = await res.json();
         const resM = await fetch(new URL('../../assets/ephemeris-moons-v1.json', import.meta.url));
         if (resM.ok) _moonTable = await resM.json();
+        await ensureMarsMoonsDenseLoaded().catch(() => null);
       }
     } catch (_) {
       _table = _table || null;
@@ -194,14 +202,21 @@ function inWindow(table, timeSec) {
 export function sampleAvailable(body, timeSec) {
   const pk = bodyKey(body);
   if (pk && _table?.bodies?.[pk] && inWindow(_table, timeSec)) return true;
+  // Dense SPICE Mars moons (Phobos/Deimos) — preferred when loaded + in window
+  if (marsMoonDenseAvailable(body, timeSec)) {
+    const parentKey = BODY_KEYS.mars;
+    if (parentKey && _table?.bodies?.[parentKey] && inWindow(_table, timeSec)) return true;
+    return true; // relative-only still counts for PR
+  }
   const mk = moonKey(body);
   if (mk && _moonTable?.bodies?.[mk] && inWindow(_moonTable, timeSec)) {
-    // Moon sample usable if parent sample or we can still return relative-only
-    // (heliocentric needs parent — check parent available)
+    // Reject undersampled tables (e.g. 3 d step for Phobos) — would destroy km accuracy
+    const P = bodyPeriodSec(body) || body?.period;
+    const step = _moonTable.step_sec;
+    if (P && step && !moonSampleCadenceOk(step, P)) return false;
     const parentName = _moonTable.bodies[mk].parent;
     const parentKey = BODY_KEYS[parentName];
     if (parentKey && _table?.bodies?.[parentKey] && inWindow(_table, timeSec)) return true;
-    // Relative table alone is still "available" for planet-relative parent diffs
     return true;
   }
   return false;
@@ -246,10 +261,17 @@ function interpSeriesOnTable(table, series, timeSec) {
   return { x: out[0], y: out[1], z: out[2] };
 }
 
-/** Parent-relative moon position (AU) from moon sample table. */
+/** Parent-relative moon position (AU) from dense Mars SPICE or moon sample table. */
 export function sampleMoonRelativePosition3D(body, timeSec) {
+  // Prefer dense SPICE Mars moons (km/minute class) when available
+  const dense = sampleMarsMoonRelativeAU(body, timeSec);
+  if (dense) return dense;
+
   const mk = moonKey(body);
   if (!mk || !_moonTable?.bodies?.[mk] || !inWindow(_moonTable, timeSec)) return null;
+  const P = bodyPeriodSec(body) || body?.period;
+  const step = _moonTable.step_sec;
+  if (P && step && !moonSampleCadenceOk(step, P)) return null;
   const series = _moonTable.bodies[mk].pos_au_parent_relative;
   if (!series) return null;
   return interpSeriesOnTable(_moonTable, series, timeSec);

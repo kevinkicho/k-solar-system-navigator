@@ -14,9 +14,12 @@ const { DAY, J2000 } = await import(pathToFileURL(resolve(ROOT, 'js/constants.js
 const { MOONS } = await import(pathToFileURL(resolve(ROOT, 'js/data/moons.js')).href);
 const { getMoonRelativePositionAU } = await import(pathToFileURL(resolve(ROOT, 'js/physics/kepler.js')).href);
 
-const NAMES = ['Moon', 'Phobos', 'Deimos', 'Io', 'Europa', 'Ganymede', 'Callisto', 'Titan', 'Enceladus', 'Triton'];
-// 3 d matches major-planet sample table cadence (size budget)
-const step_days = 3;
+// Short-period moons (Phobos, Deimos, Enceladus) are NOT baked here —
+// multi-day steps undersample orbits and destroy km accuracy. Use continuous
+// Kepler or the dense SPICE Mars table (build-mars-moons-spice.py).
+const NAMES = ['Moon', 'Io', 'Europa', 'Ganymede', 'Callisto', 'Titan', 'Triton'];
+// 1 d for slow moons (size budget)
+const step_days = 1;
 const t0Date = Date.UTC(2015, 0, 1, 12);
 const t1Date = Date.UTC(2055, 0, 1, 12);
 const t0_sim = (t0Date - J2000) / 1000;

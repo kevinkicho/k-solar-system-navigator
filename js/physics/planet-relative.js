@@ -17,6 +17,16 @@ import {
   getPlanningPosition3D, getPlanningVelocity3D,
 } from './ephemeris-provider.js';
 import { sampleMoonRelativePosition3D } from './ephemeris-sample.js';
+import {
+  continuousMoonRelativePositionAU,
+  continuousMoonRelativeVelocity_m_s,
+  adaptiveVelocityDtSec,
+} from './moon-fidelity.js';
+import {
+  sampleMarsMoonRelativeAU,
+  sampleMarsMoonRelativeVelocity_m_s,
+  marsMoonDenseAvailable,
+} from './mars-moons-dense.js';
 import { defaultParkingAlt_m } from './surface-point.js';
 import { v3cross, v3mag, v3scale, v3sub } from './vec3.js';
 
@@ -125,15 +135,53 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
   }
 
   // Moon (or other satellite) relative to parent.
-  // Physical: prefer offline moon sample (parent-relative) when present.
+  // Priority for km/minute Mars-system targets:
+  //   1) Dense SPICE mar099s table (Phobos/Deimos, ~10 min knots)
+  //   2) Cadence-OK moon sample table
+  //   3) Continuous Kepler moon model (always minute-capable)
+  //   4) Helio differencing (fallback)
+  // forceContinuousKepler: skip samples/SPICE (recovery for Mars-grazing branches)
   if (!exaggerate) {
+    if (opts.forceContinuousKepler && body.a_km && body.period > 0) {
+      const crel = continuousMoonRelativePositionAU(body, timeSec);
+      const cvel = continuousMoonRelativeVelocity_m_s(body, timeSec);
+      if (crel && cvel) {
+        return {
+          posAU: {
+            x: crel.x, y: crel.y, z: crel.z,
+            r: Math.hypot(crel.x, crel.y, crel.z),
+          },
+          vel: cvel,
+          isParking: false,
+          sampleMoon: false,
+          ephSource: 'continuous-kepler',
+        };
+      }
+    }
+
+    // 1) Dense SPICE Mars moons
+    if (marsMoonDenseAvailable(body, timeSec)) {
+      const rel = sampleMarsMoonRelativeAU(body, timeSec);
+      const vel = sampleMarsMoonRelativeVelocity_m_s(body, timeSec)
+        || continuousMoonRelativeVelocity_m_s(body, timeSec);
+      if (rel) {
+        return {
+          posAU: { x: rel.x, y: rel.y, z: rel.z, r: Math.hypot(rel.x, rel.y, rel.z) },
+          vel: vel || [0, 0, 0],
+          isParking: false,
+          sampleMoon: true,
+          ephSource: rel.source || 'spice-mar099s-dense',
+        };
+      }
+    }
+
+    // 2) Generic moon sample (only if cadence is fine enough — enforced inside sampler)
     const rel = sampleMoonRelativePosition3D(body, timeSec);
-    if (rel) {
-      // Velocity via finite difference on relative samples
-      const dt = 0.05 * DAY;
+    if (rel && !rel.source?.includes?.('spice-mar099s')) {
+      const dt = adaptiveVelocityDtSec(body.period || DAY);
       const ra = sampleMoonRelativePosition3D(body, timeSec - dt);
       const rb = sampleMoonRelativePosition3D(body, timeSec + dt);
-      let vel = [0, 0, 0];
+      let vel = continuousMoonRelativeVelocity_m_s(body, timeSec) || [0, 0, 0];
       if (ra && rb) {
         vel = [
           (rb.x - ra.x) * AU / (2 * dt),
@@ -146,8 +194,28 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
         vel,
         isParking: false,
         sampleMoon: true,
+        ephSource: 'moon-sample-table',
       };
     }
+
+    // 3) Continuous Kepler parent-relative (minute-class time continuity)
+    if (body.a_km && body.period > 0) {
+      const crel = continuousMoonRelativePositionAU(body, timeSec);
+      const cvel = continuousMoonRelativeVelocity_m_s(body, timeSec);
+      if (crel && cvel) {
+        return {
+          posAU: {
+            x: crel.x, y: crel.y, z: crel.z,
+            r: Math.hypot(crel.x, crel.y, crel.z),
+          },
+          vel: cvel,
+          isParking: false,
+          sampleMoon: false,
+          ephSource: 'continuous-kepler',
+        };
+      }
+    }
+
     const pOpts = {
       backend: opts.backend || opts.ephemerisBackend || 'approx',
       classroomMode: !!opts.classroomMode,
@@ -163,6 +231,7 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
       posAU: { x, y, z, r: Math.sqrt(x * x + y * y + z * z) },
       vel: v3sub(vB, vC),
       isParking: false,
+      ephSource: 'helio-diff',
     };
   }
   const pB = getBodyPosition3D(body, timeSec, true);
@@ -334,9 +403,15 @@ export function planetRelativeEndpointStates(body1, body2, central, depT, arrT, 
   const destIsCentral = body2.name === central.name;
 
   if (!originIsCentral && !destIsCentral) {
+    const pe = {
+      exaggerate,
+      forceContinuousKepler: !!opts.forceContinuousKepler,
+      backend: opts.backend,
+      classroomMode: opts.classroomMode,
+    };
     return {
-      st1: parentRelativeState(body1, central, depT, { exaggerate }),
-      st2: parentRelativeState(body2, central, arrT, { exaggerate }),
+      st1: parentRelativeState(body1, central, depT, pe),
+      st2: parentRelativeState(body2, central, arrT, pe),
     };
   }
 

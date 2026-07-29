@@ -9,6 +9,8 @@ import {
 import {
   getSampleMeta, transferSampleCoverage, sampleCoverageReport,
 } from '../physics/ephemeris-sample.js';
+import { computeAccuracyBudget } from '../physics/accuracy-budget.js';
+import { getMarsMoonsDenseMeta } from '../physics/mars-moons-dense.js';
 import { notify } from './format.js';
 import { buildTransferPathSamples } from '../physics/transfer-path.js';
 import { needOptsFromTransfer } from '../physics/need-geometry.js';
@@ -98,13 +100,24 @@ export function refreshFlightOpsPanel() {
 
   const abDep = lt?.aberration_dep_arcsec != null ? `${lt.aberration_dep_arcsec.toFixed(1)}″` : '—';
   const abArr = lt?.aberration_arr_arcsec != null ? `${lt.aberration_arr_arcsec.toFixed(1)}″` : '—';
+  const acc = computeAccuracyBudget(td);
+  const dense = getMarsMoonsDenseMeta();
+  const denseLine = dense
+    ? `Phobos/Deimos SPICE dense ${dense.step_min || dense.step_sec / 60} min · ${String(dense.t0_iso || '').slice(0, 10)}→${String(dense.t1_iso || '').slice(0, 10)}`
+    : 'Mars moons dense SPICE not loaded — continuous Kepler fallback';
 
   host.innerHTML = `
     <p class="surface-hint">${opsDisclaimer()}</p>
     <div class="info-row"><span class="key">Kernel / table</span><span class="val">${escapeHtml(String(src))}</span></div>
     <div class="info-row"><span class="key">Fidelity</span><span class="val">${escapeHtml(state.fidelityLevel || '—')}</span></div>
     <div class="info-row"><span class="key">Sample step / span</span><span class="val">${escapeHtml(step)} · ${escapeHtml(span)}</span></div>
+    <div class="info-row"><span class="key">Mars moons</span><span class="val">${escapeHtml(denseLine)}</span></div>
     <div class="info-row"><span class="key">Coverage</span><span class="val ${cov.any_oor ? 'amber' : 'green'}">${escapeHtml(cov.note || '—')}</span></div>
+    <div class="result-subtitle" style="margin-top:8px">Accuracy budget (soft targets)</div>
+    <div class="info-row"><span class="key">Domain</span><span class="val">${escapeHtml(acc.domain)}</span></div>
+    <div class="info-row"><span class="key">Est time res</span><span class="val ${acc.meets_time ? 'green' : 'amber'}">${acc.est_time_res_s != null ? `${acc.est_time_res_s.toFixed(0)} s` : '—'} (target ≤${acc.targets.time_s}s)</span></div>
+    <div class="info-row"><span class="key">Est distance</span><span class="val ${acc.meets_dist ? 'green' : 'amber'}">${acc.est_dist_km != null ? `${acc.est_dist_km.toFixed(2)} km` : '—'} (target ≤${acc.targets.dist_km} km)</span></div>
+    <div class="surface-hint">${escapeHtml(acc.summary || '')}</div>
     <div class="result-subtitle" style="margin-top:8px">Light time · aberration (analysis)</div>
     <div class="info-row"><span class="key">LT (dep r)</span><span class="val">${lt?.lt_dep_label || '—'}</span></div>
     <div class="info-row"><span class="key">LT (arr r)</span><span class="val">${lt?.lt_arr_label || '—'}</span></div>

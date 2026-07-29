@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "source": "naif-mar099s-spice-v1",
+  "bake_source": "spice-mar099s",
+  "source_note": "Phobos/Deimos Mars-relative geometric states from mar099s.bsp + de440s Mars center. ECLIPJ2000 \u2192 HELIOS scene (Y\u2194Z). Dense 10-min class table for km/minute Mars-system planning. EDUCATIONAL \u2014 NOT flight-certified OD.",
+  "frame": "Mars-centered parent-relative AU, HELIOS scene axes",
+  "t0_iso": "2025-01-01T12:00:00Z",
+  "t1_iso": "2031-01-01T12:00:00Z",
+  "t0_sim": 789004800.0,
+  "step_sec": 600.0,
+  "step_min": 10,
+  "n": 315505,
+  "dtype": "float32_le",
+  "layout": "bodies sequential: each n * (x,y,z) float32",
+  "bodies": [
+    "phobos",
+    "deimos"
+  ],
+  "body_offsets": {
+    "phobos": 0,
+    "deimos": 3786060
+  },
+  "bin": "ephemeris-mars-moons-dense.bin",
+  "kernels": [
+    "mar099s.bsp",
+    "de440s.bsp",
+    "naif0012.tls",
+    "pck00011.tpc"
+  ],
+  "generated_at": "2026-07-29T21:49:47.823138Z",
+  "flight_ops_certified": false,
+  "target_class": {
+    "time_s": 60,
+    "dist_km": 1
+  }
+}

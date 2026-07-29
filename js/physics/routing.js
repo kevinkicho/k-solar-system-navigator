@@ -224,38 +224,6 @@ function solvePlanetRelativeTransferOrbit(tData) {
   // Physical (real-inclination) parent-relative states.
   // Parent↔moon uses coplanar Hohmann endpoint construction.
   const prPlan = planOpts(tData);
-  const { st1, st2 } = planetRelativeEndpointStates(
-    tData.body1, tData.body2, central,
-    tData.departureSimTime, tData.arrivalSimTime,
-    {
-      parkingAlt1_m: altDep,
-      parkingAlt2_m: altArr,
-      exaggerate: false,
-      backend: prPlan.backend,
-      classroomMode: prPlan.classroomMode,
-    },
-  );
-  let depS = applySurfaceEndpoint(
-    st1.posAU, st1.vel, tData.body1, tData.departureSimTime, originPt,
-  );
-  let arrS = applySurfaceEndpoint(
-    st2.posAU, st2.vel, tData.body2, tData.arrivalSimTime, destPt,
-  );
-  const depP = depS.pos;
-  const arrP = arrS.pos;
-  const vBody1 = depS.vel;
-  const vBody2 = arrS.vel;
-  const r1vP = [depP.x * AU, depP.y * AU, depP.z * AU];
-  const r2vP = [arrP.x * AU, arrP.y * AU, arrP.z * AU];
-
-  // Prefer Lambert. Analytic coplanar Hohmann only for parent↔moon parking
-  // endpoints (~180° singular geometry) — never for moon↔moon, where a fixed
-  // Hohmann TOF at the wrong phase would invent a non-intercepting arc.
-  const allowAnalytic = !!(st1.isParking || st2.isParking);
-  let bestP = solveLambertBestBranch(
-    r1vP, r2vP, tData.transferTime, mu, vBody1, vBody2,
-  );
-  let usedAnalyticHohmann = false;
 
   function lambertMissOk(orb, tof, r2) {
     if (!orb) return false;
@@ -268,24 +236,82 @@ function solvePlanetRelativeTransferOrbit(tData) {
     }
   }
 
-  if (bestP) {
-    if (!planetRelativePeriapsisOk(bestP.orb, central)
-        || !lambertMissOk(bestP.orb, tData.transferTime, r2vP)) {
-      bestP = null;
-    }
-  }
-  if (!bestP && allowAnalytic) {
-    const analytic = analyticCoplanarHohmann(r1vP, r2vP, mu, vBody1, vBody2);
-    if (analytic && planetRelativePeriapsisOk(analytic.orb, central)
-        && lambertMissOk(analytic.orb, analytic.transferTime, r2vP)) {
-      bestP = { sol: { v1: analytic.v1, v2: analytic.v2 }, orb: analytic.orb, longWay: false };
-      usedAnalyticHohmann = true;
-      if (analytic.transferTime > 0) {
-        tData.transferTime = analytic.transferTime;
-        tData.arrivalSimTime = tData.departureSimTime + analytic.transferTime;
+  /**
+   * Try PR Lambert with a given endpoint eph mode.
+   * Dense SPICE can yield Mars-grazing arcs for Phobos–Deimos at Hohmann TOF;
+   * continuous Kepler recovery keeps planning usable while dense eph still
+   * informs residual/accuracy budget.
+   */
+  function tryPrSolve(forceContinuousKepler) {
+    const { st1, st2 } = planetRelativeEndpointStates(
+      tData.body1, tData.body2, central,
+      tData.departureSimTime, tData.arrivalSimTime,
+      {
+        parkingAlt1_m: altDep,
+        parkingAlt2_m: altArr,
+        exaggerate: false,
+        backend: prPlan.backend,
+        classroomMode: prPlan.classroomMode,
+        forceContinuousKepler: !!forceContinuousKepler,
+      },
+    );
+    const depS = applySurfaceEndpoint(
+      st1.posAU, st1.vel, tData.body1, tData.departureSimTime, originPt,
+    );
+    const arrS = applySurfaceEndpoint(
+      st2.posAU, st2.vel, tData.body2, tData.arrivalSimTime, destPt,
+    );
+    const r1vP = [depS.pos.x * AU, depS.pos.y * AU, depS.pos.z * AU];
+    const r2vP = [arrS.pos.x * AU, arrS.pos.y * AU, arrS.pos.z * AU];
+    const allowAnalytic = !!(st1.isParking || st2.isParking);
+    let bestP = solveLambertBestBranch(
+      r1vP, r2vP, tData.transferTime, mu, depS.vel, arrS.vel,
+    );
+    let usedAnalyticHohmann = false;
+    if (bestP) {
+      if (!planetRelativePeriapsisOk(bestP.orb, central)
+          || !lambertMissOk(bestP.orb, tData.transferTime, r2vP)) {
+        bestP = null;
       }
     }
+    if (!bestP && allowAnalytic) {
+      const analytic = analyticCoplanarHohmann(r1vP, r2vP, mu, depS.vel, arrS.vel);
+      if (analytic && planetRelativePeriapsisOk(analytic.orb, central)
+          && lambertMissOk(analytic.orb, analytic.transferTime, r2vP)) {
+        bestP = { sol: { v1: analytic.v1, v2: analytic.v2 }, orb: analytic.orb, longWay: false };
+        usedAnalyticHohmann = true;
+        if (analytic.transferTime > 0) {
+          tData.transferTime = analytic.transferTime;
+          tData.arrivalSimTime = tData.departureSimTime + analytic.transferTime;
+        }
+      }
+    }
+    return {
+      bestP, usedAnalyticHohmann, st1, st2, depS, arrS, r1vP, r2vP,
+      ephSource: st1.ephSource || st2.ephSource || null,
+    };
   }
+
+  // Prefer dense SPICE / samples first; recover with continuous Kepler if needed
+  let attempt = tryPrSolve(false);
+  if (!attempt.bestP) {
+    attempt = tryPrSolve(true);
+    if (attempt.bestP) {
+      tData.prEphRecovery = 'continuous-kepler';
+      tData.prEphNote =
+        'Dense SPICE endpoints produced Mars-grazing Lambert; recovered with continuous Kepler elements. '
+        + 'Dense table still used for accuracy residual when available.';
+    }
+  }
+  let bestP = attempt.bestP;
+  let usedAnalyticHohmann = attempt.usedAnalyticHohmann;
+  const st1 = attempt.st1;
+  const st2 = attempt.st2;
+  const depS = attempt.depS;
+  const arrS = attempt.arrS;
+  const vBody1 = depS.vel;
+  const vBody2 = arrS.vel;
+  tData.prEphSource = attempt.ephSource;
 
   let physicsOk = false;
   let chosenLongWay = null;

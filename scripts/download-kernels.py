@@ -17,6 +17,8 @@ FILES = [
     ("pck/pck00011.tpc", "pck00011.tpc"),
     ("pck/gm_de440.tpc", "gm_de440.tpc"),
     ("spk/planets/de440s.bsp", "de440s.bsp"),  # ~32 MiB short DE440 planetary SPK
+    # Mars satellites short SPK (~64 MiB) for Phobos/Deimos dense bake
+    ("spk/satellites/mar099s.bsp", "mar099s.bsp"),
 ]
 
 

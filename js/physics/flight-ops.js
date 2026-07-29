@@ -7,6 +7,7 @@
 
 import { AU, DAY } from '../constants.js';
 import { bodyId } from '../data/catalog.js';
+import { accuracyBudgetGates } from './accuracy-budget.js';
 
 /** Speed of light (m/s). */
 export const C_LIGHT = 299792458;
@@ -195,6 +196,11 @@ export function buildFlightOpsGates(td, ctx = {}) {
       detail: 'One-way light time as fraction of transfer TOF — educational scale check only.',
     });
   }
+
+  // km / minute accuracy budget (Mars system soft targets)
+  try {
+    for (const g of accuracyBudgetGates(td)) gates.push(g);
+  } catch { /* keep ops resilient */ }
 
   return gates;
 }
