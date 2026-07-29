@@ -57,6 +57,7 @@ const SUITE = [
   'tests/firebase_prefs.mjs',
   'tests/path_export_csv.mjs',
   'tests/body_scale.mjs',
+  'tests/product_ephemeris_default.mjs',
   'tests/perf_budgets.mjs',
 ];
 

@@ -76,8 +76,15 @@ if (params.get('mode') === 'classroom') {
   forceOfflineL1Ephemeris(); // K3
   // Optional ?veh= is not classroom default (PR16) — only abstract.
 } else {
-  // Product default after Measurement Card (K25 / PR 9): unrefueled SS arch.
+  // Product default after Measurement Card (K25 / PR 9): unrefueled SS arch + L2-plan sample-DE.
   applyProductVehicleDefaults();
+  // Preload offline sample table so first Compute is L2-plan ready
+  import('./physics/ephemeris-sample.js').then((m) => m.ensureSampleTableLoaded()).then((table) => {
+    if (table) {
+      const ephSel = document.getElementById('ephemeris-backend');
+      if (ephSel && !state.classroomMode) ephSel.value = 'sample-de';
+    }
+  }).catch(() => {});
 }
 
 // Build body list, set initial time + departure-date input, fade help hint.

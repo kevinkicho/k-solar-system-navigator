@@ -35,9 +35,11 @@ export const state = {
   aeroassistFactor: 0, // 0–0.9
   measurementPhase: null, // null → autoPhase
   // K1: 'L1' | 'L2-compare' | 'L2-plan' (legacy 'L2' treated as L2-compare)
-  fidelityLevel: 'L1',
-  // K5: planning geometry backend — animation always approx
-  ephemerisBackend: 'approx', // 'approx' | 'sample-de'
+  // Product default L2-plan (offline sample table endpoints) — classroom forces L1.
+  fidelityLevel: 'L2-plan',
+  // K5: planning geometry backend — animation always approx Kepler
+  // Product default sample-de when table loaded; falls back to approx OOR.
+  ephemerisBackend: 'sample-de', // 'approx' | 'sample-de'
 
   display: {
     mode: 'cinematic',
@@ -132,6 +134,16 @@ export const state = {
 export function applyProductVehicleDefaults() {
   if (state.classroomMode) return;
   state.starshipArch = 'unrefueled';
+  // Higher planning fidelity by default (still offline; not SPICE)
+  applyProductEphemerisDefaults();
+}
+
+/** Product default: offline sample-DE endpoints (L2-plan). Classroom stays L1. */
+export function applyProductEphemerisDefaults() {
+  if (state.classroomMode) return;
+  state.ephemerisBackend = 'sample-de';
+  state.fidelityLevel = 'L2-plan';
+  if (state.pathAccuracy) state.pathAccuracy.preferSampleDeOuter = true;
 }
 
 /** Classroom / product: force offline L1 planning (K3). */

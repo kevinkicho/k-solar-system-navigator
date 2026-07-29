@@ -102,8 +102,10 @@ try {
   const cardCount = await page.locator('#measurement-card, .measurement-card').count();
   check('Measurement Card root after compute', cardCount >= 1);
   check('Card shows NEED/CAPABILITY/MARGIN', /NEED|CAPABILITY|MARGIN/i.test(resultsText));
-  check('fidelity default L1', /L1|fidelity/i.test(resultsText)
-    || (await page.evaluate(() => window.__HELIOS?.state?.fidelityLevel)) === 'L1');
+  // Product default is L2-plan (sample-DE); classroom still L1
+  const fid = await page.evaluate(() => window.__HELIOS?.state?.fidelityLevel);
+  check('fidelity product L2-plan or badge present',
+    fid === 'L2-plan' || fid === 'L1' || /L1|L2|fidelity/i.test(resultsText));
 
   section('3. SHARE HASH + CONTROLS');
   const shareBtn = page.locator('#btn-share-link');

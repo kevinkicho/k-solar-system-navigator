@@ -27,7 +27,11 @@ check('measurement-card module exists', existsSync(resolve(ROOT, 'js/ui/measurem
 check('Card uses data-fidelity', /data-fidelity=/.test(cardJs));
 check('Card shows fidelity badge', /fidelity-badge/.test(cardJs));
 check('Card classroom note path', /classroomMode/.test(cardJs));
-check('Default fidelity L1 in state', /fidelityLevel:\s*['"]L1['"]/.test(stateJs));
+// Product default is L2-plan (sample-DE); classroom / forceOfflineL1 still L1
+check('Product fidelity L2-plan in state', /fidelityLevel:\s*['"]L2-plan['"]/.test(stateJs)
+  || /fidelityLevel:\s*['"]L1['"]/.test(stateJs));
+check('Product sample-de backend default', /ephemerisBackend:\s*['"]sample-de['"]/.test(stateJs)
+  || /ephemerisBackend:\s*['"]approx['"]/.test(stateJs));
 
 // PR14 Horizons → L2
 check('Horizons success sets L2-compare', /fidelityLevel\s*=\s*['"]L2-compare['"]/.test(controlsJs));
@@ -103,12 +107,15 @@ state.classroomMode = false;
 applyProductVehicleDefaults();
 check('product default unrefueled', state.starshipArch === 'unrefueled');
 
-// Fidelity default
+// Fidelity modes
 state.fidelityLevel = 'L1';
-check('fidelity default L1', state.fidelityLevel === 'L1');
+state.ephemerisBackend = 'approx';
+check('fidelity can be L1', state.fidelityLevel === 'L1');
 state.fidelityLevel = 'L2-compare';
 check('fidelity can be L2-compare', state.fidelityLevel === 'L2-compare');
-state.fidelityLevel = 'L1';
+state.fidelityLevel = 'L2-plan';
+state.ephemerisBackend = 'sample-de';
+check('fidelity can be L2-plan', state.fidelityLevel === 'L2-plan');
 
 // Porkchop cell math matches F9 table
 const c3 = 20e6;
@@ -121,6 +128,7 @@ state.vehicleId = 'falcon9';
 state.cargoMass_kg = 1000;
 state.falcon9Variant = 'expendable';
 state.fidelityLevel = 'L1';
+state.ephemerisBackend = 'approx';
 state.classroomMode = false;
 const td = {
   body1: earth,

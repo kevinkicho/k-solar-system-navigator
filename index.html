@@ -1117,9 +1117,9 @@ input[type="range"]::-webkit-slider-thumb {
           </div>
           <div class="route-field-row" id="ephemeris-backend-row">
             <label>Planning ephemeris</label>
-            <select id="ephemeris-backend" title="L1 approx default; offline sample table for L2-plan (not DE/SPICE kernels)">
-              <option value="approx">Approximate Positions (L1 default)</option>
-              <option value="sample-de">Offline sample table (L2-plan · not DE/SPICE)</option>
+            <select id="ephemeris-backend" title="Product default: L2-plan offline sample table (not DE/SPICE). Classroom forces L1 approx.">
+              <option value="approx">Approximate Positions (L1)</option>
+              <option value="sample-de" selected>Offline sample table (L2-plan product default · not DE/SPICE)</option>
             </select>
           </div>
           <div class="route-field-row" id="ascent-loss-row">
@@ -1384,10 +1384,10 @@ input[type="range"]::-webkit-slider-thumb {
 
     <h3>Ephemeris fidelity badges</h3>
     <table>
-      <tr><td><span class="pill">L1</span> default</td><td>Offline JPL Approximate Positions for planning geometry. No network. Nominal error classes (λ, φ, ρ) from the JPL SSD table are shown on the Measurement Card — not formal covariances.</td></tr>
-      <tr><td><span class="pill amber">L2-compare</span></td><td>After an explicit Horizons VECTOR compare only. Records that a Δr check was run; <strong>planning still uses L1 geometry</strong>. Not SPICE.</td></tr>
-      <tr><td><span class="pill" style="color:var(--green);border-color:rgba(0,230,118,0.4)">L2-plan</span></td><td>Optional offline sample-table endpoints for Lambert Need (educational DE-class samples when enabled). Animation still uses Approximate Positions. Not SPICE navigation.</td></tr>
-      <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">L3</span> not a mode</td><td>SPICE kernels / formal covariance / navigation solutions are <strong>not a planning mode</strong>. Educational path toward DE-class checks: L2-plan samples + optional Horizons compare. No <code>.bsp</code> kernels shipped.</td></tr>
+      <tr><td><span class="pill">L1</span></td><td>Offline JPL Approximate Positions. Classroom mode forces L1. Nominal error classes (λ, φ, ρ) from the JPL SSD table appear on the Measurement Card — not formal covariances.</td></tr>
+      <tr><td><span class="pill amber">L2-compare</span></td><td>After an explicit Horizons VECTOR compare only. Records that a Δr check was run; <strong>does not by itself change planning geometry</strong>. Not SPICE.</td></tr>
+      <tr><td><span class="pill" style="color:var(--green);border-color:rgba(0,230,118,0.4)">L2-plan</span> product default</td><td>Offline sample-table endpoints for Lambert Need (8 planets, limited epoch window). Falls back to L1 approx when OOR. Animation still uses Approximate Positions. <strong>Not DE/SPICE kernels, not navigation.</strong> Use top-bar <strong>ACCURATE</strong> for schematic path + sample-DE + n-body residual overlay.</td></tr>
+      <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">L3</span> not a mode</td><td>SPICE kernels / formal covariance / navigation solutions are <strong>not a planning mode</strong>. Educational path: L2-plan samples + optional Horizons compare. No <code>.bsp</code> kernels shipped. Three.js is display only.</td></tr>
     </table>
     <p>JPL Approximate Positions accuracy table: <a href="https://ssd.jpl.nasa.gov/planets/approx_pos.html" target="_blank" style="color:var(--cyan)">ssd.jpl.nasa.gov/planets/approx_pos.html</a>. Export records <code>measurement.fidelity</code> and <code>methodology.ephemeris_backend</code>.</p>
 

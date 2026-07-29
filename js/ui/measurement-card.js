@@ -20,7 +20,7 @@ export function fidelityBadgeLabel(level) {
   const f = normalizeFidelity(level);
   if (f === 'L2-plan') return 'L2-plan · offline sample table (not DE/SPICE)';
   if (f === 'L2-compare') return 'L2-compare · Horizons Δr check (planning still L1)';
-  return 'L1 · JPL approx (offline default)';
+  return 'L1 · JPL approx (offline)';
 }
 
 export function fidelityCssClass(level) {

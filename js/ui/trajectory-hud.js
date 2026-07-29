@@ -92,7 +92,10 @@ function currentRadiusAU() {
 
 function ephLabel() {
   if (state.classroomMode) return 'L1 approx (classroom)';
-  if (state.ephemerisBackend === 'sample-de') return 'sample-de (L2-plan class)';
+  if (state.ephemerisBackend === 'sample-de') {
+    const fb = state.transferData?.sampleFallback ? ' · fallback' : '';
+    return `L2-plan sample-DE${fb}`;
+  }
   const f = state.fidelityLevel || 'L1';
   return `${f} · approx`;
 }

@@ -29,10 +29,28 @@ export function setPhysicsAccurateView(on, opts = {}) {
     state.pathSampleMode = 'equal_time';
     state.showDvArrows = true;
     state.showPathBead = true;
+    // Higher planning fidelity (offline sample endpoints — not SPICE)
+    if (!state.classroomMode) {
+      state.ephemerisBackend = 'sample-de';
+      state.fidelityLevel = 'L2-plan';
+      if (state.pathAccuracy) {
+        state.pathAccuracy.preferSampleDeOuter = true;
+        // Educational residual only — does not change Need
+        state.pathAccuracy.nbodyOverlay = true;
+      }
+      import('../physics/ephemeris-sample.js').then((m) => m.ensureSampleTableLoaded()).catch(() => {});
+      const ephSel = document.getElementById('ephemeris-backend');
+      if (ephSel) ephSel.value = 'sample-de';
+      const flagNbody = document.getElementById('flag-nbody');
+      if (flagNbody) flagNbody.checked = true;
+    }
   } else {
     state.mapMode = false;
     setDisplayMode('cinematic');
     state.pathGeometry = 'visual';
+    if (state.pathAccuracy) state.pathAccuracy.nbodyOverlay = false;
+    const flagNbody = document.getElementById('flag-nbody');
+    if (flagNbody) flagNbody.checked = false;
   }
 
   rebuildOrbitLines();
@@ -51,9 +69,18 @@ export function setPhysicsAccurateView(on, opts = {}) {
   if (!opts.silent) {
     import('./format.js').then(({ notify }) => {
       notify(want
-        ? 'PHYSICS-ACCURATE VIEW — schematic frames · physical path · numbers always physical (Three.js is display only)'
+        ? 'PHYSICS-ACCURATE · L2-plan sample-DE · schematic path · n-body residual overlay (Need unchanged) · Three.js display only'
         : 'CINEMATIC VIEW — exaggerated inclinations for readability');
     });
+  }
+
+  // Re-solve with sample-DE if a route is already up
+  if (want && state.transferData && !state.classroomMode) {
+    import('./route-planner.js').then(({ stampPlanningEphemeris, computeRoute }) => {
+      // Prefer full recompute for consistent Need under L2-plan
+      if (state.routeOrigin && state.routeDestination) computeRoute();
+      else if (state.transferData) stampPlanningEphemeris(state.transferData);
+    }).catch(() => {});
   }
 }
 

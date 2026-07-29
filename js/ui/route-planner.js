@@ -96,6 +96,9 @@ function tagMultiLegBodies(td) {
 }
 
 function finalizePlan(td, dossierOpts, notifyMsg) {
+  if (td && dossierOpts && 'sampleFallback' in dossierOpts) {
+    td.sampleFallback = !!dossierOpts.sampleFallback;
+  }
   state.transferData = td;
   buildPlanDossier(td, dossierOpts || {});
   state.showTransferOrbit = true;
@@ -361,6 +364,32 @@ export function snapFlybyDates() {
 }
 
 export function computeRoute() {
+  if (!state.routeOrigin || !state.routeDestination) {
+    notify('SET ORIGIN AND DESTINATION FIRST'); return;
+  }
+
+  // Ensure sample-DE table is loaded before planning when requested (product default).
+  if (!state.classroomMode && state.ephemerisBackend === 'sample-de') {
+    import('../physics/ephemeris-sample.js').then(async (m) => {
+      const meta = m.getSampleMeta?.();
+      if (!meta) {
+        notify('LOADING L2-PLAN SAMPLE TABLE…');
+        await m.ensureSampleTableLoaded();
+        if (!m.getSampleMeta?.()) {
+          notify('SAMPLE TABLE UNAVAILABLE — PLANNING WITH L1 APPROX');
+          // Keep requested backend; provider falls back per-body OOR
+        } else {
+          notify('L2-PLAN SAMPLE TABLE READY');
+        }
+      }
+      computeRouteBody();
+    }).catch(() => computeRouteBody());
+    return;
+  }
+  computeRouteBody();
+}
+
+function computeRouteBody() {
   if (!state.routeOrigin || !state.routeDestination) {
     notify('SET ORIGIN AND DESTINATION FIRST'); return;
   }

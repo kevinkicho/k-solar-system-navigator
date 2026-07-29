@@ -163,13 +163,19 @@ function actionsHtml(missionReady) {
 
 /** Always-on honesty strip: ephemeris, path model, scene mode, residual, low-thrust note. */
 function trustStripHtml(td, dossier) {
-  const eph = state.classroomMode
+  let eph = state.classroomMode
     ? 'L1 approx (classroom)'
-    : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : (dossier?.fidelity?.fidelityLevel || state.fidelityLevel || 'L1'));
-  const scene = state.mapMode
-    ? 'MAP dual-path'
-    : (isSchematic() ? 'schematic' : 'cinematic×incl');
-  const geom = state.pathGeometry || 'visual';
+    : (state.ephemerisBackend === 'sample-de' ? 'L2-plan sample-DE' : 'L1 approx');
+  if (td?.sampleFallback || dossier?.fidelity?.sampleFallback) {
+    eph += ' · partial approx fallback';
+  }
+  if (state.physicsAccurate) eph += ' · ACCURATE view';
+  const scene = state.physicsAccurate
+    ? 'physics-accurate'
+    : (state.mapMode
+      ? 'MAP dual-path'
+      : (isSchematic() ? 'schematic' : 'cinematic×incl'));
+  const geom = state.physicsAccurate ? 'physical+dual' : (state.pathGeometry || 'visual');
   let resTxt = '—';
   try {
     if (td && !td.isMultiLeg) {
@@ -177,14 +183,17 @@ function trustStripHtml(td, dossier) {
       if (r.maxAU != null) resTxt = `${r.maxAU.toExponential(1)} AU`;
     }
   } catch { /* */ }
+  const nbody = state.pathAccuracy?.nbodyOverlay && !state.classroomMode
+    ? ' · n-body residual ON (Need unchanged)'
+    : '';
   return `
     <div class="path-trust-strip" id="path-trust-strip" role="status"
-      title="Concept-grade: numbers from physical Lambert; scene may exaggerate inclinations unless Map/Schematic.">
+      title="Concept-grade: Need/Δv from physical Lambert + planning ephemeris. Three.js is display only. Not SPICE.">
       <span class="pts-item"><em>Eph</em> ${eph}</span>
       <span class="pts-item"><em>Path</em> Kepler conic · ${geom}</span>
       <span class="pts-item"><em>Scene</em> ${scene}</span>
       <span class="pts-item"><em>Res</em> ${resTxt}</span>
-      <span class="pts-item pts-note">Chemical Lambert · not low-thrust · not SPICE · Three.js is display only</span>
+      <span class="pts-item pts-note">Chemical Lambert · not low-thrust · not SPICE · not DE kernels${nbody}</span>
     </div>`;
 }
 
