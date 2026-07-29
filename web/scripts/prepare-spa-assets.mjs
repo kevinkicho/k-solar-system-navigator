@@ -104,6 +104,8 @@ const required = [
   'helios-body.html',
   'assets/ephemeris-samples-v1.json',
   'assets/ephemeris-moons-v1.json',
+  // Dense SPICE packs (optional but preferred for App Hosting API proxy)
+  // Checked softly — missing Tier B packs should not fail prepare
 ];
 let missing = 0;
 for (const rel of required) {
@@ -115,6 +117,14 @@ for (const rel of required) {
 }
 if (missing) {
   process.exit(1);
+}
+
+// Soft: dense SPICE packs for App Hosting /api/ephemeris/dense-spk proxy
+const denseReg = join(PUBLIC, 'assets/dense-spk/registry.json');
+if (existsSync(denseReg)) {
+  console.log('  dense-spk registry present (Tier A/B packs available to API)');
+} else {
+  console.warn('  [prepare-spa] soft: assets/dense-spk/registry.json missing — API proxy limited');
 }
 
 writeFileSync(

@@ -140,12 +140,72 @@ export function refreshFlightOpsPanel() {
       </div>
       <div class="surface-hint">${escapeHtml(g.detail)}</div>
     `).join('')}
+    <div class="result-subtitle" style="margin-top:8px">Dense SPICE packs (prefetch)</div>
+    <p class="surface-hint">Tier A loads with the SPA. Tier B packs load on demand from Storage CDN or Hosting.</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <button type="button" class="btn-tiny" id="btn-prefetch-galilean" title="Io Europa Ganymede Callisto (~8 MiB)">Prefetch Galilean</button>
+      <button type="button" class="btn-tiny" id="btn-prefetch-titan" title="Titan (~1 MiB)">Prefetch Titan</button>
+      <button type="button" class="btn-tiny" id="btn-prefetch-triton" title="Triton (~1 MiB)">Prefetch Triton</button>
+      <button type="button" class="btn-tiny" id="btn-prefetch-tier-b" title="All Tier B packs">Prefetch all Tier B</button>
+      <button type="button" class="btn-tiny" id="btn-refresh-dense-catalog" title="Reload pack catalog from Firebase">Refresh catalog</button>
+    </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
       <button type="button" class="btn-tiny" id="btn-export-oem">Export OEM-like</button>
     </div>
   `;
   const exp = document.getElementById('btn-export-oem');
   if (exp) exp.onclick = () => exportOemLike();
+  wireDensePrefetchButtons();
+}
+
+function wireDensePrefetchButtons() {
+  const bind = (id, fn) => {
+    const el = document.getElementById(id);
+    if (el) el.onclick = () => { fn().catch((e) => notify(String(e?.message || e))); };
+  };
+  bind('btn-prefetch-galilean', () => prefetchDensePacks(['galilean']));
+  bind('btn-prefetch-titan', () => prefetchDensePacks(['titan']));
+  bind('btn-prefetch-triton', () => prefetchDensePacks(['triton']));
+  bind('btn-prefetch-tier-b', () => prefetchDensePacks(['galilean', 'titan', 'triton']));
+  bind('btn-refresh-dense-catalog', async () => {
+    try {
+      const cloud = await import('../firebase/dense-spk-cloud.js');
+      cloud.clearDenseCloudCache?.();
+    } catch { /* */ }
+    // Force registry reload by clearing module state via re-import path
+    const dense = await import('../physics/dense-spk-pack.js');
+    // ensureDenseSpkPacksLoaded is cached; pack ensure still fetches
+    notify('REFRESHING DENSE CATALOG…');
+    await dense.ensureDensePackForBodies?.([
+      { name: 'Io' }, { name: 'Titan' }, { name: 'Triton' }, { name: 'Phobos' },
+    ]);
+    notify('DENSE CATALOG REFRESHED');
+    refreshFlightOpsPanel();
+  });
+}
+
+/** Prefetch named dense packs (Tier B) with OPS feedback. */
+async function prefetchDensePacks(packIds = []) {
+  if (state.classroomMode) {
+    notify('CLASSROOM MODE — dense cloud packs disabled');
+    return;
+  }
+  notify(`LOADING DENSE SPICE · ${packIds.join(', ')}…`);
+  const dense = await import('../physics/dense-spk-pack.js');
+  const loaded = [];
+  const failed = [];
+  for (const id of packIds) {
+    const entry = await dense.ensureDensePack(id);
+    if (entry) loaded.push(id);
+    else failed.push(id);
+  }
+  if (loaded.length) {
+    notify(`DENSE SPICE READY · ${loaded.join(', ')}`);
+  }
+  if (failed.length) {
+    notify(`DENSE PACK MISSING · ${failed.join(', ')} (Hosting/Storage)`);
+  }
+  refreshFlightOpsPanel();
 }
 
 function exportOemLike() {

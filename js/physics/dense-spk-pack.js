@@ -111,6 +111,16 @@ async function fetchPack(packId) {
           return entry;
         }
       }
+      // 1b) App Hosting same-origin API (when on hosted.app)
+      const ah = await cloud.fetchDensePackFromAppHosting?.(packId);
+      if (ah?.meta && ah.buffer) {
+        const entry = {
+          meta: { ...ah.meta, _delivery: 'apphosting-api' },
+          f32: new Float32Array(ah.buffer),
+        };
+        _packs.set(packId, entry);
+        return entry;
+      }
     } catch { /* fall through to Hosting */ }
 
     // 2) Classic Hosting / App Hosting static assets (offline + classroom fallback)

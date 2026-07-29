@@ -50,61 +50,103 @@ export async function getDenseSpkStorageUrl(fileName) {
 }
 
 /**
- * Fetch registry from RTDB → Firestore → Storage registry.json (first hit wins).
+ * Fetch registry from RTDB → Firestore → Storage → App Hosting API (first hit wins).
  * @returns {Promise<object|null>}
  */
 export async function fetchDenseSpkRegistryCloud() {
   if (_registryCloud) return _registryCloud;
   if (_registryTried) return null;
   _registryTried = true;
-  if (!isDenseCloudAvailable()) return null;
 
-  // 1) RTDB public catalog (fast, no auth)
-  try {
-    const rtdb = getFirebaseRtdb();
-    if (rtdb) {
-      const snap = await rtdbGet(rtdbRef(rtdb, 'public/denseSpk/registry'));
-      if (snap.exists()) {
-        _registryCloud = snap.val();
-        _registryCloud._source = 'rtdb';
-        return _registryCloud;
+  // 1) RTDB public catalog (fast, no auth) when Firebase on
+  if (isDenseCloudAvailable()) {
+    try {
+      const rtdb = getFirebaseRtdb();
+      if (rtdb) {
+        const snap = await rtdbGet(rtdbRef(rtdb, 'public/denseSpk/registry'));
+        if (snap.exists()) {
+          _registryCloud = snap.val();
+          _registryCloud._source = 'rtdb';
+          return _registryCloud;
+        }
       }
+    } catch (err) {
+      console.warn('[HELIOS] dense RTDB registry', err?.message || err);
     }
-  } catch (err) {
-    console.warn('[HELIOS] dense RTDB registry', err?.message || err);
+
+    // 2) Firestore helios/denseSpkCatalog
+    try {
+      const db = getFirebaseDb();
+      if (db) {
+        const snap = await getDoc(doc(db, 'helios', 'denseSpkCatalog'));
+        if (snap.exists()) {
+          _registryCloud = snap.data();
+          _registryCloud._source = 'firestore';
+          return _registryCloud;
+        }
+      }
+    } catch (err) {
+      console.warn('[HELIOS] dense Firestore catalog', err?.message || err);
+    }
+
+    // 3) Storage registry.json via download URL
+    try {
+      const url = await getDenseSpkStorageUrl('registry.json');
+      if (url) {
+        const res = await fetch(url);
+        if (res.ok) {
+          _registryCloud = await res.json();
+          _registryCloud._source = 'storage';
+          return _registryCloud;
+        }
+      }
+    } catch (err) {
+      console.warn('[HELIOS] dense Storage registry', err?.message || err);
+    }
   }
 
-  // 2) Firestore helios/denseSpkCatalog
+  // 4) App Hosting same-origin catalog (works on hosted.app without Storage seed)
   try {
-    const db = getFirebaseDb();
-    if (db) {
-      const snap = await getDoc(doc(db, 'helios', 'denseSpkCatalog'));
-      if (snap.exists()) {
-        _registryCloud = snap.data();
-        _registryCloud._source = 'firestore';
-        return _registryCloud;
-      }
-    }
-  } catch (err) {
-    console.warn('[HELIOS] dense Firestore catalog', err?.message || err);
-  }
-
-  // 3) Storage registry.json via download URL
-  try {
-    const url = await getDenseSpkStorageUrl('registry.json');
-    if (url) {
-      const res = await fetch(url);
+    if (typeof location !== 'undefined' && /hosted\.app$|localhost|127\.0\.0\.1/.test(location.hostname)) {
+      const res = await fetch('/api/ephemeris/dense-spk');
       if (res.ok) {
-        _registryCloud = await res.json();
-        _registryCloud._source = 'storage';
-        return _registryCloud;
+        const j = await res.json();
+        if (j?.local_registry?.packs) {
+          _registryCloud = { ...j.local_registry, _source: 'apphosting-api' };
+          return _registryCloud;
+        }
+        if (j?.cloud_catalog?.registry?.packs) {
+          _registryCloud = { ...j.cloud_catalog.registry, _source: 'apphosting-cloud' };
+          return _registryCloud;
+        }
       }
     }
-  } catch (err) {
-    console.warn('[HELIOS] dense Storage registry', err?.message || err);
-  }
+  } catch { /* */ }
 
   return null;
+}
+
+/**
+ * Try App Hosting same-origin pack file (proxy under /api/ephemeris/dense-spk/).
+ * @returns {Promise<{ meta: object, buffer: ArrayBuffer }|null>}
+ */
+export async function fetchDensePackFromAppHosting(packId) {
+  if (!packId || typeof fetch !== 'function') return null;
+  try {
+    if (typeof location === 'undefined') return null;
+    // Only use on App Hosting / local Next — classic Hosting has no /api routes
+    if (!/hosted\.app$|localhost|127\.0\.0\.1/.test(location.hostname)) return null;
+    const metaRes = await fetch(`/api/ephemeris/dense-spk/${packId}.meta.json`);
+    const binRes = await fetch(`/api/ephemeris/dense-spk/${packId}.bin`);
+    if (!metaRes.ok || !binRes.ok) return null;
+    return {
+      meta: await metaRes.json(),
+      buffer: await binRes.arrayBuffer(),
+      source: 'apphosting-api',
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**

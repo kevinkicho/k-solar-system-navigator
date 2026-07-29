@@ -54,4 +54,18 @@ npx firebase deploy --only functions --project k-solar-system-navigator
 ```
 GET https://us-central1-k-solar-system-navigator.cloudfunctions.net/denseSpkCatalog
 GET https://us-central1-k-solar-system-navigator.cloudfunctions.net/heliosHealth
+GET https://helios--k-solar-system-navigator.us-central1.hosted.app/api/ephemeris/dense-spk
 ```
+
+## App Hosting
+
+- Catalog: `/api/ephemeris/dense-spk`
+- Files: `/api/ephemeris/dense-spk/{packId}.bin` and `.meta.json`
+- SPA still loads packs via Storage CDN first, then App Hosting API, then static `assets/dense-spk/`
+
+## OPS UI
+
+Flight-ops panel buttons:
+
+- Prefetch Galilean / Titan / Triton / all Tier B
+- Refresh catalog (clears cloud cache and reloads)
