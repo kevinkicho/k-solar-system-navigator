@@ -196,6 +196,30 @@ section('9. Error paths');
   check('unsupported body throws before fetch', threw);
 }
 
+section('10. Series parse + series URL (bake path)');
+{
+  const seriesText = `$$SOE
+ X = 1.0E+00 Y = 2.0E-01 Z =-3.0E-01
+ VX= 1.0E-02 VY= 2.0E-02 VZ= 3.0E-02
+ X = 1.1E+00 Y = 2.1E-01 Z =-3.1E-01
+ VX= 1.1E-02 VY= 2.1E-02 VZ= 3.1E-02
+$$EOE`;
+  const rows = hz.parseHorizonsVectorsSeries(seriesText);
+  check('series row count 2', rows.length === 2);
+  check('series first x', rows[0].x === 1.0);
+  check('series second x', rows[1].x === 1.1);
+  check('series first vx', rows[0].vx === 0.01);
+
+  const seriesUrl = hz.buildHorizonsVectorsUrl({
+    body: 'mars',
+    start: Date.UTC(2015, 0, 1, 12),
+    stop: Date.UTC(2015, 0, 10, 12),
+    step: '3 d',
+  });
+  check('series URL has STEP 3 d', seriesUrl.includes('3') && seriesUrl.includes('STEP'));
+  check('series URL has mars 499', seriesUrl.includes('499'));
+}
+
 console.log('\n━━━ SUMMARY ━━━\n');
 if (failed) {
   console.error(`${failed} horizons_mock checks failed`);

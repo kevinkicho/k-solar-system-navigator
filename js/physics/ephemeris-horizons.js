@@ -73,21 +73,42 @@ export function formatHorizonsEpoch(epoch) {
 
 /**
  * Build a Horizons VECTORS query URL (heliocentric ecliptic J2000, AU / day).
- * @param {{ body: string|{id?:string,name?:string}, epoch: Date|string|number }} opts
+ * @param {{
+ *   body: string|{id?:string,name?:string},
+ *   epoch?: Date|string|number,
+ *   start?: Date|string|number,
+ *   stop?: Date|string|number,
+ *   step?: string,
+ * }} opts
+ * Single-epoch: pass `epoch` (1 h window). Series bake: pass start/stop/step.
  * @returns {string}
  */
-export function buildHorizonsVectorsUrl({ body, epoch }) {
+export function buildHorizonsVectorsUrl(opts) {
+  const { body, epoch, start, stop, step } = opts || {};
   const command = resolveHorizonsCommand(body);
   if (!command) {
     throw new Error(`Body not supported by Horizons educational adapter: ${
       typeof body === 'object' ? (body.id || body.name) : body
     }`);
   }
-  const t0 = formatHorizonsEpoch(epoch);
-  // One-hour stop so STEP_SIZE produces a single usable row after SOE.
-  const t1Date = epoch instanceof Date ? new Date(epoch.getTime()) : new Date(epoch);
-  t1Date.setUTCHours(t1Date.getUTCHours() + 1);
-  const t1 = formatHorizonsEpoch(t1Date);
+
+  let t0;
+  let t1;
+  let stepSize;
+  if (start != null && stop != null) {
+    t0 = formatHorizonsEpoch(start);
+    t1 = formatHorizonsEpoch(stop);
+    stepSize = step || '3 d';
+  } else if (epoch != null) {
+    t0 = formatHorizonsEpoch(epoch);
+    // One-hour stop so STEP_SIZE produces a single usable row after SOE.
+    const t1Date = epoch instanceof Date ? new Date(epoch.getTime()) : new Date(epoch);
+    t1Date.setUTCHours(t1Date.getUTCHours() + 1);
+    t1 = formatHorizonsEpoch(t1Date);
+    stepSize = '1 h';
+  } else {
+    throw new Error('buildHorizonsVectorsUrl: need epoch or start/stop');
+  }
 
   const params = new URLSearchParams({
     format: 'text',
@@ -105,7 +126,7 @@ export function buildHorizonsVectorsUrl({ body, epoch }) {
     CSV_FORMAT: 'NO',
     START_TIME: `'${t0}'`,
     STOP_TIME: `'${t1}'`,
-    STEP_SIZE: "'1 h'",
+    STEP_SIZE: `'${stepSize}'`,
   });
   return `${HORIZONS_API_URL}?${params.toString()}`;
 }
@@ -209,6 +230,108 @@ export function parseHorizonsVectors(text) {
   }
 
   throw new Error('parseHorizonsVectors: could not extract XYZ from SOE block');
+}
+
+/**
+ * Parse a multi-row Horizons VECTORS SOE block (series bake).
+ * @param {string} text
+ * @returns {Array<{ x:number, y:number, z:number, vx?:number, vy?:number, vz?:number, jd?:number }>}
+ */
+export function parseHorizonsVectorsSeries(text) {
+  if (typeof text !== 'string' || !text.length) {
+    throw new Error('parseHorizonsVectorsSeries: empty payload');
+  }
+  let payload = text;
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{')) {
+    try {
+      const j = JSON.parse(trimmed);
+      if (j.error) throw new Error(`Horizons API error: ${j.error}`);
+      if (typeof j.result === 'string') payload = j.result;
+    } catch (e) {
+      if (e.message && e.message.startsWith('Horizons API error')) throw e;
+    }
+  }
+  const soe = payload.indexOf('$$SOE');
+  const eoe = payload.indexOf('$$EOE');
+  if (soe < 0 || eoe < 0 || eoe <= soe) {
+    throw new Error('parseHorizonsVectorsSeries: missing $$SOE/$$EOE block');
+  }
+  const block = payload.slice(soe + 5, eoe);
+
+  const rows = [];
+  // Labeled multi-epoch: each has X= Y= Z= and optional VX= VY= VZ=
+  const labeledRe = /X\s*=\s*([+\-]?[\d.]+(?:[Ee][+\-]?\d+)?)\s+Y\s*=\s*([+\-]?[\d.]+(?:[Ee][+\-]?\d+)?)\s+Z\s*=\s*([+\-]?[\d.]+(?:[Ee][+\-]?\d+)?)/g;
+  const velRe = /VX\s*=\s*([+\-]?[\d.]+(?:[Ee][+\-]?\d+)?)\s+VY\s*=\s*([+\-]?[\d.]+(?:[Ee][+\-]?\d+)?)\s+VZ\s*=\s*([+\-]?[\d.]+(?:[Ee][+\-]?\d+)?)/g;
+  const labeledHits = [...block.matchAll(labeledRe)];
+  const velHits = [...block.matchAll(velRe)];
+  if (labeledHits.length > 0) {
+    for (let i = 0; i < labeledHits.length; i++) {
+      const L = labeledHits[i];
+      const row = {
+        x: Number(L[1]),
+        y: Number(L[2]),
+        z: Number(L[3]),
+      };
+      if (velHits[i]) {
+        row.vx = Number(velHits[i][1]);
+        row.vy = Number(velHits[i][2]);
+        row.vz = Number(velHits[i][3]);
+      }
+      if ([row.x, row.y, row.z].every(Number.isFinite)) rows.push(row);
+    }
+    if (rows.length) return rows;
+  }
+
+  // Unlabeled: JD X Y Z VX VY VZ per data line
+  for (const line of block.split(/\r?\n/)) {
+    const nums = line.trim().match(/[+\-]?[\d.]+(?:[Ee][+\-]?\d+)?/g);
+    if (!nums || nums.length < 4) continue;
+    if (Number(nums[0]) > 1e6 && nums.length >= 7) {
+      const row = {
+        jd: Number(nums[0]),
+        x: Number(nums[1]),
+        y: Number(nums[2]),
+        z: Number(nums[3]),
+        vx: Number(nums[4]),
+        vy: Number(nums[5]),
+        vz: Number(nums[6]),
+      };
+      if ([row.x, row.y, row.z].every(Number.isFinite)) rows.push(row);
+    }
+  }
+  if (!rows.length) {
+    throw new Error('parseHorizonsVectorsSeries: no vector rows found');
+  }
+  return rows;
+}
+
+/**
+ * Fetch a multi-epoch Horizons VECTOR series (one request per body for bake).
+ * @param {{
+ *   body: string|{id?:string,name?:string},
+ *   start: Date|string|number,
+ *   stop: Date|string|number,
+ *   step?: string,
+ *   fetchImpl?: typeof fetch,
+ * }} opts
+ */
+export async function fetchHorizonsSeries({ body, start, stop, step = '3 d', fetchImpl }) {
+  const impl = fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
+  if (typeof impl !== 'function') {
+    throw new Error('fetchHorizonsSeries: no fetchImpl available');
+  }
+  const url = buildHorizonsVectorsUrl({ body, start, stop, step });
+  const res = await impl(url);
+  if (!res || typeof res.text !== 'function') {
+    throw new Error('fetchHorizonsSeries: fetchImpl returned a non-Response');
+  }
+  if (res.ok === false) {
+    throw new Error(`fetchHorizonsSeries: HTTP ${res.status}`);
+  }
+  const text = await res.text();
+  const rows = parseHorizonsVectorsSeries(text);
+  return { rows, url };
 }
 
 /**

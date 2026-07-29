@@ -70,6 +70,10 @@ const samples = JSON.parse(readFileSync(resolve(ROOT, 'assets/ephemeris-samples-
 check('sample asset version ≥ 2', samples.version >= 2);
 check('sample has 8 bodies', Object.keys(samples.bodies).length === 8);
 check('sample n > 100', samples.n > 100);
+check('sample window covers 2026', samples.t0_iso <= '2026-01-01' && samples.t1_iso >= '2027-01-01');
+check('sample bake source recorded',
+  samples.bake_source === 'horizons' || samples.bake_source === 'bootstrap'
+  || /horizons|bootstrap/i.test(samples.source || ''));
 const bytes = Buffer.byteLength(JSON.stringify(samples));
 check('sample soft budget ≤ 2.5 MiB', bytes <= 2.5 * 1024 * 1024, `${(bytes / 1024 / 1024).toFixed(2)} MiB`);
 
