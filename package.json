@@ -20,6 +20,8 @@
     "build:ephemeris:spice": "python scripts/build-ephemeris-from-spice.py",
     "build:ephemeris:moons": "node scripts/build-moon-samples.mjs",
     "build:ephemeris:mars-moons": "python scripts/build-mars-moons-spice.py",
+    "build:ephemeris:dense": "python scripts/build-dense-spk-pack.py --all-tier-a",
+    "budget:dense-spice": "node scripts/dense-spice-budget.mjs",
     "kernels:download": "python scripts/download-kernels.py",
     "firebase:smoke": "node scripts/firebase-admin-smoke.mjs",
     "firebase:seed": "node scripts/firebase-admin-seed.mjs",

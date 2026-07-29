@@ -18,7 +18,9 @@ import {
 } from './moon-fidelity.js';
 import { resolvePlanetRelativeCentral } from './planet-relative.js';
 import { lightTimeSeconds } from './flight-ops.js';
-import { getMarsMoonsDenseMeta, marsMoonDenseAvailable } from './mars-moons-dense.js';
+import {
+  getDensePackMeta, denseSpkAvailable, denseSpkCoverageSummary,
+} from './dense-spk-pack.js';
 
 /** Product targets. */
 export const TARGET_TIME_S = 60; // 1 minute
@@ -69,21 +71,23 @@ export function computeAccuracyBudget(td) {
   const moonish = [b1, b2].filter(isMoon);
 
   if (domain === 'mars-system' || domain === 'planet-relative') {
-    const denseMeta = getMarsMoonsDenseMeta();
     const tRef = td.departureSimTime ?? td.arrivalSimTime ?? null;
+    const cov = denseSpkCoverageSummary();
+    if (cov.n_packs) notes.push(cov.note);
     for (const m of moonish) {
-      const useDense = tRef != null && marsMoonDenseAvailable(m, tRef);
+      const useDense = tRef != null && denseSpkAvailable(m, tRef);
+      const denseMeta = useDense
+        ? (getDensePackMeta('mars-moons') || getDensePackMeta('earth-moon'))
+        : null;
       if (useDense && denseMeta) {
-        // SPICE dense table: step is time knot; cubic interp → sub-step continuity
         const step = denseMeta.step_sec;
-        // Residual class for 10-min cubic on ~circular Phobos ~ sub-km to few-km
         const phase = (2 * Math.PI) * ((step / (m.period || step)) ** 2) / 24;
         const est = Math.max(0.05, (m.a_km || 10000) * phase);
         notes.push(
-          `${m.name}: SPICE mar099s dense step ${step}s · est relative ~${est.toFixed(2)} km · `
+          `${m.name}: dense SPICE pack step ${step}s · est relative ~${est.toFixed(2)} km · `
           + `time continuous between knots (≤ ${TARGET_TIME_S}s class).`,
         );
-        estTime = Math.min(estTime, Math.min(TARGET_TIME_S, step / 6)); // interp continuity minutes
+        estTime = Math.min(estTime, Math.min(TARGET_TIME_S, step / 6));
         estDist = Math.min(estDist === Infinity ? est : estDist, est);
       } else {
         const acc = estimateMoonRelativeAccuracy(m, null);

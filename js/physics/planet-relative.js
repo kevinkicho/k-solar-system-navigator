@@ -23,10 +23,10 @@ import {
   adaptiveVelocityDtSec,
 } from './moon-fidelity.js';
 import {
-  sampleMarsMoonRelativeAU,
-  sampleMarsMoonRelativeVelocity_m_s,
-  marsMoonDenseAvailable,
-} from './mars-moons-dense.js';
+  sampleDenseSpkAU,
+  sampleDenseSpkVelocity_m_s,
+  denseSpkAvailable,
+} from './dense-spk-pack.js';
 import { defaultParkingAlt_m } from './surface-point.js';
 import { v3cross, v3mag, v3scale, v3sub } from './vec3.js';
 
@@ -159,25 +159,25 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
       }
     }
 
-    // 1) Dense SPICE Mars moons
-    if (marsMoonDenseAvailable(body, timeSec)) {
-      const rel = sampleMarsMoonRelativeAU(body, timeSec);
-      const vel = sampleMarsMoonRelativeVelocity_m_s(body, timeSec)
+    // 1) Dense SPICE packs (Phobos/Deimos, Luna, …)
+    if (denseSpkAvailable(body, timeSec)) {
+      const rel = sampleDenseSpkAU(body, timeSec);
+      const vel = sampleDenseSpkVelocity_m_s(body, timeSec)
         || continuousMoonRelativeVelocity_m_s(body, timeSec);
-      if (rel) {
+      if (rel && rel.mode !== 'heliocentric') {
         return {
           posAU: { x: rel.x, y: rel.y, z: rel.z, r: Math.hypot(rel.x, rel.y, rel.z) },
           vel: vel || [0, 0, 0],
           isParking: false,
           sampleMoon: true,
-          ephSource: rel.source || 'spice-mar099s-dense',
+          ephSource: rel.source || `dense-spk:${rel.pack_id}`,
         };
       }
     }
 
     // 2) Generic moon sample (only if cadence is fine enough — enforced inside sampler)
     const rel = sampleMoonRelativePosition3D(body, timeSec);
-    if (rel && !rel.source?.includes?.('spice-mar099s')) {
+    if (rel && !String(rel.source || '').includes('spice') && !String(rel.source || '').includes('dense')) {
       const dt = adaptiveVelocityDtSec(body.period || DAY);
       const ra = sampleMoonRelativePosition3D(body, timeSec - dt);
       const rb = sampleMoonRelativePosition3D(body, timeSec + dt);

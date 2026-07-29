@@ -11,10 +11,10 @@ import { AU, DAY } from '../constants.js';
 import { BODIES } from '../data/bodies.js';
 import { moonSampleCadenceOk, bodyPeriodSec } from './moon-fidelity.js';
 import {
-  ensureMarsMoonsDenseLoaded,
-  sampleMarsMoonRelativeAU,
-  marsMoonDenseAvailable,
-} from './mars-moons-dense.js';
+  ensureDenseSpkPacksLoaded,
+  sampleDenseSpkAU,
+  denseSpkAvailable,
+} from './dense-spk-pack.js';
 
 let _table = null;
 let _moonTable = null;
@@ -161,7 +161,7 @@ export async function ensureSampleTableLoaded() {
         if (resM.ok) _moonTable = await resM.json();
       } catch { /* */ }
     }
-    await ensureMarsMoonsDenseLoaded().catch(() => null);
+    await ensureDenseSpkPacksLoaded().catch(() => null);
     return _table;
   }
   if (_loadPromise) return _loadPromise;
@@ -173,7 +173,7 @@ export async function ensureSampleTableLoaded() {
         if (res.ok) _table = await res.json();
         const resM = await fetch(new URL('../../assets/ephemeris-moons-v1.json', import.meta.url));
         if (resM.ok) _moonTable = await resM.json();
-        await ensureMarsMoonsDenseLoaded().catch(() => null);
+        await ensureDenseSpkPacksLoaded().catch(() => null);
       }
     } catch (_) {
       _table = _table || null;
@@ -202,11 +202,14 @@ function inWindow(table, timeSec) {
 export function sampleAvailable(body, timeSec) {
   const pk = bodyKey(body);
   if (pk && _table?.bodies?.[pk] && inWindow(_table, timeSec)) return true;
-  // Dense SPICE Mars moons (Phobos/Deimos) — preferred when loaded + in window
-  if (marsMoonDenseAvailable(body, timeSec)) {
-    const parentKey = BODY_KEYS.mars;
-    if (parentKey && _table?.bodies?.[parentKey] && inWindow(_table, timeSec)) return true;
-    return true; // relative-only still counts for PR
+  // Dense SPICE packs (Mars moons, Luna, optional dense planets)
+  if (denseSpkAvailable(body, timeSec)) {
+    const key = bodyKey(body);
+    if (key && BODY_KEYS[key]) {
+      // heliocentric dense planet pack
+      return true;
+    }
+    return true; // relative moon pack
   }
   const mk = moonKey(body);
   if (mk && _moonTable?.bodies?.[mk] && inWindow(_moonTable, timeSec)) {
@@ -261,11 +264,11 @@ function interpSeriesOnTable(table, series, timeSec) {
   return { x: out[0], y: out[1], z: out[2] };
 }
 
-/** Parent-relative moon position (AU) from dense Mars SPICE or moon sample table. */
+/** Parent-relative moon position (AU) from dense SPICE packs or moon sample table. */
 export function sampleMoonRelativePosition3D(body, timeSec) {
-  // Prefer dense SPICE Mars moons (km/minute class) when available
-  const dense = sampleMarsMoonRelativeAU(body, timeSec);
-  if (dense) return dense;
+  // Prefer dense SPICE packs (Phobos/Deimos, Luna, …)
+  const dense = sampleDenseSpkAU(body, timeSec);
+  if (dense && dense.mode !== 'heliocentric') return dense;
 
   const mk = moonKey(body);
   if (!mk || !_moonTable?.bodies?.[mk] || !inWindow(_moonTable, timeSec)) return null;
@@ -279,6 +282,11 @@ export function sampleMoonRelativePosition3D(body, timeSec) {
 
 export function samplePosition3D(body, timeSec) {
   const pk = bodyKey(body);
+  // Prefer denser SPICE planet pack when available (6 h class), else main DE table
+  if (pk && denseSpkAvailable(body, timeSec)) {
+    const d = sampleDenseSpkAU(body, timeSec);
+    if (d && d.mode === 'heliocentric') return d;
+  }
   if (pk && _table?.bodies?.[pk] && inWindow(_table, timeSec)) {
     return interpSeriesOnTable(_table, _table.bodies[pk].pos_au, timeSec);
   }

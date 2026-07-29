@@ -1,0 +1,83 @@
+{
+  "pack_id": "planets-dense",
+  "version": 1,
+  "title": "8 planets heliocentric dense (de440s)",
+  "source": "spice-dense-planets-dense",
+  "bake_source": "spice-dense-pack",
+  "mode": "heliocentric",
+  "frame": "heliocentric AU (SSB geometric), HELIOS scene",
+  "t0_iso": "2020-01-01T12:00:00Z",
+  "t1_iso": "2035-01-01T12:00:00Z",
+  "t0_sim": 631152000.0,
+  "step_sec": 21600.0,
+  "step_min": 360,
+  "n": 21917,
+  "dtype": "float32_le",
+  "layout": "bodies sequential: each n*(x,y,z) float32",
+  "bodies": [
+    "mercury",
+    "venus",
+    "earth",
+    "mars",
+    "jupiter",
+    "saturn",
+    "uranus",
+    "neptune"
+  ],
+  "body_naif": {
+    "mercury": [
+      199,
+      0
+    ],
+    "venus": [
+      299,
+      0
+    ],
+    "earth": [
+      399,
+      0
+    ],
+    "mars": [
+      499,
+      0
+    ],
+    "jupiter": [
+      599,
+      0
+    ],
+    "saturn": [
+      699,
+      0
+    ],
+    "uranus": [
+      799,
+      0
+    ],
+    "neptune": [
+      899,
+      0
+    ]
+  },
+  "body_offsets": {
+    "mercury": 0,
+    "venus": 263004,
+    "earth": 526008,
+    "mars": 789012,
+    "jupiter": 1052016,
+    "saturn": 1315020,
+    "uranus": 1578024,
+    "neptune": 1841028
+  },
+  "bin": "planets-dense.bin",
+  "kernels": [
+    "naif0012.tls",
+    "pck00011.tpc",
+    "gm_de440.tpc",
+    "de440s.bsp"
+  ],
+  "generated_at": "2026-07-29T22:02:52.574085Z",
+  "flight_ops_certified": false,
+  "size_bytes": 2104032,
+  "size_miB": 2.007,
+  "source_note": "Educational dense SPICE-baked sample pack \u2014 NOT flight-certified OD, NOT range safety. Geometric NONE states, ECLIPJ2000 \u2192 HELIOS scene."
+}

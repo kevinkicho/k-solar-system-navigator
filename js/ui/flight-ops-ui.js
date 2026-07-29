@@ -10,7 +10,7 @@ import {
   getSampleMeta, transferSampleCoverage, sampleCoverageReport,
 } from '../physics/ephemeris-sample.js';
 import { computeAccuracyBudget } from '../physics/accuracy-budget.js';
-import { getMarsMoonsDenseMeta } from '../physics/mars-moons-dense.js';
+import { denseSpkCoverageSummary } from '../physics/dense-spk-pack.js';
 import { notify } from './format.js';
 import { buildTransferPathSamples } from '../physics/transfer-path.js';
 import { needOptsFromTransfer } from '../physics/need-geometry.js';
@@ -101,10 +101,12 @@ export function refreshFlightOpsPanel() {
   const abDep = lt?.aberration_dep_arcsec != null ? `${lt.aberration_dep_arcsec.toFixed(1)}″` : '—';
   const abArr = lt?.aberration_arr_arcsec != null ? `${lt.aberration_arr_arcsec.toFixed(1)}″` : '—';
   const acc = computeAccuracyBudget(td);
-  const dense = getMarsMoonsDenseMeta();
-  const denseLine = dense
-    ? `Phobos/Deimos SPICE dense ${dense.step_min || dense.step_sec / 60} min · ${String(dense.t0_iso || '').slice(0, 10)}→${String(dense.t1_iso || '').slice(0, 10)}`
-    : 'Mars moons dense SPICE not loaded — continuous Kepler fallback';
+  const denseSum = denseSpkCoverageSummary();
+  const denseLine = denseSum.n_packs
+    ? denseSum.packs.map((p) =>
+      `${p.pack_id} ${p.step_min}min ${String(p.t0 || '').slice(0, 10)}→${String(p.t1 || '').slice(0, 10)}`,
+    ).join(' · ')
+    : 'No dense SPICE packs — continuous Kepler / DE table fallback';
 
   host.innerHTML = `
     <p class="surface-hint">${opsDisclaimer()}</p>
