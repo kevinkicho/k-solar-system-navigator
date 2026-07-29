@@ -42,6 +42,15 @@ npx firebase deploy --only functions --project k-solar-system-navigator
 - Storage: `ephemeris/**` **read: true**, **write: false** (admin SDK only).
 - User mission blobs stay **owner-only** under `users/{uid}/**`.
 - Catalog write blocked for clients; Admin SDK / CI only.
+- **CORS**: bucket allows `GET`/`HEAD` from any origin (`scripts/storage-cors.json`) so browsers can `fetch()` download URLs.
+- **Localhost / CI**: client skips Storage CDN warm (uses Hosting packs only) to avoid CORS noise in Playwright.
+
+## Set Storage CORS (after pack upload)
+
+```bash
+# Uses ADC / GOOGLE_APPLICATION_CREDENTIALS
+node -e "const {Storage}=require('@google-cloud/storage'); const b=new Storage().bucket('k-solar-system-navigator.firebasestorage.app'); b.setCorsConfiguration(require('./scripts/storage-cors.json')).then(()=>console.log('ok'));"
+```
 
 ## What each product is *not*
 

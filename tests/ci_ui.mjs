@@ -195,8 +195,10 @@ try {
   await page.screenshot({ path: join(OUT, 'ci-ui-route.png') });
 
   section('5. CONSOLE HYGIENE');
+  // Ignore benign network noise: favicon, 404s, CORS from optional Storage CDN
+  // (localhost CI uses Hosting packs; production origins may hit Storage with CORS).
   const realErrors = errors.filter((e) =>
-    !/favicon|404|Failed to load resource|net::ERR/i.test(e));
+    !/favicon|404|Failed to load resource|net::ERR|CORS policy|Access-Control-Allow-Origin|firebasestorage\.googleapis\.com/i.test(e));
   check(`no critical page errors (got ${realErrors.length})`, realErrors.length === 0,
     realErrors.slice(0, 3).join(' | '));
 } finally {

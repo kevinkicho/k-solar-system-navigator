@@ -219,6 +219,10 @@ export async function ensureDensePack(packId) {
 export async function warmDensePacksFromCloud(bodyHints = []) {
   try {
     const cloud = await import('../firebase/dense-spk-cloud.js');
+    // Localhost / CI: keep Hosting packs only (avoids Storage CORS page errors)
+    if (cloud.isDenseStorageFetchOrigin && !cloud.isDenseStorageFetchOrigin()) {
+      return { warmed: false, reason: 'local-hosting-only' };
+    }
     if (!cloud.isDenseCloudAvailable?.()) {
       return { warmed: false, reason: 'firebase-off' };
     }

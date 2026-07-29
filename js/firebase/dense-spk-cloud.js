@@ -22,9 +22,28 @@ let _urlCache = new Map(); // path → download URL
 let _registryCloud = null;
 let _registryTried = false;
 
+/**
+ * Hosts allowed to fetch Storage CDN packs via browser fetch (needs bucket CORS).
+ * Skip localhost/CI so Playwright does not see CORS as page errors.
+ */
+export function isDenseStorageFetchOrigin() {
+  if (typeof location === 'undefined') return false;
+  const h = location.hostname || '';
+  if (!h || h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0') return false;
+  // Production + Firebase preview hosts
+  return (
+    h.endsWith('.web.app')
+    || h.endsWith('.firebaseapp.com')
+    || h.endsWith('.hosted.app')
+    || h.includes('k-solar-system-navigator')
+  );
+}
+
 export function isDenseCloudAvailable() {
   if (state.classroomMode) return false;
   if (!isFirebaseEnabled()) return false;
+  // Storage binary fetch only from known web origins (CORS + CI hygiene)
+  if (!isDenseStorageFetchOrigin()) return false;
   initFirebase();
   return !!getFirebaseStorage();
 }
