@@ -20,7 +20,7 @@ function check(label, ok, detail = '') {
 console.log('\n━━━ EPHEMERIS PROVIDER ━━━');
 
 check('resolve default approx', prov.resolveBackend(undefined, {}) === 'approx');
-check('classroom forces approx', prov.resolveBackend('sample-de', { classroomMode: true }) === 'approx');
+check('explicit approx backend', prov.resolveBackend('approx', { classroomMode: false }) === 'approx');
 check('sample requested ok', prov.resolveBackend('sample-de', {}) === 'sample-de');
 
 const earth = BODIES.find((b) => b.name === 'Earth');
@@ -70,9 +70,9 @@ check('sample-de solves Lambert', td3.lambertOk === true);
 check('sample-de Δv differs from approx', Math.abs(td3.dvTotal_lambert - dv1) > 0.01,
   `Δ=${Math.abs(td3.dvTotal_lambert - dv1).toFixed(2)} m/s`);
 
-// Classroom forced approx even if requested sample on provider
-const pC = prov.getPlanningPosition3D(mars, t, { backend: 'sample-de', classroomMode: true });
-check('classroom provider uses approx for Mars', Math.hypot(pC.x - pM.x, pC.y - pM.y, pC.z - pM.z) < 1e-12);
+// Explicit approx path still works (no dumbed-down classroom force)
+const pC = prov.getPlanningPosition3D(mars, t, { backend: 'approx' });
+check('approx provider matches Kepler Mars', Math.hypot(pC.x - pM.x, pC.y - pM.y, pC.z - pM.z) < 1e-12);
 
 if (failed) {
   console.error(`\n${failed} provider checks failed`);

@@ -86,9 +86,7 @@ export function buildMeasurementCard(td) {
   const isLegacy = state.vehicleId === 'sh-starship'
     && (state.starshipArch === 'legacy-demo' || !state.starshipArch);
   const isSketch = !!(td?.body1?.waypointOf || td?.body2?.waypointOf);
-  const classroomNote = state.classroomMode
-    ? `<div class="info-row"><span class="key">Classroom</span><span class="val amber">Methodology-first · abstract Δv default · offline L1</span></div>`
-    : '';
+  const classroomNote = '';
 
   // PR1: nominal Approximate Positions error class (when planning on approx).
   let errorRows = '';

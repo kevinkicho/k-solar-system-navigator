@@ -22,6 +22,7 @@ import {
   planetRelativePeriapsisOk,
   planetRelativeEndpointStates,
 } from './planet-relative.js';
+import { state } from '../state.js';
 
 /**
  * Analytic coplanar Hohmann when Lambert is singular (~180° transfer).
@@ -716,8 +717,11 @@ export function getShipPositionOnTransfer(departureSimTime, tData, currentSimTim
   if (tData.departureSimTime == null && departureSimTime != null) {
     tData = { ...tData, departureSimTime };
   }
+  // Match dashed path geometry (industrial honesty): physical when pathGeometry is physical.
+  const pg = tData.pathGeometry || state.pathGeometry || 'visual';
+  const geometry = pg === 'physical' ? 'physical' : 'visual';
   return sampleTransferPathAtTime(tData, currentSimTime, {
-    offsetPolicy: tData.pathOffsetPolicy || 'time_varying',
-    geometry: 'visual',
+    offsetPolicy: tData.pathOffsetPolicy || state.pathOffsetPolicy || 'time_varying',
+    geometry,
   });
 }

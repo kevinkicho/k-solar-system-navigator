@@ -816,7 +816,8 @@ body:not(.debug-chrome) #cursor-coords { display: none; }
 #mobile-chips {
   display: none;
 }
-#classroom-banner {
+/* classroom-banner removed — industrial product only */
+.classroom-banner-removed {
   position: fixed; top: 48px; left: 50%; transform: translateX(-50%);
   z-index: 15; max-width: min(720px, 92vw);
   padding: 8px 16px; font-size: 11px; letter-spacing: 0.5px;
@@ -1403,9 +1404,6 @@ input[type="range"]::-webkit-slider-thumb {
 </div>
 
 <div id="tooltip"></div>
-<div id="classroom-banner" hidden aria-hidden="true">
-  CLASSROOM MODE · schematic · abstract Δv · offline L1 · methodology-first (not flight ops)
-</div>
 <div id="help-hint">SCROLL zoom · DRAG orbit · RIGHT-DRAG pan · CLICK select · RIGHT-CLICK set route · Plan rail = launch campaign</div>
 <div id="notification"></div>
 
@@ -1445,10 +1443,10 @@ input[type="range"]::-webkit-slider-thumb {
 
     <h3>Ephemeris fidelity badges</h3>
     <table>
-      <tr><td><span class="pill">L1</span></td><td>Offline JPL Approximate Positions. Classroom mode forces L1. Nominal error classes (λ, φ, ρ) from the JPL SSD table appear on the Measurement Card — not formal covariances.</td></tr>
+      <tr><td><span class="pill">L1</span></td><td>Offline JPL Approximate Positions (manual backend). Nominal error classes (λ, φ, ρ) on the Measurement Card — not formal covariances.</td></tr>
       <tr><td><span class="pill amber">L2-compare</span></td><td>After an explicit Horizons VECTOR compare only. Records that a Δr check was run; <strong>does not by itself change planning geometry</strong>. Not SPICE.</td></tr>
-      <tr><td><span class="pill" style="color:var(--green);border-color:rgba(0,230,118,0.4)">L2-plan</span></td><td>Offline sample table (Horizons-baked or bootstrap). Rebuild: <code>npm run build:ephemeris</code>.</td></tr>
-      <tr><td><span class="pill" style="color:#ce93d8;border-color:rgba(206,147,216,0.45)">L2-horizons</span> opt-in</td><td>Live Horizons VECTORS inject at dep/arr for Need. Classroom off. Not SPICE runtime.</td></tr>
+      <tr><td><span class="pill" style="color:var(--green);border-color:rgba(0,230,118,0.4)">L2-plan</span></td><td>Product default offline sample table. Rebuild: <code>npm run build:ephemeris</code>.</td></tr>
+      <tr><td><span class="pill" style="color:#ce93d8;border-color:rgba(206,147,216,0.45)">L2-horizons</span> opt-in</td><td>Live Horizons VECTORS inject at dep/arr for Need analysis. Not SPICE runtime.</td></tr>
       <tr><td><span class="pill" style="color:#80cbc4;border-color:rgba(128,203,196,0.5)">L3-plan</span></td><td>Offline table <strong>baked from NAIF de440s.bsp via spiceypy</strong> (<code>python scripts/build-ephemeris-from-spice.py</code>). Browser loads JSON only — not live <code>.bsp</code> at runtime. <strong>Not flight-certified OD.</strong></td></tr>
       <tr><td><span class="pill" style="color:var(--amber);border-color:rgba(255,152,0,0.4)">OPS mode</span></td><td>Ops review workflow (light-time, analysis gates, OEM-like export). Top bar <strong>OPS</strong>. <strong>NOT range safety, NOT mission assurance, NOT certified flight software.</strong></td></tr>
       <tr><td><span class="pill" style="color:var(--text-dim);border-color:var(--border)">Certified ops</span></td><td><strong>Out of scope for this SPA</strong> — real flight ops needs institutional SPICE pipelines, OD, covariance, and ground-system certification. HELIOS is a preliminary mission-design workstation.</td></tr>
@@ -1460,7 +1458,7 @@ input[type="range"]::-webkit-slider-thumb {
     <table>
       <tr><td>Rocky bodies</td><td>Mean or oblate ellipsoid radius; dual planetographic lat readout; optional planetographic input mode</td></tr>
       <tr><td>Gas / ice giants</td><td><strong>1-bar / cloud-deck</strong> reference (no solid surface); high default parking altitude; System III–class longitude label</td></tr>
-      <tr><td>Orientation</td><td>IAU-class <code>W(t)=W₀+Ẇd</code> (+ leading Moon/Mercury libration); ICRF pole α₀/δ₀ → ecliptic — concept-grade, not SPICE PCK</td></tr>
+      <tr><td>Orientation</td><td>IAU-class <code>W(t)=W₀+Ẇd</code> (+ leading Moon/Mercury libration); ICRF pole α₀/δ₀ → ecliptic — not full SPICE PCK</td></tr>
       <tr><td>Share / export</td><td>Sites in hash <code>os</code>/<code>ds</code> and mission JSON; multi-leg terminals and flyby geo sites when enabled</td></tr>
     </table>
 
@@ -1474,11 +1472,11 @@ input[type="range"]::-webkit-slider-thumb {
     <p>· 2-body Kepler propagation (no Jupiter/Saturn perturbations on the transfer orbit). Lambert solutions close to &lt;2 km in 2-body; under full N-body the actual miss could be tens of km.</p>
     <p>· Single-revolution Lambert. Type-II multi-revolution solutions are not yet a product mode.</p>
     <p>· Visual inclinations are exaggerated 8× for legibility. <strong>All physics computations use real inclinations.</strong></p>
-    <p>· Geographic body-fixed frames are concept-grade (IAU-class tables), not full SPICE kernels or survey geodesy.</p>
+    <p>· Geographic body-fixed frames use IAU-class tables, not full SPICE kernels or survey geodesy.</p>
     <p>· Planet-relative routes are parent-centered 2-body Lambert + parking sketches — not CR3BP, not low-energy lunar transfers, not tour design with resonant moon assists.</p>
 
-    <h3>Optional Horizons comparison (educational)</h3>
-    <p><strong>Not SPICE. Not flight ops. Not required for planning.</strong> Trip planning always uses the offline JPL Approximate Positions model above. This stretch feature can optionally fetch a public NASA/JPL Horizons VECTOR table over the network and report distance error vs the approximate ephemeris for a selected major planet — for classroom curiosity only. No <code>.bsp</code> kernels, no covariance, no navigation solutions.</p>
+    <h3>Optional Horizons comparison (analysis)</h3>
+    <p><strong>Not SPICE. Not flight ops. Not required for planning.</strong> Product planning uses offline sample-DE / L3-plan tables by default. This feature can optionally fetch a public NASA/JPL Horizons VECTOR table and report distance error vs the approximate model for a selected major planet. No live <code>.bsp</code>, no covariance, no navigation solutions.</p>
     <p style="margin-top:10px">
       <button type="button" class="close-btn" id="btn-horizons-compare" title="Optional network request to JPL Horizons for the currently selected major planet">
         Compare Horizons (optional network)

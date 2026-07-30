@@ -31,15 +31,25 @@ export async function GET() {
     cloud = null;
   }
 
+  const registryVersion = local && typeof local === 'object' && 'version' in local
+    ? (local as { version?: number }).version
+    : null;
+  const packCount = local && Array.isArray((local as { packs?: unknown[] }).packs)
+    ? (local as { packs: unknown[] }).packs.length
+    : 0;
+
   return NextResponse.json({
     ok: true,
     product_class: 'preliminary-not-flight-certified',
+    product_grade: 'industrial-preliminary',
     endpoint: '/api/ephemeris/dense-spk',
     pack_files: '/api/ephemeris/dense-spk/{packId}.bin|.meta.json',
+    registry_version: registryVersion,
+    pack_count: packCount,
     local_registry: local,
     cloud_catalog: cloud,
     note:
       'Tier A packs load with the SPA; Tier B packs lazy-load. '
-      + 'Prefer Firebase Storage when seeded; Hosting/App Hosting is fallback.',
+      + 'Prefer same-origin App Hosting API, then Firebase Storage, then static Hosting.',
   });
 }

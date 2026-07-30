@@ -67,9 +67,9 @@ assert(eff.horizonsHit === true, 'horizonsHit');
 const p = getPlanningPosition3D(earth, t, { backend: 'sample-de' });
 assert(Math.abs(p.x - scene.x) < 1e-12, 'planning uses inject');
 
-// Classroom never uses inject even if cache full
-const effC = effectiveBackend(earth, t, 'sample-de', { classroomMode: true });
-assert(effC.backend === 'approx', 'classroom approx');
+// Explicit disallow inject → approx (no dumbed-down classroom force)
+const effC = effectiveBackend(earth, t, 'approx', { allowHorizonsInject: false });
+assert(effC.backend === 'approx', 'approx without inject');
 
 const multi = await injectHorizonsEndpoints(
   [{ body: earth, timeSec: t }, { body: earth, timeSec: t + DAY }],

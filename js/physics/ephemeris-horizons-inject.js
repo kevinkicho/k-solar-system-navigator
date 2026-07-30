@@ -1,11 +1,11 @@
 /**
  * Optional live Horizons endpoint inject for planning (L2-horizons class).
  *
- * Opt-in only — classroom / default offline path never network.
+ * Opt-in only — default offline path never networks without user action.
  * Injected states are converted to HELIOS *scene* axes (Y↔Z swap vs ecliptic)
  * so they plug into getPlanningPosition3D / Lambert like sample-DE.
  *
- * NOT SPICE. NOT flight ops. Educational DE-class endpoint replacement.
+ * NOT SPICE. NOT flight ops. Analysis-grade endpoint replacement only.
  */
 
 import { J2000 } from '../constants.js';

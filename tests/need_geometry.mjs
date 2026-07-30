@@ -77,7 +77,7 @@ check('total Need = geometric + addon',
 state.planeChangeNeedAddon = prevAddon;
 
 // Multi-rev policy
-check('classroom → 0', resolveMaxRevolutionsForTof(500 * DAY, { classroomMode: true }) === 0);
+check('long TOF auto multi-rev without classroom gate', resolveMaxRevolutionsForTof(500 * DAY, {}) === 1);
 check('short TOF → 0', resolveMaxRevolutionsForTof(200 * DAY, {}) === 0);
 check('long TOF auto → 1', resolveMaxRevolutionsForTof(450 * DAY, {}) === 1);
 check('threshold constant', AUTO_MULTI_REV_TOF_SEC === 400 * DAY);

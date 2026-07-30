@@ -220,27 +220,36 @@ try {
     check('scenario select present', false);
   }
 
-  section('4b. CLASSROOM MODE');
-  const classPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await classPage.goto(`${appUrl}?mode=classroom`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await classPage.waitForFunction(
+  section('4b. INDUSTRIAL PRODUCT BOOT');
+  const prodPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const pu = new URL(appUrl);
+  pu.searchParams.set('firebase', '0');
+  await prodPage.goto(pu.toString(), { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await prodPage.waitForFunction(
     () => window.__HELIOS?.scene && window.__HELIOS?.state,
     null,
     { timeout: 45000 },
   );
-  const classState = await classPage.evaluate(() => ({
+  const prodState = await prodPage.evaluate(() => ({
     classroom: window.__HELIOS.state.classroomMode,
     veh: window.__HELIOS.state.vehicleId,
-    mode: window.__HELIOS.state.display?.mode,
+    arch: window.__HELIOS.state.starshipArch,
+    eph: window.__HELIOS.state.ephemerisBackend,
     fidelity: window.__HELIOS.state.fidelityLevel,
   }));
-  check('classroomMode true', classState.classroom === true);
-  check('classroom vehicle abstract', classState.veh === 'abstract');
-  check('classroom schematic', classState.mode === 'schematic');
-  check('classroom fidelity L1', classState.fidelity === 'L1');
-  const bannerVisible = await classPage.locator('#classroom-banner').isVisible();
-  check('classroom banner visible', bannerVisible);
-  await classPage.close();
+  check('classroomMode false (removed)', prodState.classroom === false);
+  check('product vehicle sh-starship', prodState.veh === 'sh-starship');
+  check('product arch unrefueled', prodState.arch === 'unrefueled');
+  check(
+    'product eph sample-de or L2/L3 fidelity',
+    prodState.eph === 'sample-de'
+      || prodState.fidelity === 'L2-plan'
+      || prodState.fidelity === 'L3-plan',
+    `eph=${prodState.eph} fid=${prodState.fidelity}`,
+  );
+  const bannerCount = await prodPage.locator('#classroom-banner').count();
+  check('no classroom banner element', bannerCount === 0);
+  await prodPage.close();
 
   await page.screenshot({ path: join(OUT, 'ci-ui-route.png') });
 

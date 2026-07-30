@@ -68,14 +68,14 @@ check('path has ≥320 knots', builtEM.points.length >= 320, `n=${builtEM.points
 check('path mode not pure fail', builtEM.points[0]?.mode === 'kepler' || builtEM.fallback == null
   || builtEM.fallback === 'physical' || builtEM.points[0]?.mode === 'cosine');
 
-// C1: same-t residual at 21 knots
+// C1: same-t residual at 21 knots (visual geometry default)
 let maxRes = 0;
 const knots = [];
 for (let k = 0; k <= 20; k++) {
   const u = k / 20;
   const t = tdEM.departureSimTime + u * tdEM.transferTime;
   const ship = getShipPositionOnTransfer(tdEM.departureSimTime, tdEM, t);
-  const line = sampleTransferPathAtTime(tdEM, t, { offsetPolicy: 'time_varying' });
+  const line = sampleTransferPathAtTime(tdEM, t, { offsetPolicy: 'time_varying', geometry: 'visual' });
   if (!ship || !line) {
     maxRes = Infinity;
     break;
@@ -215,6 +215,31 @@ const midOff = getSunBarycentricOffset(tdEJ.departureSimTime + tdEJ.transferTime
 const liveOff = getSunBarycentricOffset(tdEJ.departureSimTime + tdEJ.transferTime * 0.1);
 const bugMag = Math.hypot(midOff.x - liveOff.x, midOff.y - liveOff.y, midOff.z - liveOff.z);
 console.log(`  · diagnostic: midOff vs s(t@10%) Δ ≈ ${bugMag.toFixed(4)} AU (old ship–line drift scale)`);
+
+// ——— Physical pathGeometry: ship must follow physical conic (industrial honesty) ———
+state.pathGeometry = 'physical';
+const tdPhys = makeTd(earth, mars, '2026-12-01T12:00:00Z', 259);
+tdPhys.pathGeometry = 'physical';
+let maxPhys = 0;
+if (tdPhys.lambertOk) {
+  for (let k = 0; k <= 20; k++) {
+    const t = tdPhys.departureSimTime + (k / 20) * tdPhys.transferTime;
+    const ship = getShipPositionOnTransfer(tdPhys.departureSimTime, tdPhys, t);
+    const line = sampleTransferPathAtTime(tdPhys, t, {
+      offsetPolicy: 'time_varying',
+      geometry: 'physical',
+    });
+    if (!ship || !line) { maxPhys = Infinity; break; }
+    const d = Math.hypot(ship.x - line.x, ship.y - line.y, ship.z - line.z);
+    if (d > maxPhys) maxPhys = d;
+  }
+}
+check(
+  'C-phys ship–line residual ≤ 1e-6 AU when pathGeometry=physical',
+  maxPhys <= 1e-6,
+  `max=${maxPhys.toExponential(3)} AU`,
+);
+state.pathGeometry = 'visual';
 
 if (failed) {
   console.error(`\n${failed} path frame consistency check(s) failed`);

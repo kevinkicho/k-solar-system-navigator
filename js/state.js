@@ -108,10 +108,13 @@ export const state = {
   pathRefineRequestId: 0,
   lastPathRebuildWallMs: 0,
 
+  /**
+   * @deprecated Classroom mode removed — always false. Kept for legacy share/worker payloads.
+   */
   classroomMode: false,
   /**
-   * Map mode: schematic display + dual path geometry for honest trajectory mapping.
-   * Cinematic remains the default “wow” view; map mode is one click away.
+   * Map mode: schematic display + dual path geometry for accurate trajectory mapping.
+   * Cinematic remains the default presentation; map mode is one click away.
    */
   mapMode: false,
   /**
@@ -125,7 +128,7 @@ export const state = {
   showTransferRibbon: true,
   /**
    * Firebase Auth mirror (filled by js/firebase/auth.js).
-   * enabled=false in classroom / ?firebase=0 / missing config.
+   * enabled=false with ?firebase=0 / missing config.
    */
   firebase: {
     enabled: false,
@@ -135,9 +138,9 @@ export const state = {
   },
   /** Reliability: Launch requires vehicle margin feasible (K6). */
   planStrictVehicle: true,
-  /** Optional educational ascent loss (m/s), not mixed into Lambert Need. */
+  /** Optional ascent loss class budget (m/s), not mixed into Lambert Need. */
   ascentLossBudget_m_s: 0,
-  /** Educational launch-site band for DLA gate (default any = no constraint). */
+  /** Launch-site band for DLA gate (default any = no constraint). */
   launchSiteId: 'any',
   /** If true, G_SITE_DLA is fail instead of warn. */
   planStrictSite: false,
@@ -154,23 +157,23 @@ export const state = {
   },
 };
 
-/** Call after Measurement Card ships to flip product default (K25 / PR 9). */
+/** Product defaults: unrefueled Starship arch + sample-DE ephemeris. */
 export function applyProductVehicleDefaults() {
-  if (state.classroomMode) return;
   state.starshipArch = 'unrefueled';
-  // Higher planning fidelity by default (still offline; not SPICE)
   applyProductEphemerisDefaults();
 }
 
-/** Product default: offline sample-DE endpoints (L2-plan). Classroom stays L1. */
+/** Product default: offline sample-DE endpoints (L2-plan; promotes L3-plan when SPICE-baked). */
 export function applyProductEphemerisDefaults() {
-  if (state.classroomMode) return;
   state.ephemerisBackend = 'sample-de';
   state.fidelityLevel = 'L2-plan';
   if (state.pathAccuracy) state.pathAccuracy.preferSampleDeOuter = true;
 }
 
-/** Classroom / product: force offline L1 planning (K3). */
+/**
+ * Force offline L1 approx planning (debug / hermetic only — not a product mode).
+ * Prefer sample-DE / L3-plan for industrial work.
+ */
 export function forceOfflineL1Ephemeris() {
   state.fidelityLevel = 'L1';
   state.ephemerisBackend = 'approx';
@@ -179,7 +182,6 @@ export function forceOfflineL1Ephemeris() {
     state.pathAccuracy.preferSampleDeOuter = false;
     state.pathAccuracy.nbodyOverlay = false;
   }
-  // Classroom: label path as physical (incl. factor = 1)
   state.pathGeometry = 'physical';
 }
 

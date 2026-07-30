@@ -26,8 +26,7 @@ console.log('\n━━━ VEHICLE UI REGRESSION (STATIC) ━━━');
 check('measurement-card module exists', existsSync(resolve(ROOT, 'js/ui/measurement-card.js')));
 check('Card uses data-fidelity', /data-fidelity=/.test(cardJs));
 check('Card shows fidelity badge', /fidelity-badge/.test(cardJs));
-check('Card classroom note path', /classroomMode/.test(cardJs));
-// Product default is L2-plan (sample-DE); runtime may promote L3-plan when SPICE table loads; classroom still L1
+// Product default is L2-plan (sample-DE); runtime may promote L3-plan when SPICE table loads
 check('Product fidelity L2-plan in state', /fidelityLevel:\s*['"]L2-plan['"]/.test(stateJs)
   || /fidelityLevel:\s*['"]L1['"]/.test(stateJs));
 check('L3-plan fidelity documented in state', /L3-plan/.test(stateJs));
@@ -58,9 +57,13 @@ check('Mission Design branding', /MISSION DESIGN/.test(indexHtml));
 check('Campaign steps in Plan rail', /campaign-steps/.test(indexHtml) && /Compute trajectory/.test(indexHtml));
 check('Product class footer markup', /product-class-footer/.test(indexHtml));
 check('Mission package module', existsSync(resolve(ROOT, 'js/ui/mission-package.js')));
-check('Classroom demo links module', existsSync(resolve(ROOT, 'js/data/demo-links.js')));
+check('Reference missions module', existsSync(resolve(ROOT, 'js/data/demo-links.js')));
+check('Reference missions industrial (no classroom demos)', (() => {
+  const d = readFileSync(resolve(ROOT, 'js/data/demo-links.js'), 'utf8');
+  return /REFERENCE_MISSIONS/.test(d) && /PRIMARY_APP_URL/.test(d) && /CLASSROOM_DEMOS\s*=\s*\[\s*\]/.test(d);
+})());
 check('Release check script', existsSync(resolve(ROOT, 'scripts/release-check.mjs')));
-check('Trust Card mentions dense / L3-plan', /L3-plan|dense SPK/i.test(
+check('Trust Card industrial preliminary', /Industrial preliminary|PRELIMINARY DESIGN|not flight-certified/i.test(
   readFileSync(resolve(ROOT, 'js/ui/trust-card.js'), 'utf8')));
 check('OPS deep-link ops=1', /ops.*===.*['"]1['"]|get\(['"]ops['"]\)/.test(
   readFileSync(resolve(ROOT, 'js/ui/flight-ops-ui.js'), 'utf8')));
@@ -69,6 +72,8 @@ check('Window campaigns delete/compare UI', /wcp-compare|deleteWindowCampaign/.t
 check('route-display GO/NO-GO board', /missionReviewBoardHtml|mission-review-board/.test(
   readFileSync(resolve(ROOT, 'js/ui/route-display.js'), 'utf8')));
 check('product-chrome module', existsSync(resolve(ROOT, 'js/ui/product-chrome.js')));
+check('Ship pathGeometry honesty in routing', /pathGeometry.*physical|geometry === 'physical'/.test(
+  readFileSync(resolve(ROOT, 'js/physics/routing.js'), 'utf8')));
 
 // PR15+ porkchop cargo readout + heatmap
 check('pc-cargo element in HTML', /id=["']pc-cargo["']/.test(indexHtml));
@@ -79,13 +84,11 @@ check('F9 Earth-only gate via cargo mode', /cargoHeatmapMode|currentCargoMode/.t
 check('fh-class not labeled Falcon Heavy', /Heavy-lift chemical/.test(indexHtml) && !/Falcon Heavy/.test(indexHtml.match(/fh-class[^<]*/)?.[0] || ''));
 check('debug=1 triad log', /debug=1/.test(cardJs));
 
-// PR16 classroom
-check('classroom banner in HTML', /id=["']classroom-banner["']/.test(indexHtml));
-check('main sets classroomMode', /classroomMode\s*=\s*true/.test(mainJs) && /get\(['"]mode['"]\)\s*===\s*['"]classroom['"]/.test(mainJs));
-check('classroom → abstract vehicle', /classroom[\s\S]{0,200}vehicleId\s*=\s*['"]abstract['"]/.test(mainJs));
-check('classroom → schematic', /classroom[\s\S]{0,300}setDisplayMode\(['"]schematic['"]\)/.test(mainJs));
-check('classroom shows banner', /classroom-banner/.test(mainJs));
-check('classroom forces L1', /forceOfflineL1Ephemeris|fidelityLevel\s*=\s*['"]L1['"]/.test(mainJs));
+// Classroom mode removed — industrial product only
+check('no classroom banner in HTML', !/id=["']classroom-banner["']/.test(indexHtml));
+check('main does not activate classroom', !/classroomMode\s*=\s*true/.test(mainJs));
+check('main applies product defaults', /applyProductVehicleDefaults/.test(mainJs));
+check('About has no classroom force L1', !/Classroom mode forces L1/i.test(indexHtml));
 
 // PR17 hooks + export surface
 check('__HELIOS exposes buildMeasurementCard', /buildMeasurementCard/.test(mainJs));
@@ -123,12 +126,8 @@ const capLeg = v.evaluateCapability(need, { vehicleId: 'sh-starship', starshipAr
 check('legacy-demo capability Δv', capLeg.applicable && capLeg.primary_metric === 'dv');
 check('legacy display name', /legacy/i.test(v.presetDisplayName('sh-starship')));
 
-// Product default arch flip respects classroom lock
-state.classroomMode = true;
+// Product default always unrefueled (classroom lock removed)
 state.starshipArch = 'legacy-demo';
-applyProductVehicleDefaults();
-check('classroom blocks unrefueled flip', state.starshipArch === 'legacy-demo');
-state.classroomMode = false;
 applyProductVehicleDefaults();
 check('product default unrefueled', state.starshipArch === 'unrefueled');
 
@@ -183,11 +182,12 @@ state.fidelityLevel = 'L2-compare';
 const cardL2 = buildMeasurementCard(td);
 check('Card HTML has L2-compare badge', /L2-compare|fidelity-L2/.test(cardL2.html));
 
-state.classroomMode = true;
-state.vehicleId = 'abstract';
-const cardClass = buildMeasurementCard(td);
-check('Classroom card mentions methodology', /Classroom|methodology|abstract/i.test(cardClass.html));
-state.classroomMode = false;
+state.vehicleId = 'sh-starship';
+state.starshipArch = 'unrefueled';
+state.fidelityLevel = 'L3-plan';
+const cardInd = buildMeasurementCard(td);
+check('Industrial card has L3-plan or Need', /L3-plan|NEED|Need/i.test(cardInd.html));
+check('Card not classroom methodology banner', !/Classroom mode|methodology-first/i.test(cardInd.html));
 
 if (failed) {
   console.error(`\n${failed} vehicle UI regression check(s) failed`);

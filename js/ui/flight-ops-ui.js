@@ -132,7 +132,7 @@ export function refreshFlightOpsPanel() {
     ${ltNeedRow}
     <div class="surface-hint">${escapeHtml(lt?.note || 'Geometric LT only — not applied to primary Need unless LT compare enabled.')}</div>
     ${launchRows}
-    <div class="result-subtitle" style="margin-top:8px">Ops gates (educational)</div>
+    <div class="result-subtitle" style="margin-top:8px">Ops gates (analysis · not flight-certified)</div>
     ${gates.map((g) => `
       <div class="info-row">
         <span class="key">${escapeHtml(g.code)}</span>
@@ -263,10 +263,10 @@ export function wireFlightOpsUi() {
     const plan = document.getElementById('rail-pane-plan') || document.getElementById('right-panel');
     if (plan) plan.appendChild(wrap);
   }
-  // Deep-link: ?ops=1 enables educational OPS review (not classroom).
+  // Deep-link: ?ops=1 enables OPS review analysis surface.
   try {
     const q = new URLSearchParams(location.search || '');
-    if ((q.get('ops') === '1' || q.get('ops') === 'true') && !state.classroomMode) {
+    if (q.get('ops') === '1' || q.get('ops') === 'true') {
       setFlightOpsMode(true);
     }
   } catch { /* */ }

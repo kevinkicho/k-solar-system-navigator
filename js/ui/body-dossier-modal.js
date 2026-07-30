@@ -104,7 +104,7 @@ function buildPanels(body) {
     ${body.id ? row('Catalog id', body.id) : ''}
     ${isMoon ? row('Parent', body.parent) : ''}
     ${body.desc ? `<p class="bd-desc">${body.desc}</p>` : ''}
-    <p class="bd-disclaimer">Concept-grade educational dossier — not flight-ops navigation data.</p>`;
+    <p class="bd-disclaimer">Preliminary body dossier — not flight-ops navigation data.</p>`;
 
   let physical = '';
   if (body.mass) physical += row('Mass', formatMass(body.mass));
@@ -220,7 +220,7 @@ function buildPanels(body) {
     ${current ? section('Current state (sim)', current) : ''}
     ${section('Sources for this body', `<ul class="bd-links">${srcHtml}</ul>`)}
     ${section('Public data registries', `
-      <p class="bd-reg-intro">Authoritative open registries (concept-grade links):</p>
+      <p class="bd-reg-intro">Authoritative open registries (reference links):</p>
       <ul class="bd-links bd-registry">${regHtml}</ul>
     `)}
   `;

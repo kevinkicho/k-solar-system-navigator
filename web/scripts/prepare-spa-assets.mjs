@@ -9,8 +9,10 @@
 import {
   cpSync, existsSync, mkdirSync, readFileSync, writeFileSync, rmSync, statSync,
 } from 'fs';
+import { createHash } from 'crypto';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { spawnSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(__dirname, '..');
@@ -127,16 +129,59 @@ if (existsSync(denseReg)) {
   console.warn('  [prepare-spa] soft: assets/dense-spk/registry.json missing — API proxy limited');
 }
 
-writeFileSync(
-  join(PUBLIC, 'helios-build.json'),
-  JSON.stringify({
-    prepared_at: new Date().toISOString(),
-    spa_root: SPA_ROOT,
-    product: 'HELIOS Mission Design',
-    host: 'firebase-app-hosting',
-    class: 'preliminary-not-flight-certified',
-  }, null, 2),
-  'utf8',
-);
+// Build + dense pack version stamp (industrial release identity)
+let gitSha = process.env.GITHUB_SHA || process.env.COMMIT_SHA || null;
+if (!gitSha) {
+  try {
+    const g = spawnSync('git', ['rev-parse', '--short', 'HEAD'], {
+      cwd: SPA_ROOT, encoding: 'utf8',
+    });
+    if (g.status === 0) gitSha = String(g.stdout || '').trim() || null;
+  } catch { /* */ }
+}
+let pkgVersion = null;
+try {
+  const pkg = JSON.parse(readFileSync(join(SPA_ROOT, 'package.json'), 'utf8'));
+  pkgVersion = pkg.version || null;
+} catch { /* */ }
+
+let denseRegistryVersion = null;
+let densePackCount = 0;
+let densePackIds = [];
+if (existsSync(denseReg)) {
+  try {
+    const reg = JSON.parse(readFileSync(denseReg, 'utf8'));
+    denseRegistryVersion = reg.version ?? 1;
+    densePackCount = Array.isArray(reg.packs) ? reg.packs.length : 0;
+    densePackIds = (reg.packs || []).map((p) => p.pack_id).filter(Boolean);
+  } catch { /* */ }
+}
+
+let mainHash = null;
+try {
+  const mainJs = readFileSync(join(PUBLIC, 'js/main.js'));
+  mainHash = createHash('sha256').update(mainJs).digest('hex').slice(0, 12);
+} catch { /* */ }
+
+const buildMeta = {
+  prepared_at: new Date().toISOString(),
+  spa_root: SPA_ROOT,
+  product: 'HELIOS Mission Design',
+  host: 'firebase-app-hosting',
+  class: 'preliminary-not-flight-certified',
+  product_grade: 'industrial-preliminary',
+  git_sha: gitSha,
+  package_version: pkgVersion,
+  spa_main_sha256_12: mainHash,
+  dense_spk: {
+    registry_version: denseRegistryVersion,
+    pack_count: densePackCount,
+    pack_ids: densePackIds,
+  },
+  primary_url: 'https://helios--k-solar-system-navigator.us-central1.hosted.app',
+  fallback_hosting_url: 'https://k-solar-system-navigator.web.app',
+};
+writeFileSync(join(PUBLIC, 'helios-build.json'), JSON.stringify(buildMeta, null, 2), 'utf8');
+console.log(`  helios-build.json sha=${gitSha || 'n/a'} packs=${densePackCount} main=${mainHash || 'n/a'}`);
 
 console.log('[prepare-spa] done — required assets verified');

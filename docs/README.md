@@ -6,7 +6,7 @@ Living index of product/architecture designs. Each design file keeps its origina
 
 ## As-built product snapshot
 
-HELIOS on `main` is a **concept-grade educational** interplanetary trip planner (not flight ops, not live SPICE `.bsp`, not SpaceX-certified). Landed capabilities include:
+HELIOS on `main` is an **industrial preliminary mission-design workstation** (not flight-certified, not live SPICE `.bsp`, not SpaceX performance warranty). Landed capabilities include:
 
 | Area | State |
 |---|---|
@@ -33,11 +33,11 @@ HELIOS on `main` is a **concept-grade educational** interplanetary trip planner 
 | [concept-grade-and-extras-design.md](./concept-grade-and-extras-design.md) | **Implemented** (X0–X8 extras) | Trust Card, DLA eq, Vehicle Lab, scenario audit, ascent |
 | [post-landing-hardening-design.md](./post-landing-hardening-design.md) | **Implemented** | Server security, C2 honesty, workers, dual audit, streaming FAB |
 | [geographic-site-coordinates-design.md](./geographic-site-coordinates-design.md) | **Implemented** (full residual stack) | Body-fixed geographic sites, spin, share, multi-leg terminals |
-| [trajectory-accuracy-design.md](./trajectory-accuracy-design.md) | **Draft** | Trajectory render/propagation accuracy (Phases 1–4): frames, sampling, multi-rev, n-body overlay |
+| [trajectory-accuracy-design.md](./trajectory-accuracy-design.md) | **Implemented (PR1–PR11 + physical pathGeometry honesty)** | Shared transfer-path pipeline; ship ≡ line; physical geometry mode |
 
 ## Remaining items (honest backlog)
 
-**v1 product residuals:** trajectory ship–line frame consistency and related accuracy work — see [trajectory-accuracy-design.md](./trajectory-accuracy-design.md). Release polish (demo links, mission package, campaign compare, precommit/release-check) landed 2026-07-29.
+**v1 residuals:** adaptive sampling default-on soak; multi-rev product flag; tighter ghost endpoint gates (≤1e-4 AU). Classroom / teaching mode **removed** (2026-07-30 industrial pivot).
 
 ### Concept-grade incorporation of former non-goals
 

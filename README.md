@@ -1,8 +1,11 @@
 # HELIOS // Mission Design · Launch Planning
 
-A **professional preliminary mission-design workstation** in the browser: real-time 3D solar system, Lambert trajectories, launch-window search, vehicle Need/Capability/Margin, GO/NO-GO Plan Dossier, and DE440s-class offline ephemeris — for interplanetary launch campaign analysis.
+An **industrial-grade preliminary mission-design workstation** in the browser: real-time 3D solar system, Lambert trajectories, launch-window search, vehicle Need/Capability/Margin, GO/NO-GO Plan Dossier, DE440s-class offline ephemeris, and dense SPICE Float32 packs — for realistic interplanetary launch campaign analysis.
 
 **Not flight-certified software. Not range safety. Not SpaceX performance warranty. Not a GMAT/STK/SPICE-OD replacement.**
+
+**Primary production URL (App Hosting):** https://helios--k-solar-system-navigator.us-central1.hosted.app  
+**Static fallback (classic Hosting):** https://k-solar-system-navigator.web.app
 
 ## Screenshots
 
@@ -31,13 +34,13 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 - **GO / NO-GO Mission Review Board** — every compute produces pass / warn / fail gates, analysis-completeness confidence (not OD covariance), and Fly study enablement only when `mission_ready` / `launch_enabled`.
 - **Need / Capability / Margin triad** — illustrative vehicle stacks: Falcon 9 (C₃ payload table), Starship + Super Heavy (**product default: unrefueled Starship injection**; optional legacy stack or N-tanker). **Not SpaceX-certified performance.**
 - **Launch campaign workflow** — Plan rail steps: Route → Window → Vehicle → Compute → Review. **Mission package** export (JSON + path CSV + brief; OEM-like when OPS on).
-- **Ephemeris fidelity** — product ships an offline sample table (8 planets, **2015–2055 @ 3 d**). Preferred bake: **NAIF DE440s via spiceypy** → **L3-plan** (`npm run kernels:download` + `npm run build:ephemeris:spice`). Opt-in **L2-horizons** live inject. Classroom forces offline L1. **Browser loads JSON only — not live `.bsp`. Not certified OD.**
+- **Ephemeris fidelity** — product default offline sample table (8 planets, **2015–2055 @ dense step**). Preferred bake: **NAIF DE440s via spiceypy** → **L3-plan** (`npm run kernels:download` + `npm run build:ephemeris:spice`). Dense SPK packs for moons. Opt-in **L2-horizons** live inject. **Browser loads JSON/Float32 only — not live `.bsp`. Not certified OD.**
 - **Ops review mode** — top-bar **OPS**: light-time, analysis gates, OEM-like export. **NOT** mission assurance or certified flight software.
 - **Theme** — industrial mission console by default; `?theme=classic` restores the neon navigator look.
 - **Geographic sites** — optional origin/dest **lat / lon / altitude** (planetocentric east-lon; height above reference). Gas/ice giants use a **1-bar cloud-deck** sphere with high default parking; oblate bodies use local ellipsoid *R*(φ) and dual planetographic readout; body-fixed orientation uses IAU-class *W(t)* (+ leading Moon/Mercury libration) and ICRF pole α₀/δ₀ → ecliptic. Sites round-trip in share hash (`os`/`ds`) and mission JSON; multi-leg applies sites on **terminals only**.
 - **Porkchop-plot launch-window finder** — sweep a grid of (departure date × transit duration) and heat-map Δv or SS injection-class cargo (workerized). Click a cell or use the auto-selected minimum to drive dates.
 - **Gravity-assist / multi-leg routing** — patched-conic flybys; infeasible swingbys flagged **TOO SHARP**. Multi-leg / nearest-feasible window search is a **coarse local seed** (workerized), not a global mission-design optimum.
-- **Planet-relative routes** — same-SOI pairs (e.g. Europa→Io, Earth→Moon) use **parent-centered Lambert** (Jupiter/Earth μ), not a dishonest heliocentric half-orbit. Concept-grade patched-conic; not CR3BP.
+- **Planet-relative routes** — same-SOI pairs (e.g. Europa→Io, Earth→Moon) use **parent-centered Lambert** (Jupiter/Earth μ), not a dishonest heliocentric half-orbit. Patched-conic preliminary; not CR3BP.
 
 ### Simulation & chrome
 - **Date picker** — jump to any instant with presets (Apollo 11, Voyager 1 launch, J2000, etc.)
@@ -47,21 +50,21 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 - **Right rail tabs** — Inspect / Plan / Results; Advanced accordion for secondary knobs; map-first mobile chips
 - **Drag-and-drop or right-click route planning** — assign origin/destination from the sidebar or scene
 
-### Cloud (optional Firebase)
-- **Google sign-in** — top-bar ☁ chip + account menu (disabled in classroom mode and with `?firebase=0`)
-- **Firestore** — cloud plans (`users/{uid}/plans`, schema v2 + `plan_request`) and user prefs (`users/{uid}/prefs/settings`)
-- **RTDB** — last-route bookmark (`users/{uid}/lastRoute`) for one-click resume
-- **Storage** — full mission JSON blobs (`users/{uid}/plans/{id}.json`) alongside plan summaries
-- **Hosting** — static SPA (`public: "."`); Security Rules own all data access
+### Cloud (Firebase)
+- **Google sign-in** — top-bar ☁ chip + account menu (disabled with `?firebase=0` for hermetic offline)
+- **Firestore** — cloud plans (`users/{uid}/plans`, schema v2 + `plan_request`) and user prefs
+- **RTDB** — last-route bookmark + window campaigns
+- **Storage** — mission JSON blobs + public dense SPK packs
+- **App Hosting (primary)** — Next.js SSR shell + dense-SPK API + health/build identity
+- **Classic Hosting (fallback)** — static SPA mirror
 - **Admin smoke (local only)** — `npm run firebase:smoke` with gitignored Admin SDK JSON
-- Classroom / `?firebase=0` stay fully offline
 
 ### Three.js visualization (display only — not a physics engine)
 **Three.js does not make trajectories accurate.** Accuracy is `js/physics` (Lambert, Kepler, ephemeris). Three.js draws those results.
 
 - **ACCURATE view** — schematic frames + physical path + dual overlay (honest scene)
 - **1:R true-scale** — semi-true body radii (`R/AU × boost`; pure 1:1 is invisible)
-- **MAP mode** — dual path for teaching cinematic vs physical
+- **MAP mode** — dual path for physical vs cinematic geometry review
 - **Transfer ribbon** + **path bead** (scrub sim time on the arc) + **Δv arrows** at burns
 - **Camera TOUR** along the transfer; **SOI** focus; ship trail + velocity arrow
 - **Earth clouds + night lights** + atmosphere shells; **InstancedMesh** asteroid belt
@@ -225,37 +228,33 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 
 **CI:** GitHub Actions runs physics offline tests on every push/PR to `main`, plus a Playwright Chromium UI smoke job. **`npm test` alone is not enough** — always run `npm run precommit` (or `release:check`) before pushing.
 
-### Classroom demo share links
+### Reference mission share links
 
-Open these on classic Hosting (recomputes geometry — never trusts stored Δv). Hashes live in `js/data/demo-links.js`.
+Industrial work packages (recompute geometry on open — never trust stored Δv). Defined in `js/data/demo-links.js`. Prefer **App Hosting** primary URL.
 
-| Demo | Link |
+| Mission | Link |
 |---|---|
-| Earth → Mars 2026 (product) | [mars-2026](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
-| Earth → Mars 2033 min-energy | [mars-2033](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=mars&dep=2033-04-22&tof=259&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
-| Classroom L1 Mars | [classroom](https://k-solar-system-navigator.web.app/?mode=classroom#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=abstract&ab=50000&basis=helio&view=schematic) |
-| F9 cargo sketch | [f9-mars](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=falcon9&f9v=expendable&cargo=1000&basis=helio&view=cinematic&eph=sample) |
-| Venus direct | [venus](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=venus&dep=2026-10-01&tof=146&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
-| EM-L2 waypoint sketch | [em-l2](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=em-l2&dep=2026-07-01&tof=30&veh=abstract&ab=50000&basis=helio&view=schematic&eph=sample) |
-| Mars flyby → Jupiter (multi-leg) | [GA](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=jupiter&dep=2031-01-10&fb=mars@2031-10-01&veh=abstract&ab=50000&basis=helio&view=cinematic&eph=sample) |
-| OPS review Mars (`?ops=1`) | [ops](https://k-solar-system-navigator.web.app/?ops=1#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
+| Earth → Mars 2026 | [mars-2026](https://helios--k-solar-system-navigator.us-central1.hosted.app/#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
+| Earth → Mars 2033 min-energy | [mars-2033](https://helios--k-solar-system-navigator.us-central1.hosted.app/#v=1&o=earth&d=mars&dep=2033-04-22&tof=259&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
+| F9 cargo Mars | [f9-mars](https://helios--k-solar-system-navigator.us-central1.hosted.app/#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=falcon9&f9v=expendable&cargo=1000&basis=helio&view=cinematic&eph=sample) |
+| Venus direct | [venus](https://helios--k-solar-system-navigator.us-central1.hosted.app/#v=1&o=earth&d=venus&dep=2026-10-01&tof=146&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
+| Mars flyby → Jupiter | [GA](https://helios--k-solar-system-navigator.us-central1.hosted.app/#v=1&o=earth&d=jupiter&dep=2031-01-10&fb=mars@2031-10-01&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
+| OPS review Mars (`?ops=1`) | [ops](https://helios--k-solar-system-navigator.us-central1.hosted.app/?ops=1#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
+| Physical path (schematic) | [physical](https://helios--k-solar-system-navigator.us-central1.hosted.app/#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=sh-starship&arch=unrefueled&basis=helio&view=schematic&eph=sample) |
 
-### Trip planner & cargo-aware measurements
+### Trip planner & measurements
 
-- **Need / Capability / Margin** — Measurement Card on every computed route (concept-grade)
-- **Vehicles** — Super Heavy + Starship (**legacy demo**, unrefueled LEO→TMI, N-tanker), **Falcon 9** (illustrative C₃–payload table), abstract Δv budgets (`fh-class` = heavy-lift chemical abstract — not Falcon Heavy)
+- **Need / Capability / Margin** — Measurement Card on every computed route (preliminary industrial analysis)
+- **Vehicles** — Super Heavy + Starship (**legacy stack**, unrefueled LEO→TMI, N-tanker), **Falcon 9** (C₃–payload table), abstract Δv budgets (`fh-class` = heavy-lift chemical abstract — not Falcon Heavy)
 - **Cargo mass (kg)** — first-class input for F9 and Starship architectures
-- **Porkchop cargo** — selected-cell max cargo + optional **MAX CARGO** heatmap (F9 Earth C₃ table or SS unrefueled/tanker at cell Δv)
-- **Ephemeris fidelity** — Classroom **L1** (JPL Approximate Positions); product **L2-plan** offline sample table (promotes **L3-plan** when DE440s/SPICE-baked); optional Horizons **L2-compare** / inject; **dense SPK** packs under `assets/dense-spk/` (not live `.bsp`, not certified OD)
-- **Approx error bars** — Measurement Card shows JPL nominal λ/φ/ρ error class for origin/destination
-- **Cost basis** — heliocentric leg vs full parking-orbit mission Δv (legacy/abstract; SS cargo modes use injection Need)
-- **Display scale** — cinematic vs schematic
-- **Catalog** — planets, moons, dwarfs, NEOs, EM-L1/L2 waypoints
+- **Porkchop cargo** — selected-cell max cargo + optional **MAX CARGO** heatmap
+- **Ephemeris fidelity** — product **L2-plan** offline sample table (promotes **L3-plan** when DE440s/SPICE-baked); optional Horizons **L2-compare** / inject; **dense SPK** packs; manual L1 approx available
+- **Path honesty** — ship and dashed line share `transfer-path.js`; `pathGeometry=physical` keeps ship on the physical conic
 - **Share / import** — URL hash + JSON v3 (recomputes geometry; never trusts stored Δv)
-- **Classroom mode** — `?mode=classroom` → schematic + abstract budget + methodology banner
-- **Debug** — `?debug=1` logs Need / Capability / Margin objects to the browser console after compute
+- **Hermetic offline** — `?firebase=0` disables cloud (CI / air-gapped); not a dumbed-down product mode
+- **Debug** — `?debug=1` logs Need / Capability / Margin to the console after compute
 
-> **Preliminary analysis only.** Vehicle numbers are illustrative models — not SpaceX-certified performance or flight design products.
+> **Preliminary industrial analysis only.** Vehicle numbers are engineering models — not SpaceX-certified performance or flight design products.
 
 ## Data sources
 

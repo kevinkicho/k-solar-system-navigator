@@ -2,7 +2,7 @@
 // dependency order, then starts the render loop.
 
 import { SUN_WOBBLE_EXAGGERATION } from './constants.js';
-import { state, applyProductVehicleDefaults, forceOfflineL1Ephemeris } from './state.js';
+import { state, applyProductVehicleDefaults } from './state.js';
 import { setDisplayMode } from './display-scale.js';
 import * as catalog from './data/catalog.js';
 
@@ -66,52 +66,37 @@ bindAbortHandler(abortMission);
 bindRouteSetters({ origin: setRouteOrigin, destination: setRouteDestination });
 wireMissionStudyBar();
 
-// Classroom mode: ?mode=classroom → schematic + abstract budget (offline, methodology-first).
-const params = new URLSearchParams(location.search);
-if (params.get('mode') === 'classroom') {
-  state.classroomMode = true;
-  setDisplayMode('schematic');
-  state.vehicleId = 'abstract';
-  state.abstractBudget_m_s = 8000;
-  state.costBasis = 'helio';
-  state.starshipArch = 'legacy-demo';
-  forceOfflineL1Ephemeris(); // K3
-  // Optional ?veh= is not classroom default (PR16) — only abstract.
-} else {
-  // Product default after Measurement Card (K25 / PR 9): unrefueled SS arch + L2-plan sample-DE.
-  applyProductVehicleDefaults();
-  // Preload offline sample table so first Compute is L2/L3-plan ready
-  import('./physics/ephemeris-sample.js').then(async (m) => {
-    await m.ensureSampleTableLoaded(); // planets + moons sample tables
-    const ephSel = document.getElementById('ephemeris-backend');
-    if (ephSel && !state.classroomMode) ephSel.value = 'sample-de';
-    // Promote badge to L3-plan when DE/SPICE-baked table is present
-    if (!state.classroomMode && m.sampleTableIsSpiceDe?.()) {
-      state.fidelityLevel = 'L3-plan';
-    }
-    syncFidelityChip();
-    syncProductClassFooters();
-  }).catch(() => {});
-  // Warm Firebase + dense SPICE from Storage CDN after SPA paints
-  // (sample table may already have loaded Hosting packs — re-prefer Storage).
-  queueMicrotask(() => {
-    import('./firebase/app.js').then(async ({ initFirebase, isFirebaseEnabled }) => {
-      try {
-        initFirebase();
-        if (!isFirebaseEnabled() || state.classroomMode) return;
-        const dense = await import('./physics/dense-spk-pack.js');
-        const warm = await dense.warmDensePacksFromCloud([
-          { name: 'Phobos' }, { name: 'Earth' }, { name: 'Moon' },
-        ]);
-        if (warm?.warmed) {
-          console.info('[HELIOS] dense SPICE warm', warm.registry_source, warm.packs?.join?.(', '));
-        }
-      } catch (err) {
-        console.warn('[HELIOS] dense SPICE warm', err?.message || err);
+// Industrial product defaults: unrefueled SS arch + L2/L3-plan sample-DE.
+// Classroom / teaching mode removed — use ?firebase=0 for offline hermetic only.
+applyProductVehicleDefaults();
+import('./physics/ephemeris-sample.js').then(async (m) => {
+  await m.ensureSampleTableLoaded();
+  const ephSel = document.getElementById('ephemeris-backend');
+  if (ephSel) ephSel.value = 'sample-de';
+  if (m.sampleTableIsSpiceDe?.()) {
+    state.fidelityLevel = 'L3-plan';
+  }
+  syncFidelityChip();
+  syncProductClassFooters();
+}).catch(() => {});
+// Warm Firebase + dense SPICE from Storage CDN after SPA paints
+queueMicrotask(() => {
+  import('./firebase/app.js').then(async ({ initFirebase, isFirebaseEnabled }) => {
+    try {
+      initFirebase();
+      if (!isFirebaseEnabled()) return;
+      const dense = await import('./physics/dense-spk-pack.js');
+      const warm = await dense.warmDensePacksFromCloud([
+        { name: 'Phobos' }, { name: 'Earth' }, { name: 'Moon' },
+      ]);
+      if (warm?.warmed) {
+        console.info('[HELIOS] dense SPICE warm', warm.registry_source, warm.packs?.join?.(', '));
       }
-    }).catch(() => {});
-  });
-}
+    } catch (err) {
+      console.warn('[HELIOS] dense SPICE warm', err?.message || err);
+    }
+  }).catch(() => {});
+});
 applyProductTheme();
 
 // Build body list, set initial time + departure-date input, fade help hint.
@@ -134,7 +119,7 @@ try {
   console.error('[HELIOS] agent chat failed to wire', err);
 }
 try {
-  wireFirebaseUi(); // Auth chip + cloud plans — offline if config missing / classroom / ?firebase=0
+  wireFirebaseUi(); // Auth chip + cloud plans — offline if config missing / ?firebase=0
 } catch (err) {
   console.error('[HELIOS] Firebase UI failed to wire', err);
 }
@@ -152,22 +137,11 @@ try {
 loadStarField();
 updateViewBadge();
 
-// PR16: classroom banner + methodology emphasis (no network).
-if (state.classroomMode) {
-  const banner = document.getElementById('classroom-banner');
-  if (banner) {
-    banner.hidden = false;
-    banner.setAttribute('aria-hidden', 'false');
-  }
-  document.body.classList.add('classroom-mode');
-  notify('CLASSROOM MODE · abstract Δv · schematic · offline L1');
-}
-
 timeState.setSpeed(3);
 timeState.updateDisplay();
 document.getElementById('depart-date').value = dateToInputValue(timeState.getDate());
 
-// Apply share hash after UI is ready (overrides classroom defaults if present).
+// Apply share hash after UI is ready.
 tryApplyHashOnLoad();
 
 setTimeout(() => {

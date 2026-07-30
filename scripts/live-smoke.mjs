@@ -22,16 +22,53 @@ async function get(url, opts = {}) {
 }
 
 async function main() {
-  console.log('\n━━━ HELIOS LIVE SMOKE ━━━\n');
+  console.log('\n━━━ HELIOS LIVE SMOKE ━━━');
+  console.log('Primary surface: App Hosting\n');
 
-  // Classic Hosting
+  // App Hosting (primary production)
   {
-    console.log('Classic Hosting');
+    console.log('App Hosting (primary)');
+    const home = await get(APPHOST + '/');
+    ok('home 200', home.res.status === 200);
+    ok('home industrial framing', /mission|helios|preliminary|not flight/i.test(home.text));
+    const api = await get(APPHOST + '/api/ephemeris/dense-spk');
+    ok('dense-spk API 200', api.res.status === 200);
+    let localPacks = 0;
+    let regVer = null;
+    try {
+      const j = JSON.parse(api.text);
+      localPacks = j.local_registry?.packs?.length || j.pack_count || 0;
+      regVer = j.registry_version ?? j.local_registry?.version ?? null;
+      ok('API ok flag', j.ok === true);
+      ok('API industrial grade field', j.product_grade === 'industrial-preliminary' || j.product_class === 'preliminary-not-flight-certified');
+    } catch {
+      ok('API JSON', false);
+    }
+    ok('API local packs ≥6', localPacks >= 6, `n=${localPacks} ver=${regVer}`);
+    const meta = await get(APPHOST + '/api/ephemeris/dense-spk/galilean.meta.json');
+    ok('API galilean meta', meta.res.status === 200 && /galilean|io/i.test(meta.text));
+    const bin = await get(APPHOST + '/api/ephemeris/dense-spk/galilean.bin');
+    ok('API galilean.bin ~8 MiB', bin.res.status === 200 && bin.bytes > 8e6, `bytes=${bin.bytes}`);
+    const health = await get(APPHOST + '/api/health');
+    ok('api/health', health.res.status === 200);
+    try {
+      const h = JSON.parse(health.text);
+      ok('health industrial grade', h.product_grade === 'industrial-preliminary' || h.product_class === 'preliminary-not-flight-certified');
+    } catch {
+      ok('health JSON', false);
+    }
+  }
+
+  // Classic Hosting (static fallback)
+  {
+    console.log('\nClassic Hosting (fallback)');
     const home = await get(HOSTING + '/');
     ok('home 200', home.res.status === 200);
     ok('home mentions HELIOS/mission', /helios|mission|solar/i.test(home.text));
     const mainJs = await get(HOSTING + '/js/main.js');
     ok('main.js 200', mainJs.res.status === 200 && mainJs.bytes > 500);
+    ok('no classroom mode activation', !/mode === 'classroom'|mode===\"classroom\"/.test(mainJs.text)
+      || !/classroomMode = true/.test(mainJs.text));
     const reg = await get(HOSTING + '/assets/dense-spk/registry.json');
     ok('dense registry 200', reg.res.status === 200);
     let packs = 0;
@@ -45,30 +82,6 @@ async function main() {
     ok('OPS prefetch UI present', /prefetch-galilean|prefetchDensePacks/i.test(ops.text));
     const cloud = await get(HOSTING + '/js/firebase/dense-spk-cloud.js');
     ok('dense-spk-cloud client', /getDenseSpkStorageUrl|fetchDensePackFromStorage/i.test(cloud.text));
-  }
-
-  // App Hosting
-  {
-    console.log('\nApp Hosting');
-    const home = await get(APPHOST + '/');
-    ok('home 200', home.res.status === 200);
-    const api = await get(APPHOST + '/api/ephemeris/dense-spk');
-    ok('dense-spk API 200', api.res.status === 200);
-    let localPacks = 0;
-    try {
-      const j = JSON.parse(api.text);
-      localPacks = j.local_registry?.packs?.length || 0;
-      ok('API ok flag', j.ok === true);
-    } catch {
-      ok('API JSON', false);
-    }
-    ok('API local packs ≥6', localPacks >= 6, `n=${localPacks}`);
-    const meta = await get(APPHOST + '/api/ephemeris/dense-spk/galilean.meta.json');
-    ok('API galilean meta', meta.res.status === 200 && /galilean|io/i.test(meta.text));
-    const bin = await get(APPHOST + '/api/ephemeris/dense-spk/galilean.bin');
-    ok('API galilean.bin ~8 MiB', bin.res.status === 200 && bin.bytes > 8e6, `bytes=${bin.bytes}`);
-    const health = await get(APPHOST + '/api/health');
-    ok('api/health', health.res.status === 200);
   }
 
   // Functions + Storage catalog

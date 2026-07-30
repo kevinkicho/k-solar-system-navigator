@@ -50,9 +50,9 @@ async function runSweep(msg) {
   }
 
   const planOpts = {
-    backend: classroomMode ? 'approx' : (backend === 'sample-de' ? 'sample-de' : 'approx'),
-    classroomMode: !!classroomMode,
-    maxRevolutions: classroomMode ? 0 : Math.max(0, Math.min(2, maxRevolutions | 0)),
+    backend: backend === 'sample-de' ? 'sample-de' : 'approx',
+    classroomMode: false,
+    maxRevolutions: Math.max(0, Math.min(2, maxRevolutions | 0)),
   };
   if (planOpts.backend === 'sample-de') {
     await ensureSampleTableLoaded();
