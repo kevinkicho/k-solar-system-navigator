@@ -87,6 +87,33 @@ try {
   const canvas = await page.locator('#renderer-container canvas').count();
   check('WebGL canvas present', canvas >= 1);
 
+  section('1b. DENSE SPK OFFLINE (firebase=0)');
+  // Hosting static packs must work without Firebase Storage (classroom / CI hermetic).
+  const denseOffline = await page.evaluate(async () => {
+    try {
+      const r = await fetch('/assets/dense-spk/registry.json');
+      if (!r.ok) return { ok: false, reason: `status ${r.status}` };
+      const j = await r.json();
+      const packs = Array.isArray(j.packs) ? j.packs.length : 0;
+      const hasMars = !!j.body_to_pack?.phobos || !!j.body_to_pack?.Phobos
+        || (j.packs || []).some((p) => p.pack_id === 'mars-moons');
+      const meta = await fetch('/assets/dense-spk/mars-moons.meta.json');
+      return {
+        ok: packs >= 6 && hasMars && meta.ok,
+        packs,
+        hasMars,
+        metaOk: meta.ok,
+      };
+    } catch (e) {
+      return { ok: false, reason: String(e?.message || e) };
+    }
+  });
+  check(
+    `offline dense registry ≥6 packs (got ${denseOffline.packs ?? denseOffline.reason})`,
+    !!denseOffline.ok,
+    denseOffline.reason || `packs=${denseOffline.packs} mars=${denseOffline.hasMars} meta=${denseOffline.metaOk}`,
+  );
+
   section('2. ROUTE EARTH → MARS');
   await page.locator('.body-item', { hasText: 'Earth' }).first().click({ button: 'right' });
   await page.locator('.body-item', { hasText: 'Mars' }).first().click({ button: 'right' });

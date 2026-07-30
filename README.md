@@ -218,10 +218,27 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 | `npm run test:server` | Path-jail HTTP tests |
 | `npm run test:ui:ci` | Playwright UI smoke (starts its own server; boots with `?firebase=0`) |
 | `npm run precommit` / `npm run ci` | **Full CI mirror** — `npm test` + `test:ui:ci` (run before every push) |
+| `npm run release:check` | Release checklist (= precommit); add `--live` for production smoke |
+| `npm run smoke:live` | HTTP smoke vs Hosting + App Hosting + Functions dense packs |
 | `npm run build:stars` | Rebuild `assets/stars-mag75.json` from `hyg_v42.csv` |
 | `npm run build:ephemeris` | Rebuild `assets/ephemeris-samples-v1.json` (L2-plan samples) |
 
-**CI:** GitHub Actions runs physics offline tests on every push/PR to `main`, plus a Playwright Chromium UI smoke job. **`npm test` alone is not enough** — always run `npm run precommit` before pushing so the UI job cannot fail from unrun local changes.
+**CI:** GitHub Actions runs physics offline tests on every push/PR to `main`, plus a Playwright Chromium UI smoke job. **`npm test` alone is not enough** — always run `npm run precommit` (or `release:check`) before pushing.
+
+### Classroom demo share links
+
+Open these on classic Hosting (recomputes geometry — never trusts stored Δv). Hashes live in `js/data/demo-links.js`.
+
+| Demo | Link |
+|---|---|
+| Earth → Mars 2026 (product) | [mars-2026](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
+| Earth → Mars 2033 min-energy | [mars-2033](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=mars&dep=2033-04-22&tof=259&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
+| Classroom L1 Mars | [classroom](https://k-solar-system-navigator.web.app/?mode=classroom#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=abstract&ab=50000&basis=helio&view=schematic) |
+| F9 cargo sketch | [f9-mars](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=falcon9&f9v=expendable&cargo=1000&basis=helio&view=cinematic&eph=sample) |
+| Venus direct | [venus](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=venus&dep=2026-10-01&tof=146&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
+| EM-L2 waypoint sketch | [em-l2](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=em-l2&dep=2026-07-01&tof=30&veh=abstract&ab=50000&basis=helio&view=schematic&eph=sample) |
+| Mars flyby → Jupiter (multi-leg) | [GA](https://k-solar-system-navigator.web.app/#v=1&o=earth&d=jupiter&dep=2031-01-10&fb=mars@2031-10-01&veh=abstract&ab=50000&basis=helio&view=cinematic&eph=sample) |
+| OPS review Mars (`?ops=1`) | [ops](https://k-solar-system-navigator.web.app/?ops=1#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=sh-starship&arch=unrefueled&basis=helio&view=cinematic&eph=sample) |
 
 ### Trip planner & cargo-aware measurements
 
@@ -229,7 +246,7 @@ Open that URL in your browser. For production, prefer any static file host (GitH
 - **Vehicles** — Super Heavy + Starship (**legacy demo**, unrefueled LEO→TMI, N-tanker), **Falcon 9** (illustrative C₃–payload table), abstract Δv budgets (`fh-class` = heavy-lift chemical abstract — not Falcon Heavy)
 - **Cargo mass (kg)** — first-class input for F9 and Starship architectures
 - **Porkchop cargo** — selected-cell max cargo + optional **MAX CARGO** heatmap (F9 Earth C₃ table or SS unrefueled/tanker at cell Δv)
-- **Ephemeris fidelity** — **L1** offline JPL Approximate Positions (default); **L2-compare** after optional Horizons Δr check (planning still L1); **L2-plan** optional offline sample-table endpoints (`assets/ephemeris-samples-v1.json`); L3 SPICE out of scope
+- **Ephemeris fidelity** — Classroom **L1** (JPL Approximate Positions); product **L2-plan** offline sample table (promotes **L3-plan** when DE440s/SPICE-baked); optional Horizons **L2-compare** / inject; **dense SPK** packs under `assets/dense-spk/` (not live `.bsp`, not certified OD)
 - **Approx error bars** — Measurement Card shows JPL nominal λ/φ/ρ error class for origin/destination
 - **Cost basis** — heliocentric leg vs full parking-orbit mission Δv (legacy/abstract; SS cargo modes use injection Need)
 - **Display scale** — cinematic vs schematic

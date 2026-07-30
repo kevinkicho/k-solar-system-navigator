@@ -17,6 +17,7 @@
     "test:ui:ci": "node tests/ci_ui.mjs",
     "precommit": "npm test && npm run test:ui:ci",
     "ci": "npm run precommit",
+    "release:check": "node scripts/release-check.mjs",
     "build:stars": "node scripts/build-stars.mjs",
     "build:ephemeris": "node scripts/build-ephemeris-samples.mjs",
     "build:ephemeris:spice": "python scripts/build-ephemeris-from-spice.py",

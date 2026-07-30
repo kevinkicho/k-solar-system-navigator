@@ -36,6 +36,6 @@ export function trustCardHtml(dossier, fidelity = {}) {
       <div class="info-row"><span class="key">Plan status</span><span class="val">${status}${ready === true ? ' · mission_ready YES' : ready === false ? ' · mission_ready NO' : ''}</span></div>
       <div class="info-row"><span class="key">Confidence</span><span class="val">${conf != null ? `${conf} (${dossier?.confidence_label || '—'})` : '—'} · completeness only, not covariance</span></div>
       <div class="info-row"><span class="key">Ascent losses</span><span class="val" style="font-size:9px">Optional class budget — not integrated 6DOF ascent</span></div>
-      <div class="info-row"><span class="key">L3 path</span><span class="val" style="font-size:9px">SPICE/DE/OD not a mode — use L2-plan samples + Horizons compare for educational DE-class checks</span></div>
+      <div class="info-row"><span class="key">L3-plan / dense</span><span class="val" style="font-size:9px">Offline DE440s sample table + dense SPK Float32 packs when loaded — not live .bsp, not certified OD / range safety</span></div>
     </div>`;
 }

@@ -263,5 +263,12 @@ export function wireFlightOpsUi() {
     const plan = document.getElementById('rail-pane-plan') || document.getElementById('right-panel');
     if (plan) plan.appendChild(wrap);
   }
+  // Deep-link: ?ops=1 enables educational OPS review (not classroom).
+  try {
+    const q = new URLSearchParams(location.search || '');
+    if ((q.get('ops') === '1' || q.get('ops') === 'true') && !state.classroomMode) {
+      setFlightOpsMode(true);
+    }
+  } catch { /* */ }
   syncFlightOpsUi();
 }

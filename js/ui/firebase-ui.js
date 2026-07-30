@@ -9,7 +9,7 @@ import {
   savePlanToCloud, listCloudPlans, deleteCloudPlan,
 } from '../firebase/plans.js';
 import { loadUserPrefs, applyPrefsToState, saveUserPrefs } from '../firebase/prefs.js';
-import { loadLastRoute, listWindowCampaigns } from '../firebase/rtdb.js';
+import { loadLastRoute, listWindowCampaigns, deleteWindowCampaign } from '../firebase/rtdb.js';
 import { state } from '../state.js';
 import { notify } from './format.js';
 import { activateRailTab } from './rail-ui.js';
@@ -122,6 +122,42 @@ function renderAuthChip(user) {
   }
 }
 
+function formatCampaignTopLine(c) {
+  if (!c) return '—';
+  const dep = String(c.dep_iso || '').slice(0, 10);
+  const tof = c.tof_days != null ? `${Math.round(c.tof_days)}d` : '—';
+  const dv = c.dv_m_s != null ? `${(c.dv_m_s / 1000).toFixed(2)} km/s` : '—';
+  return `${dep} · TOF ${tof} · Δv ${dv}`;
+}
+
+async function applyCampaignCandidate(row, candidate) {
+  if (!row || !candidate) return;
+  const { applyPlanRequest } = await import('./share.js');
+  const { parseDateUTC } = await import('./share-codec.js');
+  const depStr = String(candidate.dep_iso || '').slice(0, 10);
+  const depDate = depStr ? parseDateUTC(depStr) : null;
+  if (!depDate) {
+    notify('CAMPAIGN: bad departure date');
+    return;
+  }
+  state.windowShortlist = row.shortlist || null;
+  applyPlanRequest({
+    originId: row.origin,
+    destId: row.dest,
+    depDate,
+    tofDays: candidate.tof_days != null ? Math.round(candidate.tof_days) : null,
+    flybys: [],
+    vehicleId: state.vehicleId || 'sh-starship',
+    abstractBudget_m_s: state.abstractBudget_m_s ?? 8000,
+    costBasis: 'helio',
+    view: state.display?.mode || 'cinematic',
+    starshipArch: state.starshipArch,
+    ephemerisBackend: row.backend === 'sample-de' || row.backend === 'sample' ? 'sample-de' : state.ephemerisBackend,
+    tofIgnoredMulti: false,
+  });
+  notify(`CAMPAIGN APPLIED · ${formatCampaignTopLine(candidate).toUpperCase()}`);
+}
+
 async function showWindowCampaignsPanel() {
   try {
     const rows = await listWindowCampaigns(12);
@@ -130,33 +166,94 @@ async function showWindowCampaignsPanel() {
       panel = document.createElement('div');
       panel.id = 'window-campaigns-panel';
       panel.className = 'cloud-plans recent-routes';
-      panel.style.cssText = 'position:fixed;right:12px;top:56px;z-index:130;max-width:320px;max-height:50vh;overflow:auto;padding:10px;background:rgba(8,12,18,0.96);border:1px solid rgba(90,120,150,0.35);border-radius:4px;';
+      panel.style.cssText = 'position:fixed;right:12px;top:56px;z-index:130;max-width:380px;max-height:60vh;overflow:auto;padding:10px;background:rgba(8,12,18,0.96);border:1px solid rgba(90,120,150,0.35);border-radius:4px;';
       document.body.appendChild(panel);
     }
     if (!rows.length) {
-      panel.innerHTML = '<div class="recent-empty">No window campaigns saved yet. Run Search launch windows while signed in.</div>';
+      panel.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong style="font-size:11px">WINDOW CAMPAIGNS</strong>
+          <button type="button" class="btn-tiny" id="wcp-close">CLOSE</button>
+        </div>
+        <div class="recent-empty">No window campaigns saved yet. Run Search launch windows while signed in.</div>`;
+      panel.querySelector('#wcp-close')?.addEventListener('click', () => panel.remove());
       notify('NO WINDOW CAMPAIGNS');
       return;
     }
     panel.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
         <strong style="font-size:11px">WINDOW CAMPAIGNS</strong>
-        <button type="button" class="btn-tiny" id="wcp-close">CLOSE</button>
+        <div style="display:flex;gap:4px">
+          <button type="button" class="btn-tiny" id="wcp-compare" title="Compare up to 2 checked campaigns">Compare</button>
+          <button type="button" class="btn-tiny" id="wcp-close">CLOSE</button>
+        </div>
       </div>
+      <p style="font-size:9px;opacity:0.7;margin:0 0 8px">Check 1–2 · Compare tops · Apply loads route · not global optimum</p>
+      <div id="wcp-compare-out" hidden style="font-size:10px;margin-bottom:10px;padding:8px;border:1px solid rgba(90,120,150,0.25);border-radius:3px"></div>
       ${rows.map((r) => `
-        <div class="cloud-plan-row" style="margin-bottom:6px;font-size:10px">
-          <div><strong>${escapeHtml(r.label || `${r.origin}→${r.dest}`)}</strong></div>
-          <div style="opacity:0.75">${r.shortlist?.length || 0} candidates · ${r.fidelity || '—'} · ${r.at ? new Date(r.at).toISOString().slice(0, 10) : ''}</div>
-          <button type="button" class="btn-tiny wcp-apply" data-id="${r.id}">Show top</button>
+        <div class="cloud-plan-row" style="margin-bottom:8px;font-size:10px" data-cid="${r.id}">
+          <label style="display:flex;gap:6px;align-items:flex-start;cursor:pointer">
+            <input type="checkbox" class="wcp-pick" data-id="${r.id}" style="margin-top:2px" />
+            <span>
+              <strong>${escapeHtml(r.label || `${r.origin}→${r.dest}`)}</strong>
+              <div style="opacity:0.75">${r.shortlist?.length || 0} candidates · ${escapeHtml(r.fidelity || '—')} · ${r.at ? new Date(r.at).toISOString().slice(0, 10) : ''}</div>
+              <div style="opacity:0.85;margin-top:2px">Top: ${escapeHtml(formatCampaignTopLine(r.shortlist?.[0]))}</div>
+            </span>
+          </label>
+          <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
+            <button type="button" class="btn-tiny wcp-apply" data-id="${r.id}">Apply top</button>
+            <button type="button" class="btn-tiny wcp-show" data-id="${r.id}">Load shortlist</button>
+            <button type="button" class="btn-tiny wcp-del" data-id="${r.id}" title="Delete campaign">Delete</button>
+          </div>
         </div>`).join('')}`;
     panel.querySelector('#wcp-close')?.addEventListener('click', () => panel.remove());
+    panel.querySelector('#wcp-compare')?.addEventListener('click', () => {
+      const picked = [...panel.querySelectorAll('.wcp-pick:checked')].map((el) => el.dataset.id);
+      const out = panel.querySelector('#wcp-compare-out');
+      if (!out) return;
+      if (picked.length < 1 || picked.length > 2) {
+        out.hidden = false;
+        out.innerHTML = '<em>Check 1 or 2 campaigns to compare top windows.</em>';
+        return;
+      }
+      const selected = picked.map((id) => rows.find((x) => x.id === id)).filter(Boolean);
+      out.hidden = false;
+      out.innerHTML = `
+        <div style="font-weight:600;margin-bottom:6px">COMPARE (top candidates)</div>
+        ${selected.map((r) => {
+          const tops = (r.shortlist || []).slice(0, 3);
+          return `<div style="margin-bottom:8px">
+            <div><strong>${escapeHtml(r.label || `${r.origin}→${r.dest}`)}</strong> · ${escapeHtml(r.fidelity || '')}</div>
+            <ol style="margin:4px 0 0 16px;padding:0">
+              ${tops.map((c) => `<li>${escapeHtml(formatCampaignTopLine(c))}</li>`).join('') || '<li>—</li>'}
+            </ol>
+          </div>`;
+        }).join('')}
+        <div style="opacity:0.7;font-size:9px">Educational shortlist compare · not flight window certification</div>`;
+    });
     panel.querySelectorAll('.wcp-apply').forEach((btn) => {
+      btn.onclick = async () => {
+        const row = rows.find((x) => x.id === btn.dataset.id);
+        if (!row?.shortlist?.length) return;
+        await applyCampaignCandidate(row, row.shortlist[0]);
+      };
+    });
+    panel.querySelectorAll('.wcp-show').forEach((btn) => {
       btn.onclick = () => {
         const row = rows.find((x) => x.id === btn.dataset.id);
         if (!row?.shortlist?.length) return;
         state.windowShortlist = row.shortlist;
         const top = row.shortlist[0];
-        notify(`CAMPAIGN TOP: Δv ${((top.dv_m_s || 0) / 1000).toFixed(2)} km/s · ${String(top.dep_iso || '').slice(0, 10)}`);
+        notify(`SHORTLIST LOADED · TOP ${formatCampaignTopLine(top).toUpperCase()}`);
+      };
+    });
+    panel.querySelectorAll('.wcp-del').forEach((btn) => {
+      btn.onclick = async () => {
+        const id = btn.dataset.id;
+        if (!id) return;
+        await deleteWindowCampaign(id);
+        notify('CAMPAIGN DELETED');
+        await showWindowCampaignsPanel();
       };
     });
     activateRailTab('plan');

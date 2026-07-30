@@ -11,6 +11,8 @@ import {
 } from '../physics/flight-ops.js';
 import { buildTransferPathSamples } from '../physics/transfer-path.js';
 import { formatVelocity } from './format.js';
+import { bodyId } from '../data/catalog.js';
+import { encodePlanRequestObject, padDate } from './share-codec.js';
 
 function downloadBlob(filename, text, mime) {
   const blob = new Blob([text], { type: mime || 'text/plain' });
@@ -36,6 +38,46 @@ function baseName(td) {
 }
 
 /**
+ * Share hash for classroom handouts (recomputes geometry on open).
+ * Uses share-codec only — avoid import cycle with share.js / route-display.
+ * @param {object} td
+ * @returns {string|null}
+ */
+export function packageShareHash(td) {
+  try {
+    if (!td?.body1 || !td?.body2) return null;
+    const depSim = td.departureSimTime;
+    if (depSim == null) return null;
+    const depDate = new Date(depSim * 1000 + Date.UTC(2000, 0, 1, 12));
+    const isMulti = !!td.isMultiLeg || (state.flybys && state.flybys.length > 0);
+    const plan = {
+      o: bodyId(td.body1) || td.body1.name?.toLowerCase(),
+      d: bodyId(td.body2) || td.body2.name?.toLowerCase(),
+      dep: padDate(depDate),
+      veh: state.vehicleId || 'sh-starship',
+      ab: state.abstractBudget_m_s,
+      basis: isMulti ? 'helio' : (state.costBasis || 'helio'),
+      view: state.display?.mode || 'cinematic',
+    };
+    if (!isMulti && td.transferTime != null) {
+      plan.tof = Math.round(td.transferTime / DAY);
+    }
+    if (state.vehicleId === 'sh-starship' && state.starshipArch) plan.arch = state.starshipArch;
+    if (state.cargoMass_kg > 0) plan.cargo = state.cargoMass_kg;
+    if (state.ephemerisBackend === 'sample-de' && !state.classroomMode) plan.eph = 'sample';
+    if (state.flybys?.length && td.isMultiLeg) {
+      plan.fb = state.flybys.slice(0, 6).map((f) => ({
+        id: f.bodyId || (f.bodyName || '').toLowerCase(),
+        date: padDate(new Date(f.simTime * 1000 + Date.UTC(2000, 0, 1, 12))),
+      })).filter((f) => f.id && f.date);
+    }
+    return encodePlanRequestObject(plan);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Human-readable mission brief (Markdown).
  */
 export function buildMissionBrief(td) {
@@ -44,6 +86,7 @@ export function buildMissionBrief(td) {
   const s = plan.summary || {};
   const need = plan.measurement?.need || {};
   const gates = dossier?.gates || [];
+  const shareHash = packageShareHash(td);
   const lines = [
     `# HELIOS Mission Brief`,
     ``,
@@ -52,6 +95,9 @@ export function buildMissionBrief(td) {
     `Generated: ${plan.generated_at}`,
     `Fidelity: ${plan.methodology?.fidelity || state.fidelityLevel || '—'}`,
     `Ephemeris backend: ${plan.methodology?.ephemeris_backend || '—'}`,
+  ];
+  if (shareHash) lines.push(`Share hash (recompute on open): \`${shareHash}\``);
+  lines.push(
     ``,
     `## Route`,
     `- Origin: **${s.origin || td.body1?.name || '—'}**`,
@@ -78,7 +124,7 @@ export function buildMissionBrief(td) {
     `- Completeness confidence: ${dossier?.confidence_0_100 ?? '—'} (analysis completeness, not OD covariance)`,
     ``,
     `## Gates`,
-  ];
+  );
   if (!gates.length) {
     lines.push(`- (none recorded)`);
   } else {
@@ -119,6 +165,25 @@ export async function exportMissionPackage(td) {
   }
   const base = baseName(td);
   const plan = buildPlanObject(td);
+  const shareHash = packageShareHash(td);
+  // Classroom handout manifest — lists sibling files + share hash
+  const manifest = {
+    product: 'HELIOS Mission Package',
+    product_class: 'preliminary-not-flight-certified',
+    generated_at: plan.generated_at,
+    fidelity: plan.methodology?.fidelity || state.fidelityLevel,
+    ephemeris_backend: plan.methodology?.ephemeris_backend,
+    share_hash: shareHash,
+    files: [
+      `${base}.json`,
+      `${base}-path.csv`,
+      `${base}-brief.md`,
+      `${base}-manifest.json`,
+    ],
+    note: 'Open share_hash on HELIOS to recompute geometry. Never trust stored Δv alone.',
+  };
+  if (state.flightOpsMode) manifest.files.push(`${base}-oem-like.txt`);
+
   downloadBlob(`${base}.json`, JSON.stringify(plan, null, 2), 'application/json');
   await sleep(120);
 
@@ -131,6 +196,9 @@ export async function exportMissionPackage(td) {
   } catch { /* path export optional */ }
 
   downloadBlob(`${base}-brief.md`, buildMissionBrief(td), 'text/markdown');
+  await sleep(120);
+
+  downloadBlob(`${base}-manifest.json`, JSON.stringify(manifest, null, 2), 'application/json');
   await sleep(120);
 
   if (state.flightOpsMode) {

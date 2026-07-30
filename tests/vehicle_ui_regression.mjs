@@ -58,6 +58,14 @@ check('Mission Design branding', /MISSION DESIGN/.test(indexHtml));
 check('Campaign steps in Plan rail', /campaign-steps/.test(indexHtml) && /Compute trajectory/.test(indexHtml));
 check('Product class footer markup', /product-class-footer/.test(indexHtml));
 check('Mission package module', existsSync(resolve(ROOT, 'js/ui/mission-package.js')));
+check('Classroom demo links module', existsSync(resolve(ROOT, 'js/data/demo-links.js')));
+check('Release check script', existsSync(resolve(ROOT, 'scripts/release-check.mjs')));
+check('Trust Card mentions dense / L3-plan', /L3-plan|dense SPK/i.test(
+  readFileSync(resolve(ROOT, 'js/ui/trust-card.js'), 'utf8')));
+check('OPS deep-link ops=1', /ops.*===.*['"]1['"]|get\(['"]ops['"]\)/.test(
+  readFileSync(resolve(ROOT, 'js/ui/flight-ops-ui.js'), 'utf8')));
+check('Window campaigns delete/compare UI', /wcp-compare|deleteWindowCampaign/.test(
+  readFileSync(resolve(ROOT, 'js/ui/firebase-ui.js'), 'utf8')));
 check('route-display GO/NO-GO board', /missionReviewBoardHtml|mission-review-board/.test(
   readFileSync(resolve(ROOT, 'js/ui/route-display.js'), 'utf8')));
 check('product-chrome module', existsSync(resolve(ROOT, 'js/ui/product-chrome.js')));

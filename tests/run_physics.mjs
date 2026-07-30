@@ -61,6 +61,7 @@ const SUITE = [
   'tests/horizons_inject.mjs',
   'tests/flight_ops.mjs',
   'tests/mission_package.mjs',
+  'tests/demo_links.mjs',
   'tests/core_planning_realism.mjs',
   'tests/launch_site_plane.mjs',
   'tests/need_geometry.mjs',
