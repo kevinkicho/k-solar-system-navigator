@@ -74,6 +74,11 @@ check('route-display GO/NO-GO board', /missionReviewBoardHtml|mission-review-boa
 check('product-chrome module', existsSync(resolve(ROOT, 'js/ui/product-chrome.js')));
 check('Ship pathGeometry honesty in routing', /pathGeometry.*physical|geometry === 'physical'/.test(
   readFileSync(resolve(ROOT, 'js/physics/routing.js'), 'utf8')));
+check('Adaptive sampling default ON', /adaptiveSampling:\s*true/.test(stateJs));
+check('Endpoint markers match_path_end default', /endpointMarkerPolicy:\s*['"]match_path_end['"]/.test(stateJs));
+check('Label layout module', existsSync(resolve(ROOT, 'js/scene/label-layout.js')));
+check('Animation wires label de-overlap', /resolveLabelOverlaps/.test(mainJs)
+  || /resolveLabelOverlaps/.test(readFileSync(resolve(ROOT, 'js/animation.js'), 'utf8')));
 
 // PR15+ porkchop cargo readout + heatmap
 check('pc-cargo element in HTML', /id=["']pc-cargo["']/.test(indexHtml));

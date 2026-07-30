@@ -146,7 +146,7 @@ export function wireControls() {
     if (aeroIn) aeroIn.value = String(state.aeroassistFactor || 0);
     if (ephSel) {
       ephSel.value = state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx';
-      ephSel.disabled = !!state.classroomMode;
+      ephSel.disabled = false;
     }
     if (ascentSel) {
       const a = state.ascentLossBudget_m_s || 0;
@@ -186,11 +186,6 @@ export function wireControls() {
   }
 
   if (ephSel) ephSel.onchange = () => {
-    if (state.classroomMode) {
-      ephSel.value = 'approx';
-      notify('CLASSROOM MODE FORCES L1 APPROX');
-      return;
-    }
     state.ephemerisBackend = ephSel.value === 'sample-de' ? 'sample-de' : 'approx';
     if (state.ephemerisBackend === 'sample-de') {
       import('../physics/ephemeris-sample.js').then(async (m) => {
@@ -222,15 +217,9 @@ export function wireControls() {
   const hzInject = document.getElementById('flag-horizons-inject');
   const hzInjectWrap = document.getElementById('horizons-inject-wrap');
   if (hzInject) {
-    hzInject.checked = !!state.horizonsEndpointInject && !state.classroomMode;
-    if (hzInjectWrap) hzInjectWrap.style.display = state.classroomMode ? 'none' : 'flex';
+    hzInject.checked = !!state.horizonsEndpointInject;
+    if (hzInjectWrap) hzInjectWrap.style.display = 'flex';
     hzInject.onchange = () => {
-      if (state.classroomMode) {
-        hzInject.checked = false;
-        state.horizonsEndpointInject = false;
-        notify('CLASSROOM MODE FORCES OFFLINE — NO HORIZONS INJECT');
-        return;
-      }
       state.horizonsEndpointInject = !!hzInject.checked;
       if (state.horizonsEndpointInject) {
         notify('HORIZONS INJECT ON — next Compute fetches live endpoints (not SPICE)');
@@ -352,7 +341,7 @@ export function wireControls() {
     if (flagAdaptive) flagAdaptive.checked = !!state.pathAccuracy?.adaptiveSampling;
     if (flagMultiRev) flagMultiRev.checked = !!state.pathAccuracy?.multiRevLambert;
     if (flagNbody) flagNbody.checked = !!state.pathAccuracy?.nbodyOverlay;
-    if (flagNbodyWrap) flagNbodyWrap.style.display = state.classroomMode ? 'none' : 'flex';
+    if (flagNbodyWrap) flagNbodyWrap.style.display = 'flex';
   }
   syncPathAccuracyUI();
 
@@ -386,24 +375,15 @@ export function wireControls() {
       : 'MULTI-REV LAMBERT OFF · recompute transfer');
   };
   if (flagNbody) flagNbody.onchange = () => {
-    if (state.classroomMode) {
-      flagNbody.checked = false;
-      return;
-    }
     state.pathAccuracy.nbodyOverlay = flagNbody.checked;
     refreshPathVisual();
     notify(flagNbody.checked
-      ? 'N-BODY OVERLAY ON · educational residual only (Need unchanged)'
+      ? 'N-BODY OVERLAY ON · residual analysis only (Need unchanged)'
       : 'N-BODY OVERLAY OFF');
   };
   if (flagLtNeed) {
-    flagLtNeed.checked = !!state.lightTimeNeedCompare && !state.classroomMode;
+    flagLtNeed.checked = !!state.lightTimeNeedCompare;
     flagLtNeed.onchange = () => {
-      if (state.classroomMode) {
-        flagLtNeed.checked = false;
-        state.lightTimeNeedCompare = false;
-        return;
-      }
       state.lightTimeNeedCompare = !!flagLtNeed.checked;
       notify(state.lightTimeNeedCompare
         ? 'LT NEED COMPARE ON · analysis sketch only'
@@ -479,8 +459,7 @@ export function wireControls() {
             body,
             epoch,
             keplerPos,
-            sceneCoords: true,
-          });
+            sceneCoords: true});
           if (result.skipped) {
             if (hzOut) hzOut.textContent = `Skipped: ${result.reason}`;
             return;
@@ -560,8 +539,7 @@ export function wireControls() {
       apollo11: () => new Date(Date.UTC(1969, 6, 16, 13, 32, 0)),
       voyager1: () => new Date(Date.UTC(1977, 8, 5, 12, 56, 0)),
       y1900:    () => new Date(Date.UTC(1900, 0, 1)),
-      y2100:    () => new Date(Date.UTC(2100, 0, 1)),
-    };
+      y2100:    () => new Date(Date.UTC(2100, 0, 1))};
     overlay.querySelectorAll('.preset-btn').forEach(btn => {
       btn.onclick = () => {
         const fn = presetDates[btn.dataset.preset];

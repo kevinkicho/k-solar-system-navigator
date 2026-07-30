@@ -8,8 +8,7 @@ import { BODIES, SUN_DATA } from '../data/bodies.js';
 import { solveLambertBestBranch } from './lambert.js';
 import {
   getPlanningPosition3D,
-  getPlanningVelocity3D,
-} from './ephemeris-provider.js';
+  getPlanningVelocity3D} from './ephemeris-provider.js';
 
 export const MIN_PERIHELION_AU = 0.3;
 /** Pathological recovery / gate alignment — high-energy inner→outer is real. */
@@ -60,11 +59,8 @@ export function buildNearestFeasibleGrid(body1, body2, depHint, tofHint, opts = 
     tofMin,
     tofMax,
     pOpts: {
-      backend: opts.backend || 'approx',
-      classroomMode: !!opts.classroomMode,
-    },
-    mu: G_CONST * SUN_DATA.mass,
-  };
+      backend: opts.backend || 'approx'},
+    mu: G_CONST * SUN_DATA.mass};
 }
 
 /**
@@ -89,8 +85,7 @@ export function evaluateNearestFeasibleCell(body1, body2, dep, tof, pOpts, mu) {
     transferTime: tof,
     arrivalSimTime: arr,
     dvTotal: sol.cost,
-    perihelionAU: periAU,
-  };
+    perihelionAU: periAU};
 }
 
 function yieldTick() {

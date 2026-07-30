@@ -3,11 +3,9 @@
  */
 import { initFirebase, isFirebaseEnabled } from '../firebase/app.js';
 import {
-  watchAuth, signInWithGoogle, signOutUser, completeRedirectSignIn, currentUser,
-} from '../firebase/auth.js';
+  watchAuth, signInWithGoogle, signOutUser, completeRedirectSignIn, currentUser} from '../firebase/auth.js';
 import {
-  savePlanToCloud, listCloudPlans, deleteCloudPlan,
-} from '../firebase/plans.js';
+  savePlanToCloud, listCloudPlans, deleteCloudPlan} from '../firebase/plans.js';
 import { loadUserPrefs, applyPrefsToState, saveUserPrefs } from '../firebase/prefs.js';
 import { loadLastRoute, listWindowCampaigns, deleteWindowCampaign } from '../firebase/rtdb.js';
 import { state } from '../state.js';
@@ -153,8 +151,7 @@ async function applyCampaignCandidate(row, candidate) {
     view: state.display?.mode || 'cinematic',
     starshipArch: state.starshipArch,
     ephemerisBackend: row.backend === 'sample-de' || row.backend === 'sample' ? 'sample-de' : state.ephemerisBackend,
-    tofIgnoredMulti: false,
-  });
+    tofIgnoredMulti: false});
   notify(`CAMPAIGN APPLIED · ${formatCampaignTopLine(candidate).toUpperCase()}`);
 }
 
@@ -282,8 +279,7 @@ async function loadAndApplyLastRoute() {
       abstractBudget_m_s: 8000,
       costBasis: 'helio',
       view: 'cinematic',
-      tofIgnoredMulti: false,
-    });
+      tofIgnoredMulti: false});
     notify(`LOADED LAST ROUTE: ${(lr.label || `${lr.o}→${lr.d}`).toUpperCase()}`);
   } catch (err) {
     console.warn(err);
@@ -421,8 +417,7 @@ async function applyCloudPlan(plan) {
     abstractBudget_m_s: 8000,
     costBasis: 'helio',
     view: plan.display_mode === 'schematic' || plan.map_mode ? 'schematic' : 'cinematic',
-    tofIgnoredMulti: !!plan.isMultiLeg,
-  });
+    tofIgnoredMulti: !!plan.isMultiLeg});
   if (plan.map_mode) {
     const { setMapMode } = await import('./map-mode.js');
     setMapMode(true, { silent: true });
@@ -472,12 +467,6 @@ export function wireSavePlanButton(td) {
 }
 
 export async function wireFirebaseUi() {
-  if (state.classroomMode) {
-    ensureAuthChip();
-    const chip = document.getElementById('firebase-auth-chip');
-    if (chip) chip.hidden = true;
-    return;
-  }
   initFirebase();
   ensureAuthChip();
   await completeRedirectSignIn();

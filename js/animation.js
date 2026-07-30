@@ -7,9 +7,9 @@ import { getBodyPosition3D, getMoonPosition, getSunBarycentricOffset } from './p
 import { getSpacecraftPosition } from './physics/helio.js';
 import { camera3D, composer, controls, labelRenderer, renderer, scene } from './scene/setup.js';
 import { sunGlowSprite, sunMesh } from './scene/sun.js';
-import { moonMeshes, moonOrbitLines } from './scene/moons.js';
+import { moonMeshes, moonOrbitLines, moonLabels } from './scene/moons.js';
 import { orbitLines, planetMeshes, planetTextureTargets } from './scene/planets.js';
-import { spacecraftMeshes } from './scene/spacecraft.js';
+import { spacecraftMeshes, spacecraftLabels } from './scene/spacecraft.js';
 import { shipGroup } from './scene/ship.js';
 import { selectionRing } from './scene/selection-ring.js';
 import { flybyMarkers, transferMarkers } from './scene/transfer-visual.js';
@@ -20,6 +20,7 @@ import { timeState } from './ui/time-system.js';
 import { updateFlybyPulses, updateMission } from './mission.js';
 import { updateTrajectoryHud } from './ui/trajectory-hud.js';
 import { updatePathBead } from './scene/path-bead.js';
+import { resolveLabelOverlaps, updateLabelDistanceFade } from './scene/label-layout.js';
 
 let frameCount = 0, lastFpsTime = 0, fps = 60;
 let lastFrameTime = performance.now();
@@ -156,7 +157,16 @@ export function animate() {
     updatePathBead(timeState.simTime);
   } catch { /* */ }
 
+  // Distance-fade moons / probes before CSS2D paint
+  try {
+    updateLabelDistanceFade(camera3D, moonMeshes, moonLabels, spacecraftMeshes, spacecraftLabels);
+  } catch { /* */ }
+
   controls.update();
   composer.render();
   labelRenderer.render(scene, camera3D);
+  // De-overlap 2D labels in screen space (after CSS2D placement)
+  try {
+    if (frameCount % 2 === 0) resolveLabelOverlaps();
+  } catch { /* */ }
 }

@@ -30,8 +30,7 @@ import { BODIES } from '../data/bodies.js';
 import { v3mag, v3sub } from './vec3.js';
 import { getPlanningVelocity3D } from './ephemeris-provider.js';
 import {
-  isSurfacePointActive, isFluidGiant, resolveParkingAlt_m, bodySurfaceKind,
-} from './surface-point.js';
+  isSurfacePointActive, isFluidGiant, resolveParkingAlt_m, bodySurfaceKind} from './surface-point.js';
 
 const PARKING_ALT_M = 100e3;
 
@@ -119,15 +118,13 @@ function computePlanetRelativeMissionBudget(td) {
     );
     dep.phases.push({
       label: `Depart ${origin.name} parking → ${central?.name || 'parent'}-centered transfer (V∞ ≈ ${(vInfDep / 1000).toFixed(2)} km/s)`,
-      dv,
-    });
+      dv});
     dep.total = dv;
   } else {
     // Already solved from parking about the central body.
     dep.phases.push({
       label: `Inject from ${origin.name} parking onto transfer (Δv)`,
-      dv: vInfDep,
-    });
+      dv: vInfDep});
     dep.total = vInfDep;
   }
 
@@ -139,14 +136,12 @@ function computePlanetRelativeMissionBudget(td) {
     );
     arr.phases.push({
       label: `Capture into low ${dest.name} parking (V∞ ≈ ${(vInfArr / 1000).toFixed(2)} km/s)`,
-      dv,
-    });
+      dv});
     arr.total = dv;
   } else {
     arr.phases.push({
       label: `Capture into ${dest.name} parking from transfer (Δv)`,
-      dv: vInfArr,
-    });
+      dv: vInfArr});
     arr.total = vInfArr;
   }
 
@@ -162,8 +157,7 @@ function computePlanetRelativeMissionBudget(td) {
     centralBodyName: central?.name || td.centralBodyName || null,
     departure: dep,
     arrival: arr,
-    totalMission: dep.total + arr.total,
-  };
+    totalMission: dep.total + arr.total};
 }
 
 // `td` must be a single-leg transferData with v1_lambert/v2_lambert stored
@@ -181,9 +175,7 @@ export function computeMissionBudget(td) {
 
   // V∞ relative to each SOI parent — use planning velocity (same as Lambert under L2-plan).
   const pOpts = {
-    backend: td.ephemerisBackend || 'approx',
-    classroomMode: !!td.classroomMode,
-  };
+    backend: td.ephemerisBackend || 'approx'};
   const vDepParent = getPlanningVelocity3D(originSOIParent, td.departureSimTime, pOpts);
   const vArrParent = getPlanningVelocity3D(destSOIParent, td.arrivalSimTime, pOpts);
   const vInfDep_vec = v3sub(td.v1_lambert, vDepParent);
@@ -215,8 +207,7 @@ export function computeMissionBudget(td) {
       : '';
     dep.phases.push({
       label: `Escape ${origin.name}${site} from ${parkingPhrase(origin, altDep)} (V∞ = ${(vInfDep / 1000).toFixed(2)} km/s)`,
-      dv,
-    });
+      dv});
     dep.total = dv;
   }
 
@@ -237,8 +228,7 @@ export function computeMissionBudget(td) {
       : '';
     arr.phases.push({
       label: `Capture into ${dest.name}${site} ${parkingPhrase(dest, altArr)} (V∞ = ${(vInfArr / 1000).toFixed(2)} km/s)`,
-      dv,
-    });
+      dv});
     arr.total = dv;
   }
 
@@ -252,6 +242,5 @@ export function computeMissionBudget(td) {
     destSurfaceKind: bodySurfaceKind(dest),
     departure: dep,
     arrival: arr,
-    totalMission: dep.total + arr.total,
-  };
+    totalMission: dep.total + arr.total};
 }

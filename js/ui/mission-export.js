@@ -4,8 +4,7 @@
  */
 import {
   reservedDeltaV, totalMissionDeltaV, presetDisplayName, presetDisclaimer,
-  evaluateCapability, evaluateMargin,
-} from '../physics/vehicles.js';
+  evaluateCapability, evaluateMargin} from '../physics/vehicles.js';
 import { DAY, DEG } from '../constants.js';
 import { state } from '../state.js';
 import { bodyId } from '../data/catalog.js';
@@ -16,8 +15,7 @@ import { computeMissionBudget } from '../physics/mission-budget.js';
 import { requiredDeltaV, transferBudgetNow, computeNeedNow } from './mission-budget-ui.js';
 import {
   COORD_SYSTEM_ID, cloneSurfacePoint, isSurfacePointActive,
-  geographicEndpointPackage,
-} from '../physics/surface-point.js';
+  geographicEndpointPackage} from '../physics/surface-point.js';
 
 export function exportMissionPlan(td) {
   const plan = buildPlanObject(td);
@@ -52,8 +50,7 @@ export function buildPlanObject(td) {
     falcon9Variant: state.falcon9Variant || 'expendable',
     abstractBudget_m_s: state.abstractBudget_m_s,
     originBody: td.body1,
-    solveTankers: state.starshipArch === 'tanker-n',
-  };
+    solveTankers: state.starshipArch === 'tanker-n'};
   const capability = evaluateCapability(need, request);
   const margin = evaluateMargin(need, capability, request);
   const feasible = !!margin.feasible;
@@ -65,17 +62,14 @@ export function buildPlanObject(td) {
     frame: 'Heliocentric Ecliptic J2000',
     units: { distance: 'm', velocity: 'm/s', angle: 'deg', time: 'ISO-8601 UTC', mass: 'kg' },
     methodology: {
-      ephemeris: (state.ephemerisBackend === 'sample-de' && !state.classroomMode)
+      ephemeris: (state.ephemerisBackend === 'sample-de' )
         ? 'Offline sample-table endpoints (L2/L3-plan; DE440s bake when present) + JPL Approximate Positions for animation'
         : 'JPL Approximate Positions of Major Planets 1800-2050',
-      ephemeris_backend: state.classroomMode
-        ? 'approx'
-        : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
+      ephemeris_backend: (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
       transfer: 'Lambert universal-variable, dual geometry (physical Δv / visual line)',
       disclaimer: 'Preliminary mission design — not flight-certified software; not range safety; not SpaceX-certified performance; not operational SPICE OD.',
       display_mode: state.display?.mode || 'cinematic',
-      fidelity: state.fidelityLevel === 'L2' ? 'L2-compare' : (state.fidelityLevel || 'L1'),
-    },
+      fidelity: state.fidelityLevel === 'L2' ? 'L2-compare' : (state.fidelityLevel || 'L1')},
     summary: {
       origin: td.body1.name,
       origin_id: bodyId(td.body1),
@@ -90,8 +84,7 @@ export function buildPlanObject(td) {
       cost_basis: costBasis,
       multi_leg:     isMulti,
       n_flybys:      isMulti ? td.flybys.length : 0,
-      cargo_mass_kg: state.cargoMass_kg ?? 0,
-    },
+      cargo_mass_kg: state.cargoMass_kg ?? 0},
     plan_request: {
       v: 1,
       o: bodyId(td.body1),
@@ -106,29 +99,24 @@ export function buildPlanObject(td) {
       arch: state.vehicleId === 'sh-starship' ? (state.starshipArch || 'legacy-demo') : undefined,
       tankers: state.starshipArch === 'tanker-n' ? (state.tankerCount || 0) : undefined,
       f9v: state.vehicleId === 'falcon9' ? (state.falcon9Variant || 'expendable') : undefined,
-      eph: (state.ephemerisBackend === 'sample-de' && !state.classroomMode) ? 'sample' : undefined,
+      eph: (state.ephemerisBackend === 'sample-de' ) ? 'sample' : undefined,
       originSite: isSurfacePointActive(td.surfaceOriginPoint || state.routeOriginPoint)
         ? cloneSurfacePoint(td.surfaceOriginPoint || state.routeOriginPoint, td.body1)
         : undefined,
       destSite: isSurfacePointActive(td.surfaceDestPoint || state.routeDestPoint)
         ? cloneSurfacePoint(td.surfaceDestPoint || state.routeDestPoint, td.body2)
-        : undefined,
-    },
+        : undefined},
     geographic: {
       coordinate_system: COORD_SYSTEM_ID,
       origin: geographicEndpointPackage(td.body1, td.surfaceOriginPoint || state.routeOriginPoint),
-      destination: geographicEndpointPackage(td.body2, td.surfaceDestPoint || state.routeDestPoint),
-    },
+      destination: geographicEndpointPackage(td.body2, td.surfaceDestPoint || state.routeDestPoint)},
     measurement: {
       need,
       capability,
       margin,
       disclaimer: capability.disclaimer || presetDisclaimer(state.vehicleId),
       fidelity: state.fidelityLevel === 'L2' ? 'L2-compare' : (state.fidelityLevel || 'L1'),
-      ephemeris_backend: state.classroomMode
-        ? 'approx'
-        : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
-    },
+      ephemeris_backend: (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx')},
     // Reliability design: Plan Dossier (gates, confidence, mission_ready)
     dossier: td.dossier || null,
     // Deprecated mirror for v2 consumers (K13)
@@ -148,9 +136,7 @@ export function buildPlanObject(td) {
         ? !!(feasible && td.dossier.mission_ready)
         : feasible,
       mission_ready: td.dossier ? !!td.dossier.mission_ready : feasible,
-      disclaimer: presetDisclaimer(state.vehicleId),
-    },
-  };
+      disclaimer: presetDisclaimer(state.vehicleId)}};
 
   if (!isMulti) {
     plan.maneuvers = [
@@ -167,8 +153,7 @@ export function buildPlanObject(td) {
       tof_days: L.tof / DAY,
       v1_m_s: L.v1, v2_m_s: L.v2,
       transfer_orbit: L.orbitPhysical ? serializeOrbit(L.orbitPhysical) : null,
-      lambert_ok: L.ok,
-    }));
+      lambert_ok: L.ok}));
     plan.maneuvers = td.maneuvers.map(m => {
       const base = { type: m.type, body: m.body, epoch_utc: isoUTC(m.simTime), dv_m_s: m.dv };
       if (m.type === 'flyby' && m.info) {
@@ -179,8 +164,7 @@ export function buildPlanObject(td) {
           max_turning_deg:   m.info.maxTurningAngle / DEG,
           periapsis_required_m: m.info.rPeriapsis,
           periapsis_min_m:      m.info.minR,
-          achievable: m.info.achievable,
-        };
+          achievable: m.info.achievable};
       }
       return base;
     });
@@ -218,14 +202,12 @@ function buildSingleLegManeuvers(td) {
       type: 'depart', body: td.body1.name,
       epoch_utc: isoUTC(td.departureSimTime),
       dv_m_s: td.dv1_lambert,
-      v_inf_m_s: vInfDep, c3_m2_s2: c3,
-    },
+      v_inf_m_s: vInfDep, c3_m2_s2: c3},
     {
       type: 'arrive', body: td.body2.name,
       epoch_utc: isoUTC(td.arrivalSimTime),
       dv_m_s: td.dv2_lambert,
-      v_inf_m_s: vInfArr,
-    },
+      v_inf_m_s: vInfArr},
   ];
 }
 
@@ -235,6 +217,5 @@ function serializeOrbit(o) {
     eccentricity: o.e,
     semi_latus_rectum_m: o.p,
     p_hat: o.p_hat, q_hat: o.q_hat, w_hat: o.w_hat,
-    M0_rad: o.M0, mean_motion_rad_s: o.n,
-  };
+    M0_rad: o.M0, mean_motion_rad_s: o.n};
 }

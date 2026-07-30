@@ -3,25 +3,21 @@ import { SUN_DATA } from '../data/bodies.js';
 import { v3cross, v3mag, v3scale, v3sub } from './vec3.js';
 import { getBodyPosition3D, getBodyVelocity3D } from './kepler.js';
 import {
-  getPlanningPosition3D, getPlanningVelocity3D,
-} from './ephemeris-provider.js';
+  getPlanningPosition3D, getPlanningVelocity3D} from './ephemeris-provider.js';
 import {
   buildTransferOrbit, buildHelioOrbit, propagateOrbit, propagateHelioOrbit,
-  propagateOrbitState, propagateHelioOrbitState,
-} from './helio.js';
+  propagateOrbitState, propagateHelioOrbitState} from './helio.js';
 import { sampleTransferPathAtTime } from './transfer-path.js';
 import { solveLambertBestBranch, solveLambertProblem } from './lambert.js';
 import { gravityAssistInfo } from './gravity-assist.js';
 import {
   applySurfaceEndpoint, isSurfacePointActive, surfacePointMeta,
-  resolveParkingAlt_m,
-} from './surface-point.js';
+  resolveParkingAlt_m} from './surface-point.js';
 import {
   isPlanetRelativeRoute,
   resolvePlanetRelativeCentral,
   planetRelativePeriapsisOk,
-  planetRelativeEndpointStates,
-} from './planet-relative.js';
+  planetRelativeEndpointStates} from './planet-relative.js';
 import { state } from '../state.js';
 
 /**
@@ -129,8 +125,7 @@ function tryBuildVisualOrbit(r1v, r2v, tof, mu, vBody1, vBody2, preferredLongWay
           orbit: orb,
           visualFallback: null,
           visualLongWay: preferredLongWay,
-          visualBranchDiverged: false,
-        };
+          visualBranchDiverged: false};
       }
     }
   }
@@ -157,8 +152,7 @@ function tryBuildVisualOrbit(r1v, r2v, tof, mu, vBody1, vBody2, preferredLongWay
         orbit: useOrb,
         visualFallback: null,
         visualLongWay: best.longWay,
-        visualBranchDiverged: !!diverged,
-      };
+        visualBranchDiverged: !!diverged};
     }
   }
 
@@ -167,15 +161,13 @@ function tryBuildVisualOrbit(r1v, r2v, tof, mu, vBody1, vBody2, preferredLongWay
     orbit: null,
     visualFallback: 'cosine',
     visualLongWay: preferredLongWay,
-    visualBranchDiverged: preferredLongWay != null,
-  };
+    visualBranchDiverged: preferredLongWay != null};
 }
 
-/** Planning opts: backend 'approx'|'sample-de', classroomMode. Visual path always Kepler. */
+/** Planning opts: backend 'approx'|'sample-de'. Visual path always Kepler. */
 function planOpts(tData) {
   return {
     backend: tData?.ephemerisBackend || tData?.backend || 'approx',
-    classroomMode: !!tData?.classroomMode,
   };
 }
 
@@ -184,11 +176,9 @@ function multiLegPlanOpts(waypoints, routeOpts = {}) {
   const w0 = waypoints?.[0] || {};
   return {
     backend: routeOpts.ephemerisBackend || routeOpts.backend || w0.ephemerisBackend || w0.backend || 'approx',
-    classroomMode: !!(routeOpts.classroomMode ?? w0.classroomMode),
     maxRevolutions: Math.max(0, Math.min(2, Math.floor(
       routeOpts.maxRevolutions ?? w0.maxRevolutions ?? 0,
-    ))),
-  };
+    )))};
 }
 
 // Nearest-feasible window search lives in nearest-feasible-search.js
@@ -197,8 +187,7 @@ export {
   MIN_PERIHELION_AU,
   findNearestFeasibleTransfer,
   DEFAULT_N_DEP,
-  DEFAULT_N_TOF,
-} from './nearest-feasible-search.js';
+  DEFAULT_N_TOF} from './nearest-feasible-search.js';
 
 /**
  * Parent-frame Lambert for same-SOI pairs (Europa→Io, Earth→Moon).
@@ -252,9 +241,7 @@ function solvePlanetRelativeTransferOrbit(tData) {
         parkingAlt2_m: altArr,
         exaggerate: false,
         backend: prPlan.backend,
-        classroomMode: prPlan.classroomMode,
-        forceContinuousKepler: !!forceContinuousKepler,
-      },
+        forceContinuousKepler: !!forceContinuousKepler},
     );
     const depS = applySurfaceEndpoint(
       st1.posAU, st1.vel, tData.body1, tData.departureSimTime, originPt,
@@ -289,8 +276,7 @@ function solvePlanetRelativeTransferOrbit(tData) {
     }
     return {
       bestP, usedAnalyticHohmann, st1, st2, depS, arrS, r1vP, r2vP,
-      ephSource: st1.ephSource || st2.ephSource || null,
-    };
+      ephSource: st1.ephSource || st2.ephSource || null};
   }
 
   // Prefer dense SPICE / samples first; recover with continuous Kepler if needed
@@ -501,8 +487,7 @@ export function parentFrameToHelioAU(orbitPos_m, central, timeSec, exaggerate = 
   return {
     x: p.x + orbitPos_m[0] / AU,
     y: p.y + orbitPos_m[1] / AU,
-    z: p.z + orbitPos_m[2] / AU,
-  };
+    z: p.z + orbitPos_m[2] / AU};
 }
 
 /**
@@ -518,11 +503,9 @@ export function refreshVisualTransferGeometry(td) {
   // Re-solve visual with terminal geographic sites preserved
   const rebuilt = solveMultiLegRoute(td.waypoints || [], {
     ephemerisBackend: td.ephemerisBackend,
-    classroomMode: td.classroomMode,
     maxRevolutions: td.maxRevolutions ?? 0,
     surfaceOriginPoint: td.surfaceOriginPoint,
-    surfaceDestPoint: td.surfaceDestPoint,
-  });
+    surfaceDestPoint: td.surfaceDestPoint});
   if (rebuilt?.legs) {
     td.legs = rebuilt.legs;
     td.visualFallback = rebuilt.visualFallback;
@@ -618,8 +601,7 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
       longWay: bestP ? bestP.longWay : null,
       revolutions: bestP ? (bestP.revolutions ?? 0) : 0,
       geoSiteFrom: !!ptA,
-      geoSiteTo: !!ptB,
-    });
+      geoSiteTo: !!ptB});
   }
 
   const maneuvers = [];
@@ -681,15 +663,13 @@ export function solveMultiLegRoute(waypoints, routeOpts = {}) {
     surfaceOriginPoint: originPt,
     surfaceDestPoint: destPt,
     surfaceOriginMeta: surfacePointMeta(body1, originPt),
-    surfaceDestMeta: surfacePointMeta(body2, destPt),
-  };
+    surfaceDestMeta: surfacePointMeta(body2, destPt)};
 }
 
 // Bind multi-leg window search to solveMultiLegRoute (avoids circular imports).
 import {
   bindSolveMultiLegRoute,
-  findMultiLegWindow as findMultiLegWindowImpl,
-} from './multi-leg-window-search.js';
+  findMultiLegWindow as findMultiLegWindowImpl} from './multi-leg-window-search.js';
 
 bindSolveMultiLegRoute(solveMultiLegRoute);
 
@@ -722,6 +702,5 @@ export function getShipPositionOnTransfer(departureSimTime, tData, currentSimTim
   const geometry = pg === 'physical' ? 'physical' : 'visual';
   return sampleTransferPathAtTime(tData, currentSimTime, {
     offsetPolicy: tData.pathOffsetPolicy || state.pathOffsetPolicy || 'time_varying',
-    geometry,
-  });
+    geometry});
 }

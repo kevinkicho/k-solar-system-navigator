@@ -4,8 +4,7 @@
 import { state } from '../state.js';
 import { isSchematic } from '../display-scale.js';
 import {
-  buildTransferPathSamples, sampleTransferPathAtTime,
-} from '../physics/transfer-path.js';
+  buildTransferPathSamples, sampleTransferPathAtTime} from '../physics/transfer-path.js';
 import { getShipPositionOnTransfer } from '../physics/routing.js';
 import { timeState } from './time-system.js';
 
@@ -44,8 +43,7 @@ export function measurePathResidual(td) {
     exaggerate: geom !== 'physical',
     sampleMode: state.pathSampleMode || 'equal_time',
     offsetPolicy: state.pathOffsetPolicy || 'time_varying',
-    nSamples: 8,
-  };
+    nSamples: 8};
   const t0 = td.departureSimTime;
   const T = td.transferTime;
   if (t0 == null || !(T > 0)) return { maxAU: null, samples: 0, note: 'no TOF' };
@@ -68,8 +66,7 @@ export function measurePathResidual(td) {
   return {
     maxAU: n ? maxAU : null,
     samples: n,
-    note: n ? 'ship–line same-t residual' : 'no samples',
-  };
+    note: n ? 'ship–line same-t residual' : 'no samples'};
 }
 
 /** Helio r of selected body or ship (AU). */
@@ -91,8 +88,7 @@ function currentRadiusAU() {
 }
 
 function ephLabel() {
-  if (state.classroomMode) return 'L1 approx (classroom)';
-  if (state.ephemerisBackend === 'sample-de') {
+    if (state.ephemerisBackend === 'sample-de') {
     const fb = state.transferData?.sampleFallback ? ' · fallback' : '';
     return `L2-plan sample-DE${fb}`;
   }
@@ -173,8 +169,7 @@ export function pathLengthAU(td) {
     geometry: geom,
     exaggerate: geom !== 'physical',
     nSamples: 64,
-    offsetPolicy: state.pathOffsetPolicy || 'time_varying',
-  });
+    offsetPolicy: state.pathOffsetPolicy || 'time_varying'});
   const pts = built?.points;
   if (!pts || pts.length < 2) return null;
   let len = 0;

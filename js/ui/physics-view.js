@@ -30,20 +30,18 @@ export function setPhysicsAccurateView(on, opts = {}) {
     state.showDvArrows = true;
     state.showPathBead = true;
     // Higher planning fidelity (offline sample endpoints — not SPICE)
-    if (!state.classroomMode) {
-      state.ephemerisBackend = 'sample-de';
-      state.fidelityLevel = 'L2-plan';
-      if (state.pathAccuracy) {
-        state.pathAccuracy.preferSampleDeOuter = true;
-        // Educational residual only — does not change Need
-        state.pathAccuracy.nbodyOverlay = true;
-      }
-      import('../physics/ephemeris-sample.js').then((m) => m.ensureSampleTableLoaded()).catch(() => {});
-      const ephSel = document.getElementById('ephemeris-backend');
-      if (ephSel) ephSel.value = 'sample-de';
-      const flagNbody = document.getElementById('flag-nbody');
-      if (flagNbody) flagNbody.checked = true;
+    state.ephemerisBackend = 'sample-de';
+    state.fidelityLevel = 'L2-plan';
+    if (state.pathAccuracy) {
+      state.pathAccuracy.preferSampleDeOuter = true;
+      // Residual analysis only — does not change Need
+      state.pathAccuracy.nbodyOverlay = true;
     }
+    import('../physics/ephemeris-sample.js').then((m) => m.ensureSampleTableLoaded()).catch(() => {});
+    const ephSel = document.getElementById('ephemeris-backend');
+    if (ephSel) ephSel.value = 'sample-de';
+    const flagNbody = document.getElementById('flag-nbody');
+    if (flagNbody) flagNbody.checked = true;
   } else {
     state.mapMode = false;
     setDisplayMode('cinematic');
@@ -75,7 +73,7 @@ export function setPhysicsAccurateView(on, opts = {}) {
   }
 
   // Re-solve with sample-DE if a route is already up
-  if (want && state.transferData && !state.classroomMode) {
+  if (want && state.transferData ) {
     import('./route-planner.js').then(({ stampPlanningEphemeris, computeRoute }) => {
       // Prefer full recompute for consistent Need under L2-plan
       if (state.routeOrigin && state.routeDestination) computeRoute();

@@ -7,8 +7,7 @@ import { DAY } from '../constants.js';
 import { buildPlanObject } from './mission-export.js';
 import { buildPathCsv } from './path-export.js';
 import {
-  buildEducationalOem, lightTimeSummary, opsDisclaimer,
-} from '../physics/flight-ops.js';
+  buildEducationalOem, lightTimeSummary, opsDisclaimer} from '../physics/flight-ops.js';
 import { buildTransferPathSamples } from '../physics/transfer-path.js';
 import { formatVelocity } from './format.js';
 import { bodyId } from '../data/catalog.js';
@@ -57,19 +56,17 @@ export function packageShareHash(td) {
       veh: state.vehicleId || 'sh-starship',
       ab: state.abstractBudget_m_s,
       basis: isMulti ? 'helio' : (state.costBasis || 'helio'),
-      view: state.display?.mode || 'cinematic',
-    };
+      view: state.display?.mode || 'cinematic'};
     if (!isMulti && td.transferTime != null) {
       plan.tof = Math.round(td.transferTime / DAY);
     }
     if (state.vehicleId === 'sh-starship' && state.starshipArch) plan.arch = state.starshipArch;
     if (state.cargoMass_kg > 0) plan.cargo = state.cargoMass_kg;
-    if (state.ephemerisBackend === 'sample-de' && !state.classroomMode) plan.eph = 'sample';
+    if (state.ephemerisBackend === 'sample-de' ) plan.eph = 'sample';
     if (state.flybys?.length && td.isMultiLeg) {
       plan.fb = state.flybys.slice(0, 6).map((f) => ({
         id: f.bodyId || (f.bodyName || '').toLowerCase(),
-        date: padDate(new Date(f.simTime * 1000 + Date.UTC(2000, 0, 1, 12))),
-      })).filter((f) => f.id && f.date);
+        date: padDate(new Date(f.simTime * 1000 + Date.UTC(2000, 0, 1, 12)))})).filter((f) => f.id && f.date);
     }
     return encodePlanRequestObject(plan);
   } catch {
@@ -180,8 +177,7 @@ export async function exportMissionPackage(td) {
       `${base}-brief.md`,
       `${base}-manifest.json`,
     ],
-    note: 'Open share_hash on HELIOS to recompute geometry. Never trust stored Δv alone.',
-  };
+    note: 'Open share_hash on HELIOS to recompute geometry. Never trust stored Δv alone.'};
   if (state.flightOpsMode) manifest.files.push(`${base}-oem-like.txt`);
 
   downloadBlob(`${base}.json`, JSON.stringify(plan, null, 2), 'application/json');
@@ -208,12 +204,10 @@ export async function exportMissionPackage(td) {
         geometry: 'physical',
         exaggerate: false,
         nSamples: 121,
-        offsetPolicy: state.pathOffsetPolicy || 'time_varying',
-      });
+        offsetPolicy: state.pathOffsetPolicy || 'time_varying'});
       samples = (built.points || []).map((p, i, arr) => ({
         t: td.departureSimTime + (td.transferTime || 0) * (arr.length > 1 ? i / (arr.length - 1) : 0),
-        x: p.x, y: p.y, z: p.z,
-      }));
+        x: p.x, y: p.y, z: p.z}));
     } catch { /* */ }
     downloadBlob(`${base}-oem-like.txt`, buildEducationalOem(td, samples), 'text/plain');
   }

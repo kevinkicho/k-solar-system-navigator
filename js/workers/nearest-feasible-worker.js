@@ -34,7 +34,6 @@ self.onmessage = async (ev) => {
     depHint,
     tofHint,
     backend = 'approx',
-    classroomMode = false,
     allowPast = false,
   } = msg;
 
@@ -47,14 +46,13 @@ self.onmessage = async (ev) => {
     self.postMessage({
       type: 'error',
       requestId,
-      message: `Unknown body id(s): ${[!body1 && body1Id, !body2 && body2Id].filter(Boolean).join(', ')}`,
-    });
+      message: `Unknown body id(s): ${[!body1 && body1Id, !body2 && body2Id].filter(Boolean).join(', ')}`});
     clearRequest(requestId);
     return;
   }
 
   try {
-    if (backend === 'sample-de' && !classroomMode) {
+    if (backend === 'sample-de') {
       await ensureSampleTableLoaded();
     }
     if (isCancelled(requestId)) {
@@ -65,15 +63,13 @@ self.onmessage = async (ev) => {
 
     const result = findNearestFeasibleTransfer(body1, body2, depHint, tofHint, {
       backend,
-      classroomMode,
       allowPast,
       shouldCancel: () => isCancelled(requestId),
       onProgress: ({ i, n }) => {
         if (i === 1 || i === n || i % 5 === 0) {
           self.postMessage({ type: 'progress', requestId, i, n });
         }
-      },
-    });
+      }});
 
     if (isCancelled(requestId)) {
       self.postMessage({ type: 'cancelled', requestId });
@@ -84,8 +80,7 @@ self.onmessage = async (ev) => {
     self.postMessage({
       type: 'error',
       requestId,
-      message: e?.message || String(e),
-    });
+      message: e?.message || String(e)});
   } finally {
     clearRequest(requestId);
   }

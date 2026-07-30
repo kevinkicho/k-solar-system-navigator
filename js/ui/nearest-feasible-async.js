@@ -6,8 +6,7 @@
 import { bodyId } from '../data/catalog.js';
 import {
   findNearestFeasibleTransfer,
-  findNearestFeasibleTransferChunked,
-} from '../physics/nearest-feasible-search.js';
+  findNearestFeasibleTransferChunked} from '../physics/nearest-feasible-search.js';
 
 let worker = null;
 let workerReady = false;
@@ -97,7 +96,6 @@ export async function findNearestFeasibleTransferAsync(
   const id1 = bodyId(body1);
   const id2 = bodyId(body2);
   const backend = opts.backend || 'approx';
-  const classroomMode = !!opts.classroomMode;
   const allowPast = !!opts.allowPast;
   const onProgress = opts.onProgress;
   const shouldCancel = opts.shouldCancel;
@@ -116,7 +114,6 @@ export async function findNearestFeasibleTransferAsync(
           depHint,
           tofHint,
           backend,
-          classroomMode,
           allowPast,
         });
       });
@@ -134,7 +131,6 @@ export async function findNearestFeasibleTransferAsync(
   // Main-thread chunked fallback (keeps UI responsive)
   return findNearestFeasibleTransferChunked(body1, body2, depHint, tofHint, {
     backend,
-    classroomMode,
     allowPast,
     onProgress,
     shouldCancel,

@@ -807,6 +807,10 @@ body.theme-classic #top-bar a.logo:hover {
 .planet-label.ghost-label {
   font-size: 8px; letter-spacing: 1px; color: var(--amber);
   opacity: 0.9; padding-left: 8px;
+  background: rgba(8,12,18,0.72);
+  border: 1px solid rgba(255,152,0,0.25);
+  border-radius: 2px;
+  padding: 1px 6px 1px 8px;
 }
 
 /* Hide FPS / cursor unless body.debug-chrome */
@@ -866,7 +870,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* VIEW CONTROLS */
 #view-controls {
-  position: fixed; bottom: 80px; right: 20px; z-index: 10;
+  position: fixed; bottom: 88px; right: 20px; z-index: 10;
   display: flex; flex-direction: column; gap: 4px;
 }
 #view-controls button {
@@ -878,8 +882,10 @@ input[type="range"]::-webkit-slider-thumb {
 #view-controls button:hover { border-color: var(--cyan); color: var(--cyan); }
 
 #scale-indicator {
-  position: fixed; bottom: 76px; left: 20px; z-index: 10;
+  position: fixed; bottom: 20px; left: 20px; z-index: 10;
   font-size: 10px; color: var(--text-dim); letter-spacing: 1px;
+  max-width: 28vw;
+  pointer-events: none;
 }
 
 #tooltip {
@@ -890,9 +896,11 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 #help-hint {
-  position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%);
   z-index: 10; font-size: 10px; color: var(--text-dim);
   letter-spacing: 1px; text-align: center; opacity: 0.6; transition: opacity 2s;
+  max-width: min(520px, 70vw);
+  pointer-events: none;
 }
 
 #notification {
@@ -904,18 +912,32 @@ input[type="range"]::-webkit-slider-thumb {
 }
 #notification.show { opacity: 1; }
 
-/* 3D labels */
+/* 3D labels — solid plate so text stays legible when paths cross */
 .planet-label {
   font-family: var(--font-display); font-size: 10px; letter-spacing: 1.5px;
   color: var(--text); pointer-events: none; white-space: nowrap;
-  text-shadow: 0 0 8px rgba(0,0,0,0.9), 0 0 16px rgba(0,0,0,0.7);
-  padding-left: 12px;
+  text-shadow: 0 0 6px rgba(0,0,0,0.95);
+  padding: 1px 6px 1px 8px;
+  background: rgba(6,10,16,0.78);
+  border: 1px solid rgba(120,140,160,0.22);
+  border-radius: 2px;
+  line-height: 1.25;
+  will-change: margin, visibility;
 }
-.planet-label.selected { color: var(--cyan); font-weight: 700; }
+.planet-label.selected {
+  color: var(--cyan); font-weight: 700;
+  border-color: rgba(0,212,255,0.45);
+  background: rgba(0,30,40,0.88);
+}
 .ship-label {
   font-family: var(--font-display); font-size: 9px; letter-spacing: 1px;
   color: var(--green); pointer-events: none; white-space: nowrap;
-  text-shadow: 0 0 8px rgba(0,0,0,0.9); padding-left: 10px;
+  text-shadow: 0 0 6px rgba(0,0,0,0.95);
+  padding: 1px 6px 1px 8px;
+  background: rgba(6,16,10,0.82);
+  border: 1px solid rgba(0,230,118,0.3);
+  border-radius: 2px;
+  line-height: 1.25;
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 </style>

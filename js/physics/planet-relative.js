@@ -14,19 +14,16 @@ import { AU, DAY, G_CONST, PI, TWO_PI } from '../constants.js';
 import { BODIES } from '../data/bodies.js';
 import { getBodyPosition3D, getBodyVelocity3D } from './kepler.js';
 import {
-  getPlanningPosition3D, getPlanningVelocity3D,
-} from './ephemeris-provider.js';
+  getPlanningPosition3D, getPlanningVelocity3D} from './ephemeris-provider.js';
 import { sampleMoonRelativePosition3D } from './ephemeris-sample.js';
 import {
   continuousMoonRelativePositionAU,
   continuousMoonRelativeVelocity_m_s,
-  adaptiveVelocityDtSec,
-} from './moon-fidelity.js';
+  adaptiveVelocityDtSec} from './moon-fidelity.js';
 import {
   sampleDenseSpkAU,
   sampleDenseSpkVelocity_m_s,
-  denseSpkAvailable,
-} from './dense-spk-pack.js';
+  denseSpkAvailable} from './dense-spk-pack.js';
 import { defaultParkingAlt_m } from './surface-point.js';
 import { v3cross, v3mag, v3scale, v3sub } from './vec3.js';
 
@@ -127,11 +124,9 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
         x: pos_m[0] / AU,
         y: pos_m[1] / AU,
         z: pos_m[2] / AU,
-        r: rPark / AU,
-      },
+        r: rPark / AU},
       vel,
-      isParking: true,
-    };
+      isParking: true};
   }
 
   // Moon (or other satellite) relative to parent.
@@ -149,13 +144,11 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
         return {
           posAU: {
             x: crel.x, y: crel.y, z: crel.z,
-            r: Math.hypot(crel.x, crel.y, crel.z),
-          },
+            r: Math.hypot(crel.x, crel.y, crel.z)},
           vel: cvel,
           isParking: false,
           sampleMoon: false,
-          ephSource: 'continuous-kepler',
-        };
+          ephSource: 'continuous-kepler'};
       }
     }
 
@@ -170,8 +163,7 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
           vel: vel || [0, 0, 0],
           isParking: false,
           sampleMoon: true,
-          ephSource: rel.source || `dense-spk:${rel.pack_id}`,
-        };
+          ephSource: rel.source || `dense-spk:${rel.pack_id}`};
       }
     }
 
@@ -194,8 +186,7 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
         vel,
         isParking: false,
         sampleMoon: true,
-        ephSource: 'moon-sample-table',
-      };
+        ephSource: 'moon-sample-table'};
     }
 
     // 3) Continuous Kepler parent-relative (minute-class time continuity)
@@ -206,20 +197,16 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
         return {
           posAU: {
             x: crel.x, y: crel.y, z: crel.z,
-            r: Math.hypot(crel.x, crel.y, crel.z),
-          },
+            r: Math.hypot(crel.x, crel.y, crel.z)},
           vel: cvel,
           isParking: false,
           sampleMoon: false,
-          ephSource: 'continuous-kepler',
-        };
+          ephSource: 'continuous-kepler'};
       }
     }
 
     const pOpts = {
-      backend: opts.backend || opts.ephemerisBackend || 'approx',
-      classroomMode: !!opts.classroomMode,
-    };
+      backend: opts.backend || opts.ephemerisBackend || 'approx'};
     const pB = getPlanningPosition3D(body, timeSec, pOpts);
     const pC = getPlanningPosition3D(central, timeSec, pOpts);
     const vB = getPlanningVelocity3D(body, timeSec, pOpts);
@@ -231,8 +218,7 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
       posAU: { x, y, z, r: Math.sqrt(x * x + y * y + z * z) },
       vel: v3sub(vB, vC),
       isParking: false,
-      ephSource: 'helio-diff',
-    };
+      ephSource: 'helio-diff'};
   }
   const pB = getBodyPosition3D(body, timeSec, true);
   const pC = getBodyPosition3D(central, timeSec, true);
@@ -244,8 +230,7 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
   return {
     posAU: { x, y, z, r: Math.sqrt(x * x + y * y + z * z) },
     vel: v3sub(vB, vC),
-    isParking: false,
-  };
+    isParking: false};
 }
 
 /**
@@ -350,8 +335,7 @@ export function planetRelativeTransferSeed(body1, body2, departureSimTime, opts 
     // Rough circular period of intermediate orbit (for UI).
     periodHint_d: (2 * transferTime) / DAY,
     // Educational note for UI
-    hohmannNote: 'Impulsive parent-centered Hohmann (days-scale for Galilean moons) — not a multi-month gravity-assist tour.',
-  };
+    hohmannNote: 'Impulsive parent-centered Hohmann (days-scale for Galilean moons) — not a multi-month gravity-assist tour.'};
 }
 
 /** Periapsis distance (m) of a parent-frame orbit about `central`. */
@@ -406,13 +390,10 @@ export function planetRelativeEndpointStates(body1, body2, central, depT, arrT, 
     const pe = {
       exaggerate,
       forceContinuousKepler: !!opts.forceContinuousKepler,
-      backend: opts.backend,
-      classroomMode: opts.classroomMode,
-    };
+      backend: opts.backend};
     return {
       st1: parentRelativeState(body1, central, depT, pe),
-      st2: parentRelativeState(body2, central, arrT, pe),
-    };
+      st2: parentRelativeState(body2, central, arrT, pe)};
   }
 
   const mu = G_CONST * central.mass;
@@ -443,13 +424,10 @@ export function planetRelativeEndpointStates(body1, body2, central, depT, arrT, 
     return {
       st1: {
         posAU: {
-          x: r1_m[0] / AU, y: r1_m[1] / AU, z: r1_m[2] / AU, r: rPark1 / AU,
-        },
+          x: r1_m[0] / AU, y: r1_m[1] / AU, z: r1_m[2] / AU, r: rPark1 / AU},
         vel: vel1,
-        isParking: true,
-      },
-      st2: moonArr,
-    };
+        isParking: true},
+      st2: moonArr};
   }
 
   if (!originIsCentral && destIsCentral) {
@@ -472,17 +450,13 @@ export function planetRelativeEndpointStates(body1, body2, central, depT, arrT, 
       st1: moonDep,
       st2: {
         posAU: {
-          x: r2_m[0] / AU, y: r2_m[1] / AU, z: r2_m[2] / AU, r: rPark2 / AU,
-        },
+          x: r2_m[0] / AU, y: r2_m[1] / AU, z: r2_m[2] / AU, r: rPark2 / AU},
         vel: vel2,
-        isParking: true,
-      },
-    };
+        isParking: true}};
   }
 
   // parent → parent (shouldn't happen)
   return {
     st1: parentRelativeState(body1, central, depT, { exaggerate, towardBody: body2, parkingAlt_m: alt1 }),
-    st2: parentRelativeState(body2, central, arrT, { exaggerate, towardBody: body1, parkingAlt_m: alt2 }),
-  };
+    st2: parentRelativeState(body2, central, arrT, { exaggerate, towardBody: body1, parkingAlt_m: alt2 })};
 }

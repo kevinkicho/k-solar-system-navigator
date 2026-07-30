@@ -5,8 +5,7 @@
 import { AU, DAY, G_CONST, PI, TWO_PI } from '../constants.js';
 import { SUN_DATA } from '../data/bodies.js';
 import {
-  getPlanningPosition3D, getPlanningVelocity3D,
-} from './ephemeris-provider.js';
+  getPlanningPosition3D, getPlanningVelocity3D} from './ephemeris-provider.js';
 import { solveLambertBestBranch } from './lambert.js';
 import { resolveMaxRevolutionsForTof } from './planning-defaults.js';
 import { v3dot, v3mag, v3sub } from './vec3.js';
@@ -31,20 +30,18 @@ export function defaultGridSpec(body1, body2, departStart, nx = 65, ny = 52) {
     nx,
     ny,
     hohmannTof,
-    departSpan,
-  };
+    departSpan};
 }
 
 /**
  * Evaluate a single grid cell.
- * @param {object} [planOpts] { backend, classroomMode, maxRevolutions }
+ * @param {object} [planOpts] { backend, maxRevolutions, multiRevLambert }
  * @returns {{ dv, c3, vinf, revolutions } | null}
  */
 export function evaluateCell(body1, body2, dep, tof, planOpts = {}) {
   const mu = G_CONST * SUN_DATA.mass;
   const pOpts = {
     backend: planOpts.backend || planOpts.ephemerisBackend || 'approx',
-    classroomMode: !!planOpts.classroomMode,
   };
   const d = getPlanningPosition3D(body1, dep, pOpts);
   const a = getPlanningPosition3D(body2, dep + tof, pOpts);
@@ -54,7 +51,6 @@ export function evaluateCell(body1, body2, dep, tof, planOpts = {}) {
   const vb2 = getPlanningVelocity3D(body2, dep + tof, pOpts);
   // Per-cell multi-rev: honor flag/explicit max, else auto N=1 for TOF > 400 d
   const maxRev = resolveMaxRevolutionsForTof(tof, {
-    classroomMode: !!planOpts.classroomMode,
     multiRevLambert: !!planOpts.multiRevLambert,
     multiRevMax: planOpts.multiRevMax ?? planOpts.maxRevolutions,
     maxRevolutions: planOpts.maxRevolutions,
@@ -67,8 +63,7 @@ export function evaluateCell(body1, body2, dep, tof, planOpts = {}) {
     dv: best.cost,
     c3: v3dot(vInfDep, vInfDep),
     vinf: v3mag(vInfArr),
-    revolutions: best.revolutions ?? 0,
-  };
+    revolutions: best.revolutions ?? 0};
 }
 
 /**
@@ -109,7 +104,7 @@ export function fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf, planOpts
 
 /**
  * Full synchronous sweep (offline tests / main-thread).
- * @param {object} [planOpts] { backend, classroomMode, maxRevolutions }
+ * @param {object} [planOpts] { backend, maxRevolutions, multiRevLambert }
  */
 export function sweepPorkchopGrid(body1, body2, gridSpec, planOpts = {}) {
   const { nx, ny } = gridSpec;
@@ -139,8 +134,7 @@ export function sweepPorkchopGrid(body1, body2, gridSpec, planOpts = {}) {
     dvMin: minDv, dvMax: maxDv,
     c3Min: minC3, c3Max: maxC3,
     vinfMin: minVI, vinfMax: maxVI,
-    minCell,
-  };
+    minCell};
 }
 
 export function cellTimes(gridSpec, ix, iy) {
@@ -181,6 +175,5 @@ export function refineGridSpec(coarseSpec, ix, iy, n = 40, minTof = 1e-6) {
     tofMin: tofLo,
     tofMax: tofHi,
     nx: n,
-    ny: n,
-  };
+    ny: n};
 }

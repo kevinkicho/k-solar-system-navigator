@@ -30,7 +30,6 @@ async function runSweep(msg) {
   const {
     requestId, body1Id, body2Id, gridSpec,
     backend = 'approx',
-    classroomMode = false,
     maxRevolutions = 0,
   } = msg;
   activeRequestId = requestId;
@@ -43,17 +42,14 @@ async function runSweep(msg) {
     self.postMessage({
       type: 'error',
       requestId,
-      message: `Unknown body id(s): ${missing}`,
-    });
+      message: `Unknown body id(s): ${missing}`});
     clearRequest(requestId);
     return;
   }
 
   const planOpts = {
     backend: backend === 'sample-de' ? 'sample-de' : 'approx',
-    classroomMode: false,
-    maxRevolutions: Math.max(0, Math.min(2, maxRevolutions | 0)),
-  };
+    maxRevolutions: Math.max(0, Math.min(2, maxRevolutions | 0))};
   if (planOpts.backend === 'sample-de') {
     await ensureSampleTableLoaded();
   }
@@ -105,8 +101,7 @@ async function runSweep(msg) {
         iy,
         dv: dvRow,
         c3: c3Row,
-        vinf: vinfRow,
-      },
+        vinf: vinfRow},
       [dvRow.buffer, c3Row.buffer, vinfRow.buffer],
     );
 
@@ -130,9 +125,7 @@ async function runSweep(msg) {
       c3Max: maxC3,
       vinfMin: minVI,
       vinfMax: maxVI,
-      backend: planOpts.backend,
-    },
-  });
+      backend: planOpts.backend}});
   clearRequest(requestId);
 }
 
@@ -154,8 +147,7 @@ self.onmessage = (ev) => {
       self.postMessage({
         type: 'error',
         requestId: msg.requestId,
-        message: err?.message || String(err),
-      });
+        message: err?.message || String(err)});
       clearRequest(msg.requestId);
     });
   }

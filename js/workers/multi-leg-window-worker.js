@@ -34,8 +34,7 @@ self.onmessage = async (ev) => {
     destId,
     flybyHints, // [{ bodyId, simTime }]
     depHint,
-    routeOpts = {},
-  } = msg;
+    routeOpts = {}} = msg;
 
   activeRequestId = requestId;
   cancelled.delete(requestId);
@@ -46,8 +45,7 @@ self.onmessage = async (ev) => {
     self.postMessage({
       type: 'error',
       requestId,
-      message: `Unknown body id(s): ${[!origin && originId, !dest && destId].filter(Boolean).join(', ')}`,
-    });
+      message: `Unknown body id(s): ${[!origin && originId, !dest && destId].filter(Boolean).join(', ')}`});
     clearRequest(requestId);
     return;
   }
@@ -59,8 +57,7 @@ self.onmessage = async (ev) => {
       self.postMessage({
         type: 'error',
         requestId,
-        message: `Unknown flyby body id: ${h.bodyId}`,
-      });
+        message: `Unknown flyby body id: ${h.bodyId}`});
       clearRequest(requestId);
       return;
     }
@@ -69,7 +66,7 @@ self.onmessage = async (ev) => {
 
   try {
     if (routeOpts.ephemerisBackend === 'sample-de' || routeOpts.backend === 'sample-de') {
-      if (!routeOpts.classroomMode) await ensureSampleTableLoaded();
+      await ensureSampleTableLoaded();
     }
     if (isCancelled(requestId)) {
       self.postMessage({ type: 'cancelled', requestId });
@@ -83,8 +80,7 @@ self.onmessage = async (ev) => {
         if (i === 1 || i === n || i % 4 === 0) {
           self.postMessage({ type: 'progress', requestId, i, n });
         }
-      },
-    });
+      }});
 
     if (isCancelled(requestId)) {
       self.postMessage({ type: 'cancelled', requestId });
@@ -95,8 +91,7 @@ self.onmessage = async (ev) => {
     self.postMessage({
       type: 'error',
       requestId,
-      message: e?.message || String(e),
-    });
+      message: e?.message || String(e)});
   } finally {
     clearRequest(requestId);
   }

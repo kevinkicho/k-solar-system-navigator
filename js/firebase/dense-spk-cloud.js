@@ -40,7 +40,7 @@ export function isDenseStorageFetchOrigin() {
 }
 
 export function isDenseCloudAvailable() {
-  if (state.classroomMode) return false;
+  // no classroom gate — only origin / firebase enablement
   if (!isFirebaseEnabled()) return false;
   // Storage binary fetch only from known web origins (CORS + CI hygiene)
   if (!isDenseStorageFetchOrigin()) return false;

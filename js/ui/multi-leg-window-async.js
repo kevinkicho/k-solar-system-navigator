@@ -6,8 +6,7 @@
 import { bodyId } from '../data/catalog.js';
 import {
   findMultiLegWindow,
-  findMultiLegWindowChunked,
-} from '../physics/multi-leg-window-search.js';
+  findMultiLegWindowChunked} from '../physics/multi-leg-window-search.js';
 
 let worker = null;
 let workerReady = false;
@@ -96,8 +95,7 @@ export async function findMultiLegWindowAsync(
   const destId = bodyId(dest);
   const hintPayload = (flybyHints || []).map((f) => ({
     bodyId: bodyId(f.body),
-    simTime: f.simTime,
-  }));
+    simTime: f.simTime}));
   const onProgress = opts.onProgress;
   const shouldCancel = opts.shouldCancel;
 
@@ -122,10 +120,7 @@ export async function findMultiLegWindowAsync(
           depHint,
           routeOpts: {
             ephemerisBackend: routeOpts.ephemerisBackend || routeOpts.backend || 'approx',
-            backend: routeOpts.backend || routeOpts.ephemerisBackend || 'approx',
-            classroomMode: !!routeOpts.classroomMode,
-          },
-        });
+            backend: routeOpts.backend || routeOpts.ephemerisBackend || 'approx'}});
       });
     } catch (e) {
       if (e?.code !== 'WORKER_DEAD') {
@@ -136,8 +131,7 @@ export async function findMultiLegWindowAsync(
 
   return findMultiLegWindowChunked(origin, dest, flybyHints, depHint, routeOpts, {
     onProgress,
-    shouldCancel,
-  });
+    shouldCancel});
 }
 
 export { findMultiLegWindow };

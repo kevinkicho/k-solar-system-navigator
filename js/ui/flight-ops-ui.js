@@ -18,7 +18,7 @@ import { computeNeed } from '../physics/need.js';
 
 export function setFlightOpsMode(on, opts = {}) {
   state.flightOpsMode = !!on;
-  if (state.flightOpsMode && !state.classroomMode) {
+  if (state.flightOpsMode) {
     // Prefer highest offline fidelity table (L3 if spice-baked, else L2-plan)
     state.ephemerisBackend = 'sample-de';
     const meta = getSampleMeta();
@@ -184,10 +184,6 @@ function wireDensePrefetchButtons() {
 
 /** Prefetch named dense packs (Tier B) with OPS feedback. */
 async function prefetchDensePacks(packIds = []) {
-  if (state.classroomMode) {
-    notify('CLASSROOM MODE — dense cloud packs disabled');
-    return;
-  }
   notify(`LOADING DENSE SPICE · ${packIds.join(', ')}…`);
   const dense = await import('../physics/dense-spk-pack.js');
   const loaded = [];

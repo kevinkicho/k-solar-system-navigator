@@ -73,7 +73,7 @@ export function planSummaryFromTransfer(td) {
     arch: state.vehicleId === 'sh-starship' ? (state.starshipArch || 'legacy-demo') : undefined,
     tankers: state.starshipArch === 'tanker-n' ? (state.tankerCount || 0) : undefined,
     f9v: state.vehicleId === 'falcon9' ? (state.falcon9Variant || 'expendable') : undefined,
-    eph: (state.ephemerisBackend === 'sample-de' && !state.classroomMode) ? 'sample' : undefined,
+    eph: state.ephemerisBackend === 'sample-de' ? 'sample' : undefined,
     map: state.mapMode ? 1 : undefined,
   };
 

@@ -7,8 +7,7 @@ import { AU, DAY, DEG, LEG_COLORS } from '../constants.js';
 import { state } from '../state.js';
 import { computeMissionBudget } from '../physics/mission-budget.js';
 import {
-  formatDateShort, formatDist, formatTime, formatTimePrecise, formatVelocity, simTimeToDate,
-} from './format.js';
+  formatDateShort, formatDist, formatTime, formatTimePrecise, formatVelocity, simTimeToDate} from './format.js';
 import { timeState } from './time-system.js';
 import { requiredDeltaV, transferBudgetNow } from './mission-budget-ui.js';
 import { exportMissionPlan } from './mission-export.js';
@@ -105,8 +104,7 @@ function bindMissionControlButtons(td, { canLaunch }) {
       import('./vehicle-lab.js').then(({ openVehicleLab }) => {
         openVehicleLab({ focusDesign: true });
       });
-    },
-  });
+    }});
 }
 
 /**
@@ -115,7 +113,7 @@ function bindMissionControlButtons(td, { canLaunch }) {
 function missionReviewBoardHtml({
   go, status, b1, b2, transitLabel, needLabel, c3Label, vinfLabel,
   depLabel, fidelityPill, gatePass, gateWarn, gateFail,
-  asymptoteHtml, surfaceNote, visualWarn, classroom,
+  asymptoteHtml, surfaceNote, visualWarn,
 }) {
   const boardCls = go ? 'go' : (status === 'pass_with_warnings' ? 'warn' : 'nogo');
   const statusWord = go
@@ -124,9 +122,7 @@ function missionReviewBoardHtml({
   const statusCls = go
     ? (status === 'pass_with_warnings' ? 'warn' : 'go')
     : 'nogo';
-  const sub = classroom
-    ? 'Classroom analysis · methodology-first'
-    : 'Preliminary mission design · not flight-certified';
+  const sub = 'Industrial preliminary design · not flight-certified';
   return `
     <div class="mission-review-board ${boardCls}" id="results-hero" data-go="${go ? '1' : '0'}">
       <div class="mrb-header">
@@ -173,7 +169,6 @@ function heroCardHtml(opts) {
     asymptoteHtml: '',
     surfaceNote: opts.surfaceNote,
     visualWarn: opts.visualWarn,
-    classroom: !!state.classroomMode,
   });
 }
 
@@ -249,38 +244,33 @@ function actionsHtml(missionReady) {
 
 /** Always-on honesty strip: ephemeris, path model, scene mode, residual, low-thrust note. */
 function trustStripHtml(td, dossier) {
-  let eph = state.classroomMode
-    ? 'L1 approx (classroom)'
-    : (state.fidelityLevel === 'L3-plan'
-      ? 'L3-plan DE440s SPICE-baked'
-      : (state.horizonsEndpointInject || state.fidelityLevel === 'L2-horizons'
-        ? 'L2-horizons inject'
-        : (state.ephemerisBackend === 'sample-de' ? 'L2-plan sample-DE' : 'L1 approx')));
+  let eph = state.fidelityLevel === 'L3-plan'
+    ? 'L3-plan DE440s SPICE-baked'
+    : (state.horizonsEndpointInject || state.fidelityLevel === 'L2-horizons'
+      ? 'L2-horizons inject'
+      : (state.ephemerisBackend === 'sample-de' ? 'L2-plan sample-DE' : 'L1 approx'));
   if (td?.sampleFallback || dossier?.fidelity?.sampleFallback) {
     eph += ' · partial approx fallback';
   }
-  if (td?.endpointBackendSummary && !state.classroomMode) {
+  if (td?.endpointBackendSummary) {
     eph += ` · ${td.endpointBackendSummary}`;
   }
   if (td?.revolutions > 0) eph += ` · multi-rev N=${td.revolutions}`;
   // Dense SPICE pack honesty (parent-relative / helio sample packs)
   let denseTxt = '';
   try {
-    if (!state.classroomMode) {
-      const parts = [];
-      if (td?.prEphSource) parts.push(String(td.prEphSource));
-      if (td?.prEphRecovery) parts.push(`recovery=${td.prEphRecovery}`);
-      // Loaded pack delivery sources (Storage CDN vs Hosting)
-      import('../physics/dense-spk-pack.js').then((d) => {
-        const sum = d.denseSpkCoverageSummary?.();
-        const el = document.getElementById('path-trust-dense');
-        if (el && sum?.packs?.length) {
-          const del = [...new Set(sum.packs.map((p) => p.delivery || 'local'))].join('+');
-          el.textContent = `Dense ${sum.packs.map((p) => p.pack_id).slice(0, 4).join(',')} [${del}]`;
-        }
-      }).catch(() => {});
-      if (parts.length) denseTxt = parts.join(' · ');
-    }
+    const parts = [];
+    if (td?.prEphSource) parts.push(String(td.prEphSource));
+    if (td?.prEphRecovery) parts.push(`recovery=${td.prEphRecovery}`);
+    import('../physics/dense-spk-pack.js').then((d) => {
+      const sum = d.denseSpkCoverageSummary?.();
+      const el = document.getElementById('path-trust-dense');
+      if (el && sum?.packs?.length) {
+        const del = [...new Set(sum.packs.map((p) => p.delivery || 'local'))].join('+');
+        el.textContent = `Dense ${sum.packs.map((p) => p.pack_id).slice(0, 4).join(',')} [${del}]`;
+      }
+    }).catch(() => {});
+    if (parts.length) denseTxt = parts.join(' · ');
   } catch { /* */ }
   if (state.physicsAccurate) eph += ' · ACCURATE view';
   if (state.flightOpsMode) eph += ' · OPS review';
@@ -297,7 +287,7 @@ function trustStripHtml(td, dossier) {
       if (r.maxAU != null) resTxt = `${r.maxAU.toExponential(1)} AU`;
     }
   } catch { /* */ }
-  const nbody = state.pathAccuracy?.nbodyOverlay && !state.classroomMode
+  const nbody = state.pathAccuracy?.nbodyOverlay 
     ? ' · n-body residual ON (Need unchanged)'
     : '';
   return `
@@ -347,7 +337,7 @@ function visualWarnHtml(td) {
   if (td.revolutions > 0) {
     parts.push(`<div class="visual-fallback-note" role="status">Multi-rev Lambert N=${td.revolutions} (flag and/or auto when TOF&gt;400 d — educational branch, not certified).</div>`);
   }
-  if (state.pathAccuracy?.nbodyOverlay && !state.classroomMode) {
+  if (state.pathAccuracy?.nbodyOverlay ) {
     parts.push(`<div class="visual-fallback-note" role="status">n-body coast overlay = educational residual under Approximate Positions — not navigation OD. Need/Δv unchanged.</div>`);
   }
   // PR9: outer-system sample-DE recommend (no silent switch)
@@ -366,8 +356,7 @@ function isOuterBody(body) {
 }
 
 function outerSampleDeBanner(td) {
-  if (state.classroomMode) return '';
-  if (!state.pathAccuracy?.preferSampleDeOuter) return '';
+    if (!state.pathAccuracy?.preferSampleDeOuter) return '';
   if (state.ephemerisBackend === 'sample-de') return '';
   const b1 = td.body1, b2 = td.body2;
   if (!isOuterBody(b1) && !isOuterBody(b2)) return '';
@@ -413,7 +402,7 @@ export function renderRouteUI() {
     import('./flight-ops-ui.js').then((m) => m.refreshFlightOpsPanel?.()).catch(() => {});
   }
   // Quantitative n-body residual (analysis only) when flag on
-  if (state.pathAccuracy?.nbodyOverlay && !state.classroomMode && td && !td.isMultiLeg) {
+  if (state.pathAccuracy?.nbodyOverlay  && td && !td.isMultiLeg) {
     import('../physics/nbody-cowell.js').then((m) => {
       try {
         const res = m.transferNbodyResidual?.(td);
@@ -552,7 +541,6 @@ function renderSingleLegRouteUI(td) {
         asymptoteHtml: asymptoteHeroHtml(dossier),
         visualWarn: visualWarnHtml(td) + designHint,
         surfaceNote: surfaceNoteHtml(td),
-        classroom: !!state.classroomMode,
       })}
       ${completenessBoardHtml(dossier)}
       ${trustStripHtml(td, dossier)}
@@ -574,10 +562,6 @@ function renderSingleLegRouteUI(td) {
   const sampleDeBtn = document.getElementById('btn-upgrade-sample-de');
   if (sampleDeBtn) {
     sampleDeBtn.onclick = () => {
-      if (state.classroomMode) {
-        notify('CLASSROOM MODE FORCES L1 APPROX');
-        return;
-      }
       state.ephemerisBackend = 'sample-de';
       state.fidelityLevel = 'L2-plan';
       const ephSel = document.getElementById('ephemeris-backend');
@@ -693,7 +677,6 @@ function renderMultiLegRouteUI() {
         asymptoteHtml: asymptoteHeroHtml(dossier),
         visualWarn: visualWarnHtml(td),
         surfaceNote: surfaceNoteHtml(td),
-        classroom: !!state.classroomMode,
       })}
       ${completenessBoardHtml(dossier)}
       ${trustStripHtml(td, dossier)}

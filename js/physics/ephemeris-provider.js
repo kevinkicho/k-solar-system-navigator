@@ -18,11 +18,10 @@ import { getHorizonsInjected } from './ephemeris-horizons-inject.js';
 
 /**
  * @param {'approx'|'sample-de'|string|null|undefined} requested
- * @param {{ classroomMode?: boolean }} ctx
+ * @param {object} [_ctx] reserved
  * @returns {'approx'|'sample-de'}
  */
-export function resolveBackend(requested, ctx = {}) {
-  if (ctx.classroomMode) return 'approx';
+export function resolveBackend(requested, _ctx = {}) {
   if (requested === 'sample-de') return 'sample-de';
   return 'approx';
 }
@@ -32,9 +31,6 @@ export function resolveBackend(requested, ctx = {}) {
  * @returns {{ backend: 'approx'|'sample-de'|'horizons-inject', sampleHit: boolean, horizonsHit: boolean }}
  */
 export function effectiveBackend(body, timeSec, requested, ctx = {}) {
-  if (ctx.classroomMode) {
-    return { backend: 'approx', sampleHit: false, horizonsHit: false };
-  }
   // Injected Horizons endpoints win when present (explicit opt-in populated cache)
   if (ctx.allowHorizonsInject !== false) {
     const inj = getHorizonsInjected(body, timeSec);
@@ -51,9 +47,7 @@ export function effectiveBackend(body, timeSec, requested, ctx = {}) {
  */
 export function getPlanningPosition3D(body, timeSec, opts = {}) {
   const requested = opts.backend || 'approx';
-  const classroomMode = !!opts.classroomMode;
   const { backend } = effectiveBackend(body, timeSec, requested, {
-    classroomMode,
     allowHorizonsInject: opts.allowHorizonsInject,
   });
   if (backend === 'horizons-inject') {
@@ -72,9 +66,7 @@ export function getPlanningPosition3D(body, timeSec, opts = {}) {
  */
 export function getPlanningVelocity3D(body, timeSec, opts = {}) {
   const requested = opts.backend || 'approx';
-  const classroomMode = !!opts.classroomMode;
   const { backend } = effectiveBackend(body, timeSec, requested, {
-    classroomMode,
     allowHorizonsInject: opts.allowHorizonsInject,
   });
   if (backend === 'horizons-inject') {

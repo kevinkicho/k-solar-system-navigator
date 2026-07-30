@@ -144,11 +144,10 @@ export function updateTransferOrbitVisual() {
       const tofDays = td.transferTime != null ? td.transferTime / DAY : null;
       setTransferRibbon(drawPts, {
         color,
+        // DEP / MID / ARR only — denser ticks pile up and fight body labels
         labels: [
           { frac: 0, text: 'DEP' },
-          { frac: 0.25, text: tofDays != null ? `${(tofDays * 0.25).toFixed(0)}d` : '25%' },
           { frac: 0.5, text: tofDays != null ? `MID ${(tofDays * 0.5).toFixed(0)}d` : 'MID' },
-          { frac: 0.75, text: tofDays != null ? `${(tofDays * 0.75).toFixed(0)}d` : '75%' },
           { frac: 1, text: 'ARR' },
         ],
       });
@@ -207,13 +206,14 @@ export function updateTransferOrbitVisual() {
   }
 
   // N-body residual overlay (PR10)
-  if (state.pathAccuracy?.nbodyOverlay && !state.classroomMode && built.orbitUsed) {
+  if (state.pathAccuracy?.nbodyOverlay && built.orbitUsed) {
     scheduleNbodyOverlay(td);
   }
 }
 
 function placeEndpointMarkers(td, dep, arr, depT, arrT, drawPts) {
-  const markerPol = state.endpointMarkerPolicy || 'epoch_true';
+  // Default match_path_end: ghosts sit on the transfer path ends (ship-line honesty).
+  const markerPol = state.endpointMarkerPolicy || 'match_path_end';
   let depMark, arrMark;
   if (markerPol === 'match_path_end' && drawPts?.length >= 2) {
     const p0 = drawPts[0], pN = drawPts[drawPts.length - 1];

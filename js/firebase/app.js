@@ -50,13 +50,7 @@ export function initFirebase() {
   }
   _initTried = true;
 
-  // Classroom mode stays offline (no cloud dependency for curriculum).
-  if (state.classroomMode) {
-    _enabled = false;
-    return { app: null, auth: null, db: null, rtdb: null, storage: null, enabled: false };
-  }
-
-  // Opt-out: ?firebase=0
+  // Opt-out: ?firebase=0 (hermetic offline / CI)
   try {
     if (typeof location !== 'undefined'
         && /[?&]firebase=0(?:&|$)/.test(location.search || '')) {

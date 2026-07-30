@@ -23,7 +23,7 @@ export function prefsFromState() {
     display_mode: state.display?.mode || 'cinematic',
     map_mode: !!state.mapMode,
     path_geometry: state.pathGeometry || 'visual',
-    ephemeris_backend: state.classroomMode ? 'approx' : (state.ephemerisBackend || 'approx'),
+    ephemeris_backend: state.ephemerisBackend || 'approx',
     fidelity_level: state.fidelityLevel || 'L1',
     starshipArch: state.starshipArch || 'unrefueled',
     cargoMass_kg: state.cargoMass_kg ?? 0,
@@ -37,7 +37,6 @@ export function prefsFromState() {
  */
 export function applyPrefsToState(prefs) {
   if (!prefs || typeof prefs !== 'object') return false;
-  if (state.classroomMode) return false;
 
   if (prefs.vehicleId) state.vehicleId = prefs.vehicleId;
   if (prefs.abstractBudget_m_s != null) state.abstractBudget_m_s = Number(prefs.abstractBudget_m_s);

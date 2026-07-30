@@ -13,11 +13,9 @@ import { setRouteDestination, setRouteOrigin, renderFlybyList } from './route-pl
 import { timeState } from './time-system.js';
 import { updateBodyList } from './body-list.js';
 import {
-  encodePlanRequestObject, parsePlanRequest as parseHash, padDate, MAX_FLYS,
-} from './share-codec.js';
+  encodePlanRequestObject, parsePlanRequest as parseHash, padDate, MAX_FLYS} from './share-codec.js';
 import {
-  cloneSurfacePoint, isSurfacePointActive, normalizeSurfacePoint,
-} from '../physics/surface-point.js';
+  cloneSurfacePoint, isSurfacePointActive, normalizeSurfacePoint} from '../physics/surface-point.js';
 import { refreshSurfacePointUi } from './surface-point-ui.js';
 
 export function parsePlanRequest(hash) { return parseHash(hash); }
@@ -39,8 +37,7 @@ export function encodePlanRequest(opts = {}) {
     veh: state.vehicleId || 'sh-starship',
     ab: state.abstractBudget_m_s,
     basis: isMulti ? 'helio' : (state.costBasis || 'helio'),
-    view: state.display?.mode || 'cinematic',
-  };
+    view: state.display?.mode || 'cinematic'};
   if (!isMulti) {
     const tofDays = state.userTofDays != null
       ? Math.round(state.userTofDays)
@@ -83,10 +80,7 @@ export function applyPlanRequest(req) {
   }
   if (req.tankerCount != null) state.tankerCount = req.tankerCount;
   if (req.falcon9Variant) state.falcon9Variant = req.falcon9Variant;
-  if (state.classroomMode) {
-    state.ephemerisBackend = 'approx';
-    state.fidelityLevel = 'L1';
-  } else if (req.ephemerisBackend === 'sample-de') {
+  if (req.ephemerisBackend === 'sample-de') {
     state.ephemerisBackend = 'sample-de';
     state.fidelityLevel = 'L2-plan';
   } else {
@@ -134,8 +128,7 @@ export function applyPlanRequest(req) {
     state.flybys.push({
       bodyId: body.id,
       bodyName: body.name,
-      simTime: dateToSimTime(f.date),
-    });
+      simTime: dateToSimTime(f.date)});
   }
   renderFlybyList();
 
@@ -167,8 +160,7 @@ export function applyPlanRequest(req) {
 
     state.transferData = solveMultiLegRoute(waypoints, {
       surfaceOriginPoint: state.routeOriginPoint,
-      surfaceDestPoint: state.routeDestPoint,
-    });
+      surfaceDestPoint: state.routeDestPoint});
     state.transferData.surfaceOriginPoint = cloneSurfacePoint(state.routeOriginPoint, origin);
     state.transferData.surfaceDestPoint = cloneSurfacePoint(state.routeDestPoint, dest);
     state.showTransferOrbit = true;

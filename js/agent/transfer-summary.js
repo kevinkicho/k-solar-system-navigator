@@ -32,8 +32,7 @@ export function summarizeTransfer(td) {
       null,
     quality: dossier?.status ?? null,
     status: dossier?.status ?? null,
-    lambertOk: td.lambertOk !== false && td.allLegsOk !== false,
-  };
+    lambertOk: td.lambertOk !== false && td.allLegsOk !== false};
 }
 
 /**
@@ -53,9 +52,7 @@ export function buildMissionSnapshot(state, extra = {}) {
     cargoMass_kg: state?.cargoMass_kg ?? null,
     starshipArch: state?.starshipArch ?? null,
     fidelityLevel: state?.fidelityLevel ?? null,
-    classroomMode: !!state?.classroomMode,
     departure: extra.departure ?? extra.simDate ?? null,
     missionActive: !!state?.mission?.active,
-    transfer,
-  };
+    transfer};
 }

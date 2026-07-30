@@ -7,8 +7,7 @@ import { state } from '../state.js';
 import { bodyId } from '../data/catalog.js';
 import { runQualityGates, recoveryFromGates } from '../physics/plan-quality.js';
 import {
-  fullAsymptotePackage, departureVinfVec, arrivalVinfVec, vinfMagnitude,
-} from '../physics/departure-asymptote.js';
+  fullAsymptotePackage, departureVinfVec, arrivalVinfVec, vinfMagnitude} from '../physics/departure-asymptote.js';
 import { getBodyVelocity3D } from '../physics/kepler.js';
 import { getPlanningVelocity3D } from '../physics/ephemeris-provider.js';
 import { getLaunchSite } from '../data/launch-sites-edu.js';
@@ -17,8 +16,7 @@ import { buildVehicleEngineeringReport } from '../physics/vehicle-performance.js
 import { formatVelocity, simTimeToDate } from './format.js';
 import { trustCardHtml } from './trust-card.js';
 import {
-  COORD_SYSTEM_ID, geographicEndpointPackage,
-} from '../physics/surface-point.js';
+  COORD_SYSTEM_ID, geographicEndpointPackage} from '../physics/surface-point.js';
 import { buildFlightOpsGates } from '../physics/flight-ops.js';
 import { getSampleMeta } from '../physics/ephemeris-sample.js';
 
@@ -39,9 +37,7 @@ export function buildPlanDossier(td, opts = {}) {
   let vInfDepVec = null;
   if (!td.isMultiLeg && td.lambertOk && td.v1_lambert && td.body1) {
     const pOpts = {
-      backend: td.ephemerisBackend || state.ephemerisBackend || 'approx',
-      classroomMode: !!state.classroomMode,
-    };
+      backend: td.ephemerisBackend || state.ephemerisBackend || 'approx'};
     let vPlanet;
     try {
       vPlanet = getPlanningVelocity3D(td.body1, td.departureSimTime, pOpts);
@@ -74,15 +70,13 @@ export function buildPlanDossier(td, opts = {}) {
     launchSiteId: site.id,
     site_dla_max_deg: site.dla_max_deg,
     dla_eq_deg: asymptotePkg?.equatorial_approx?.dla_deg ?? null,
-    dla_ecliptic_deg: asymptotePkg?.ecliptic?.dla_deg ?? null,
-  });
+    dla_ecliptic_deg: asymptotePkg?.ecliptic?.dla_deg ?? null});
 
   // Educational flight-ops gates (never claim certification)
   if (state.flightOpsMode) {
     const opsGates = buildFlightOpsGates(td, {
       sampleMeta: getSampleMeta(),
-      horizonsInject: !!state.horizonsEndpointInject,
-    });
+      horizonsInject: !!state.horizonsEndpointInject});
     quality.gates = [...(quality.gates || []), ...opsGates];
   }
 
@@ -96,8 +90,7 @@ export function buildPlanDossier(td, opts = {}) {
     starshipArch: state.starshipArch,
     tankerCount: state.tankerCount,
     cargoMass_kg: state.cargoMass_kg,
-    falcon9Variant: state.falcon9Variant,
-  });
+    falcon9Variant: state.falcon9Variant});
 
   const ascent = buildAscentBlock(vehEng, need);
 
@@ -124,13 +117,11 @@ export function buildPlanDossier(td, opts = {}) {
       cargoMass_kg: state.cargoMass_kg,
       falcon9Variant: state.falcon9Variant,
       costBasis: state.costBasis,
-      classroomMode: !!state.classroomMode,
       launch_site_id: site.id,
       ascent_loss_m_s: state.ascentLossBudget_m_s || 0,
       coordinate_system: COORD_SYSTEM_ID,
       geographic_origin: geographicEndpointPackage(td.body1, td.surfaceOriginPoint),
-      geographic_destination: geographicEndpointPackage(td.body2, td.surfaceDestPoint),
-    },
+      geographic_destination: geographicEndpointPackage(td.body2, td.surfaceDestPoint)},
     geometry: {
       lambertOk: !!td.lambertOk,
       longWay: td.longWay ?? null,
@@ -157,8 +148,7 @@ export function buildPlanDossier(td, opts = {}) {
       asymptote_frame: asymptotePkg?.ecliptic?.frame ?? null,
       date_adjusted: !!opts.dateAdjusted,
       prev_departure_iso: opts.prevDepartureSimTime != null
-        ? simTimeToDate(opts.prevDepartureSimTime).toISOString() : null,
-    },
+        ? simTimeToDate(opts.prevDepartureSimTime).toISOString() : null},
     measurement: { need, capability, margin },
     vehicle_engineering: vehEng,
     ascent_loss: ascent,
@@ -166,25 +156,20 @@ export function buildPlanDossier(td, opts = {}) {
       id: site.id,
       name: site.name,
       dla_max_deg: site.dla_max_deg,
-      disclaimer: site.disclaimer,
-    },
+      disclaimer: site.disclaimer},
     fidelity: {
       fidelityLevel: state.fidelityLevel || 'L1',
-      ephemerisBackend: state.classroomMode
-        ? 'approx'
-        : (state.ephemerisBackend || 'approx'),
+      ephemerisBackend: (state.ephemerisBackend || 'approx'),
       flightOpsMode: !!state.flightOpsMode,
       sample_source: sampleMeta?.source || null,
       sample_bake_source: sampleMeta?.bake_source || null,
       sampleFallback: !!td.sampleFallback || !!opts.sampleFallback,
       endpointBackends: td.endpointBackends || null,
-      endpointBackendSummary: td.endpointBackendSummary || null,
-    },
+      endpointBackendSummary: td.endpointBackendSummary || null},
     completeness,
     confidence_label: confidenceLabel(quality.confidence_0_100, quality.status),
     confidence_note:
-      'Analysis-completeness confidence for preliminary design — not navigation covariance or flight certification.',
-  };
+      'Analysis-completeness confidence for preliminary design — not navigation covariance or flight certification.'};
 
   td.dossier = dossier;
 
@@ -219,8 +204,7 @@ function buildAscentBlock(vehEng, need) {
     ideal_stack_dv_m_s: idealStack,
     residual_after_ascent_m_s: residual,
     residual_minus_need_m_s: residual != null && needDv != null ? residual - needDv : null,
-    note: 'Ascent loss is educational framing — not included in Lambert Need or C₃.',
-  };
+    note: 'Ascent loss is educational framing — not included in Lambert Need or C₃.'};
 }
 
 function confidenceLabel(c, status) {
@@ -237,51 +221,42 @@ function buildCompleteness(td, need, capability, margin, asymptotePkg, quality) 
     {
       id: 'lambert',
       label: 'Ballistic Lambert',
-      ok: td.isMultiLeg ? (td.legs || []).every((L) => L.ok) : !!td.lambertOk,
-    },
+      ok: td.isMultiLeg ? (td.legs || []).every((L) => L.ok) : !!td.lambertOk},
     { id: 'c3', label: 'C₃ (departure)', ok: need?.c3_m2_s2 != null && isFinite(need.c3_m2_s2) },
     {
       id: 'vinf',
       label: 'V∞ dep/arr',
-      ok: (need?.vinf_dep_m_s != null || asymptotePkg?.vinf_m_s != null),
-    },
+      ok: (need?.vinf_dep_m_s != null || asymptotePkg?.vinf_m_s != null)},
     {
       id: 'peri',
       label: 'Safe perihelion',
-      ok: !quality.gates.some((g) => g.code === 'G_PERIHELION' && g.level === 'fail'),
-    },
+      ok: !quality.gates.some((g) => g.code === 'G_PERIHELION' && g.level === 'fail')},
     {
       id: 'vehicle',
       label: 'Vehicle applicable + margin',
-      ok: capability?.applicable !== false && margin?.feasible !== false,
-    },
+      ok: capability?.applicable !== false && margin?.feasible !== false},
     {
       id: 'flybys',
       label: 'Flybys achievable',
-      ok: !quality.gates.some((g) => g.code === 'G_FLYBY_ALL' && g.level === 'fail'),
-    },
+      ok: !quality.gates.some((g) => g.code === 'G_FLYBY_ALL' && g.level === 'fail')},
     {
       id: 'asymptote',
       label: 'Asymptote DLA/RLA',
       ok: asymptotePkg != null || !!td.isMultiLeg,
-      na: !!td.isMultiLeg,
-    },
+      na: !!td.isMultiLeg},
     {
       id: 'mission_parking',
       label: 'Mission parking budget',
       ok: !td.isMultiLeg,
-      na: !!td.isMultiLeg,
-    },
+      na: !!td.isMultiLeg},
     {
       id: 'fidelity',
       label: 'Fidelity labeled',
-      ok: true,
-    },
+      ok: true},
   ];
   return {
     items,
-    missing: items.filter((i) => !i.ok && !i.na).map((i) => i.id),
-  };
+    missing: items.filter((i) => !i.ok && !i.na).map((i) => i.id)};
 }
 
 /**

@@ -33,7 +33,7 @@ function getFns() {
  * @returns {Promise<object|null>}
  */
 export async function fetchDenseSpkCatalogHttp() {
-  if (state.classroomMode || !isFirebaseEnabled()) return null;
+  if (!isFirebaseEnabled()) return null;
   try {
     const url = 'https://us-central1-k-solar-system-navigator.cloudfunctions.net/denseSpkCatalog';
     const res = await fetch(url);
@@ -49,7 +49,7 @@ export async function fetchDenseSpkCatalogHttp() {
  * @returns {Promise<object|null>}
  */
 export async function refineWindowShortlistCloud(payload) {
-  if (state.classroomMode || !isFirebaseEnabled()) return null;
+  if (!isFirebaseEnabled()) return null;
   const fns = getFns();
   if (!fns) return null;
   try {

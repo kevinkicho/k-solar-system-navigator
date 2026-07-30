@@ -49,9 +49,7 @@ function getSOIParent(body) {
 /** Planning-velocity opts from transferData (L2-plan consistent). */
 function planningOpts(td) {
   return {
-    backend: td?.ephemerisBackend || 'approx',
-    classroomMode: !!td?.classroomMode,
-  };
+    backend: td?.ephemerisBackend || 'approx'};
 }
 
 /** C3 = |V∞_dep|² in m²/s² from Lambert solution (same vectors as mission-budget). */
@@ -87,8 +85,7 @@ export function computeNeed(td, opts = {}) {
       vinf_dep_m_s: null,
       vinf_arr_m_s: null,
       applicable: false,
-      reason: 'no transferData',
-    };
+      reason: 'no transferData'};
   }
 
   const isMulti = !!td.isMultiLeg;
@@ -96,8 +93,7 @@ export function computeNeed(td, opts = {}) {
     vehicleId: opts.vehicleId,
     starshipArch: opts.starshipArch,
     costBasis: opts.costBasis,
-    isMultiLeg: isMulti,
-  });
+    isMultiLeg: isMulti});
   const aero = clampAero(opts.aeroassistFactor ?? state.aeroassistFactor ?? 0);
 
   if (isMulti) {
@@ -126,11 +122,9 @@ export function computeNeed(td, opts = {}) {
             departureSimTime: L0.departSimTime,
             arrivalSimTime: L1.arriveSimTime,
             ephemerisBackend: td.ephemerisBackend,
-            classroomMode: td.classroomMode,
             surfaceOriginPoint: td.surfaceOriginPoint,
             surfaceDestPoint: td.surfaceDestPoint,
-            planetRelative: false,
-          };
+            planetRelative: false};
           const budget = computeMissionBudget(shell);
           if (budget) {
             // Terminal parking/injection only (do not re-count heliocentric leg Δv)
@@ -171,8 +165,7 @@ export function computeNeed(td, opts = {}) {
         applicable: isFinite(need),
         aeroassist_factor: aero,
         reason: null,
-        note: 'Multi-leg mission Need = heliocentric legs + terminal parking overhead (patched-conic sketch).',
-      };
+        note: 'Multi-leg mission Need = heliocentric legs + terminal parking overhead (patched-conic sketch).'};
     }
     return {
       phase: 'helio_leg',
@@ -186,8 +179,7 @@ export function computeNeed(td, opts = {}) {
       reason: isFinite(helioMulti) ? null : 'multi-leg incomplete',
       note: wantMission
         ? 'Multi-leg terminal parking unavailable — helio legs only.'
-        : 'Multi-leg Need = heliocentric leg sum (set cost basis → Mission for terminal parking sketch).',
-    };
+        : 'Multi-leg Need = heliocentric leg sum (set cost basis → Mission for terminal parking sketch).'};
   }
 
   const lambertOk = !!td.lambertOk;
@@ -231,8 +223,7 @@ export function computeNeed(td, opts = {}) {
       launch_geometry_sketch: launchSk,
       applicable: needDv != null && isFinite(needDv),
       aeroassist_factor: 0,
-      reason: inj == null ? 'injection requires Lambert-ok mission budget' : null,
-    };
+      reason: inj == null ? 'injection requires Lambert-ok mission budget' : null};
   }
 
   if (phase === 'mission_parking') {
@@ -246,8 +237,7 @@ export function computeNeed(td, opts = {}) {
         vinf_arr_m_s: null,
         applicable: false,
         aeroassist_factor: aero,
-        reason: 'mission parking requires Lambert-ok budget',
-      };
+        reason: 'mission parking requires Lambert-ok budget'};
     }
     // Apply aeroassist only to arrival capture contribution (K11).
     const dep = budget.departure.total;
@@ -268,8 +258,7 @@ export function computeNeed(td, opts = {}) {
       launch_geometry_sketch: launchSk,
       applicable: true,
       aeroassist_factor: aero,
-      reason: null,
-    };
+      reason: null};
   }
 
   // helio_leg — report geometric Need and optional plane-change/dogleg addon separately
@@ -291,8 +280,7 @@ export function computeNeed(td, opts = {}) {
     reason: isFinite(helio) ? null : 'helio Δv unavailable',
     fidelity_note: td.ephemerisBackend === 'sample-de'
       ? 'Planning ephemeris: offline sample table (L2/L3-class).'
-      : 'Planning ephemeris: JPL Approximate Positions (L1).',
-  };
+      : 'Planning ephemeris: JPL Approximate Positions (L1).'};
 
   // Optional light-time compare (analysis only — does not replace geometric Need)
   if (opts.lightTimeCompare || state.lightTimeNeedCompare) {
@@ -301,8 +289,7 @@ export function computeNeed(td, opts = {}) {
       base.light_time_compare = {
         ...lt,
         geometric_need_dv_m_s: helio,
-        note: lt.note,
-      };
+        note: lt.note};
     }
   }
   return base;

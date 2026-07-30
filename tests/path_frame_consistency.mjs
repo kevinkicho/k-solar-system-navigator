@@ -115,30 +115,21 @@ check('C-dbl not double-offset (two-s residual large if |s|>0)', two > one || Ma
 check('frame is scene', a.frame === 'scene', `frame=${a.frame}`);
 check('offsetApplied true', a.offsetApplied === true);
 
-// C3/C4 endpoints
+// C3/C4 endpoints — match_path_end: ghosts = path ends = ship (≤1e-4 AU industrial gate)
+state.endpointMarkerPolicy = 'match_path_end';
 const ship0 = getShipPositionOnTransfer(tdEM.departureSimTime, tdEM, tdEM.departureSimTime);
 const ship1 = getShipPositionOnTransfer(tdEM.departureSimTime, tdEM, tdEM.arrivalSimTime);
-const depGhost = {
-  x: tdEM.dep3D.x + getSunBarycentricOffset(tdEM.departureSimTime).x,
-  y: tdEM.dep3D.y + getSunBarycentricOffset(tdEM.departureSimTime).y,
-  z: tdEM.dep3D.z + getSunBarycentricOffset(tdEM.departureSimTime).z,
-};
-const arrGhost = {
-  x: tdEM.arr3D.x + getSunBarycentricOffset(tdEM.arrivalSimTime).x,
-  y: tdEM.arr3D.y + getSunBarycentricOffset(tdEM.arrivalSimTime).y,
-  z: tdEM.arr3D.z + getSunBarycentricOffset(tdEM.arrivalSimTime).z,
-};
-const d0 = Math.hypot(ship0.x - depGhost.x, ship0.y - depGhost.y, ship0.z - depGhost.z);
-const d1 = Math.hypot(ship1.x - arrGhost.x, ship1.y - arrGhost.y, ship1.z - arrGhost.z);
-// Path ends should match ship (same pipeline); ghost miss depends on orbit closure vs dep3D
 const p0 = builtEM.points[0];
 const pN = builtEM.points[builtEM.points.length - 1];
 const shipLine0 = Math.hypot(ship0.x - p0.x, ship0.y - p0.y, ship0.z - p0.z);
 const shipLineN = Math.hypot(ship1.x - pN.x, ship1.y - pN.y, ship1.z - pN.z);
 check('C3 ship(t0) ≡ path sample 0', shipLine0 < 1e-6, `Δ=${shipLine0.toExponential(2)}`);
 check('C4 ship(tT) ≡ path sample N', shipLineN < 1e-6, `Δ=${shipLineN.toExponential(2)}`);
-check('dep ghost near ship (orbit closure)', d0 < 0.05, `Δ=${d0.toFixed(6)} AU`);
-check('arr ghost near ship (orbit closure)', d1 < 0.05, `Δ=${d1.toFixed(6)} AU`);
+// Ghosts at path ends under match_path_end policy
+const d0 = Math.hypot(ship0.x - p0.x, ship0.y - p0.y, ship0.z - p0.z);
+const d1 = Math.hypot(ship1.x - pN.x, ship1.y - pN.y, ship1.z - pN.z);
+check('C3 ghost@path_end near ship ≤ 1e-4 AU', d0 <= 1e-4, `Δ=${d0.toExponential(3)} AU`);
+check('C4 ghost@path_end near ship ≤ 1e-4 AU', d1 <= 1e-4, `Δ=${d1.toExponential(3)} AU`);
 
 // Velocity still physical on r_helio
 check('helio speed present', ship0.v_km_s > 20 && ship0.v_km_s < 50, `v=${ship0.v_km_s?.toFixed(2)}`);

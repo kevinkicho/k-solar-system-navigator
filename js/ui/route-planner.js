@@ -5,12 +5,10 @@ import { state } from '../state.js';
 import { hohmannTransfer } from '../physics/kepler.js';
 import {
   MIN_PERIHELION_AU,
-  solveMultiLegRoute, solveTransferOrbit,
-} from '../physics/routing.js';
+  solveMultiLegRoute, solveTransferOrbit} from '../physics/routing.js';
 import {
   isPlanetRelativeRoute,
-  planetRelativePeriapsisOk,
-} from '../physics/planet-relative.js';
+  planetRelativePeriapsisOk} from '../physics/planet-relative.js';
 import { findNearestFeasibleTransferAsync } from './nearest-feasible-async.js';
 import { findMultiLegWindowAsync } from './multi-leg-window-async.js';
 import { effectiveBackend } from '../physics/ephemeris-provider.js';
@@ -23,8 +21,7 @@ import { syncShareHash } from './share-sync.js';
 import { buildPlanDossier } from './plan-dossier.js';
 import {
   emptySurfacePoint, cloneSurfacePoint, isSurfacePointActive,
-  defaultSurfacePointForBody, formatSurfacePointShort, normalizeSurfacePoint,
-} from '../physics/surface-point.js';
+  defaultSurfacePointForBody, formatSurfacePointShort, normalizeSurfacePoint} from '../physics/surface-point.js';
 import { refreshSurfacePointUi, syncSurfaceSlotLabels } from './surface-point-ui.js';
 import { activateRailTab } from './rail-ui.js';
 import { resolveMaxRevolutionsForTof } from '../physics/planning-defaults.js';
@@ -37,12 +34,9 @@ export function bindAbortHandler(fn) { _abortMission = fn; }
 /** Stamp L2-plan backend fields onto transferData (K3 classroom → approx). */
 export function stampPlanningEphemeris(td) {
   if (!td) return td;
-  const backend = state.classroomMode
-    ? 'approx'
-    : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx');
+  const backend = (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx');
   td.ephemerisBackend = backend;
-  td.classroomMode = !!state.classroomMode;
-  td.horizonsEndpointInject = !!(state.horizonsEndpointInject && !state.classroomMode);
+  td.horizonsEndpointInject = !!state.horizonsEndpointInject;
   // Multi-rev: explicit flag, or auto for long TOF outer transfers (realism)
   td.maxRevolutions = resolveMaxRevolutions(td);
   td.pathOffsetPolicy = state.pathOffsetPolicy || 'time_varying';
@@ -51,7 +45,6 @@ export function stampPlanningEphemeris(td) {
 
 /**
  * Multi-rev Nmax for planning.
- * - Classroom: 0
  * - User flag: pathAccuracy.multiRevMax (≤2)
  * - Auto: TOF > 400 d → allow N=1 (outer-system / long Type-II class)
  */
@@ -59,20 +52,14 @@ export function resolveMaxRevolutions(td = null) {
   const tof = td?.transferTime
     ?? (state.userTofDays != null ? state.userTofDays * 86400 : null);
   return resolveMaxRevolutionsForTof(tof, {
-    classroomMode: !!state.classroomMode,
     multiRevLambert: !!state.pathAccuracy?.multiRevLambert,
-    multiRevMax: state.pathAccuracy?.multiRevMax ?? 1,
-  });
+    multiRevMax: state.pathAccuracy?.multiRevMax ?? 1});
 }
 
 function routePlanOpts() {
   return {
-    ephemerisBackend: state.classroomMode
-      ? 'approx'
-      : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
-    classroomMode: !!state.classroomMode,
-    maxRevolutions: resolveMaxRevolutions(),
-  };
+    ephemerisBackend: (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
+    maxRevolutions: resolveMaxRevolutions()};
 }
 
 /**
@@ -81,9 +68,7 @@ function routePlanOpts() {
  */
 export function stampEndpointBackends(td) {
   if (!td) return [];
-  const requested = state.classroomMode
-    ? 'approx'
-    : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx');
+  const requested = (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx');
   const pairs = [];
   if (td.isMultiLeg && Array.isArray(td.legs)) {
     for (const L of td.legs) {
@@ -99,7 +84,6 @@ export function stampEndpointBackends(td) {
   const stamps = [];
   for (const [body, t, role] of pairs) {
     const eff = effectiveBackend(body, t, requested, {
-      classroomMode: !!state.classroomMode,
     });
     stamps.push({
       role,
@@ -109,8 +93,7 @@ export function stampEndpointBackends(td) {
       backend: eff.backend,
       sampleHit: !!eff.sampleHit,
       horizonsHit: !!eff.horizonsHit,
-      requested,
-    });
+      requested});
   }
   td.endpointBackends = stamps;
   const n = stamps.length;
@@ -125,7 +108,7 @@ export function stampEndpointBackends(td) {
  * True when sample-de was requested but any planning endpoint fell back to approx.
  */
 export function detectSampleFallback(td) {
-  if (state.classroomMode || state.ephemerisBackend !== 'sample-de') return false;
+  if (state.ephemerisBackend !== 'sample-de') return false;
   if (!td) return false;
   const stamps = stampEndpointBackends(td);
   if (!stamps.length) return false;
@@ -153,8 +136,7 @@ function finalizePlan(td, dossierOpts, notifyMsg) {
   state.transferData = td;
   buildPlanDossier(td, {
     ...(dossierOpts || {}),
-    sampleFallback: td?.sampleFallback,
-  });
+    sampleFallback: td?.sampleFallback});
   state.showTransferOrbit = true;
   updateTransferOrbitVisual();
   renderRouteUI();
@@ -165,9 +147,7 @@ function finalizePlan(td, dossierOpts, notifyMsg) {
       detail: {
         ok: !!(td && (td.dossier?.mission_ready || td.lambertOk || td.allLegsOk)),
         mission_ready: td?.dossier?.mission_ready ?? null,
-        isMultiLeg: !!td?.isMultiLeg,
-      },
-    }));
+        isMultiLeg: !!td?.isMultiLeg}}));
   } catch { /* non-browser */ }
 }
 
@@ -317,8 +297,7 @@ export function renderFlybyList() {
         enabled: en.checked,
         lat_deg: parseFloat(lat?.value) || 0,
         lon_deg: parseFloat(lon?.value) || 0,
-        alt_m: (parseFloat(alt?.value) || 100) * 1000,
-      }, resolveFlybyBody(state.flybys[i]));
+        alt_m: (parseFloat(alt?.value) || 100) * 1000}, resolveFlybyBody(state.flybys[i]));
       geoBtn?.classList.toggle('active', en.checked);
     };
     geoFields?.querySelector('.flyby-geo-en')?.addEventListener('change', syncGeo);
@@ -368,8 +347,7 @@ export function snapFlybyDates() {
       ...state.flybys.map((f, i) => ({
         body: resolveFlybyBody(f),
         simTime: times[i],
-        surfacePoint: f.surfacePoint || null,
-      })),
+        surfacePoint: f.surfacePoint || null})),
       { body: state.routeDestination, simTime: 0, surfacePoint: state.routeDestPoint },
     ];
     if (wps.some(w => !w.body)) return Infinity;
@@ -378,8 +356,7 @@ export function snapFlybyDates() {
     wps[wps.length - 1].simTime = tail.arrivalSimTime;
     const td = solveMultiLegRoute(wps, {
       surfaceOriginPoint: state.routeOriginPoint,
-      surfaceDestPoint: state.routeDestPoint,
-    });
+      surfaceDestPoint: state.routeDestPoint});
     if (!td.allLegsOk) return Infinity;
     if (td.flybys.some(f => !f.achievable)) return Infinity;
     return td.dvTotalMultiLeg;
@@ -423,8 +400,7 @@ export function computeRoute() {
   }
 
   // Preload sample-DE + optional Horizons inject before planning (never in classroom).
-  if (!state.classroomMode
-      && (state.ephemerisBackend === 'sample-de' || state.horizonsEndpointInject)) {
+  if ((state.ephemerisBackend === 'sample-de' || state.horizonsEndpointInject)) {
     preparePlanningEphemeris().then(() => computeRouteBody()).catch(() => computeRouteBody());
     return;
   }
@@ -433,8 +409,6 @@ export function computeRoute() {
 
 /** Load sample table + optional live Horizons endpoint inject. */
 async function preparePlanningEphemeris() {
-  if (state.classroomMode) return;
-
   if (state.ephemerisBackend === 'sample-de') {
     const m = await import('../physics/ephemeris-sample.js');
     if (!m.getSampleMeta?.()) {
@@ -507,8 +481,7 @@ async function runHorizonsEndpointInject() {
   const res = await injectHorizonsEndpoints(endpoints, {
     onProgress: (i, n) => {
       if (i === 1 || i === n) notify(`HORIZONS INJECT ${i}/${n}`);
-    },
-  });
+    }});
   if (res.ok > 0) {
     state.fidelityLevel = 'L2-horizons';
     notify(`HORIZONS INJECT OK · ${res.ok} hit · ${res.fail} miss (Need uses inject when present)`);
@@ -551,8 +524,7 @@ function computeRouteBody() {
       ...state.flybys.map(f => ({
         body: resolveFlybyBody(f),
         simTime: f.simTime,
-        surfacePoint: f.surfacePoint || null,
-      })),
+        surfacePoint: f.surfacePoint || null})),
       { body: state.routeDestination, simTime: 0, surfacePoint: state.routeDestPoint },
     ];
     if (waypoints.some(w => !w.body)) {
@@ -567,8 +539,7 @@ function computeRouteBody() {
       surfaceOriginPoint: state.routeOriginPoint,
       surfaceDestPoint: state.routeDestPoint,
       multiLegSearchMode: state.multiLegSearchMode || 'coarse',
-      thorough: state.multiLegSearchMode === 'thorough',
-    };
+      thorough: state.multiLegSearchMode === 'thorough'};
     const originBody = state.routeOrigin;
     const destBody = state.routeDestination;
     let td = tagMultiLegBodies(solveMultiLegRoute(waypoints, planOpts));
@@ -576,8 +547,7 @@ function computeRouteBody() {
     // Seed OK — no heavy window search needed
     if (td.allLegsOk && !(td.flybys || []).some(f => !f.achievable)) {
       finalizePlan(td, {
-        sampleFallback: detectSampleFallback(td),
-      }, 'MULTI-LEG ROUTE COMPUTED (local seed — not global optimum)');
+        sampleFallback: detectSampleFallback(td)}, 'MULTI-LEG ROUTE COMPUTED (local seed — not global optimum)');
       return;
     }
 
@@ -598,8 +568,7 @@ function computeRouteBody() {
           if (i === 1 || i === n || i % 6 === 0) {
             notify(`SEARCHING MULTI-LEG WINDOW… ${i}/${n}`);
           }
-        },
-      },
+        }},
     ).then((win) => {
       if (state._multiLegSearchGen !== searchGen) return;
       if (state.routeOrigin !== originBody || state.routeDestination !== destBody) return;
@@ -621,29 +590,25 @@ function computeRouteBody() {
         td = tagMultiLegBodies(solveMultiLegRoute(wps, {
           ...planOpts,
           surfaceOriginPoint: state.routeOriginPoint,
-          surfaceDestPoint: state.routeDestPoint,
-        }));
+          surfaceDestPoint: state.routeDestPoint}));
         const stillBad = !td.allLegsOk || (td.flybys || []).some(f => !f.achievable);
         finalizePlan(td, {
           dateAdjusted: true,
           prevDepartureSimTime: prevDep,
-          sampleFallback: detectSampleFallback(td),
-        }, stillBad
+          sampleFallback: detectSampleFallback(td)}, stillBad
           ? 'MULTI-LEG SEARCHED — STILL INFEASIBLE (see Plan Status)'
           : 'MULTI-LEG WINDOW SEARCHED (coarse seed — not global optimum)');
         return;
       }
       finalizePlan(td, {
         pathologicalUnrecovered: false,
-        sampleFallback: detectSampleFallback(td),
-      }, 'MULTI-LEG INFEASIBLE — NO WINDOW FOUND (see Plan Status)');
+        sampleFallback: detectSampleFallback(td)}, 'MULTI-LEG INFEASIBLE — NO WINDOW FOUND (see Plan Status)');
     }).catch((err) => {
       if (state._multiLegSearchGen !== searchGen) return;
       console.error(err);
       finalizePlan(td, {
         pathologicalUnrecovered: true,
-        sampleFallback: detectSampleFallback(td),
-      }, 'MULTI-LEG SEARCH ERROR (see Plan Status)');
+        sampleFallback: detectSampleFallback(td)}, 'MULTI-LEG SEARCH ERROR (see Plan Status)');
     });
     return;
   }
@@ -688,8 +653,7 @@ function computeRouteBody() {
       finalizePlan(td0, {
         dateAdjusted,
         prevDepartureSimTime: dateAdjusted ? prevDepSingle : null,
-        sampleFallback: detectSampleFallback(td0),
-      }, dateAdjusted
+        sampleFallback: detectSampleFallback(td0)}, dateAdjusted
         ? `PLANET-RELATIVE (${cen}) · PHASE WINDOW · TOF ${tofD} d`
         : `PLANET-RELATIVE TRANSFER (${cen}-centered · TOF ${tofD} d)`);
       return;
@@ -697,8 +661,7 @@ function computeRouteBody() {
     // No nearest-feasible heliocentric search for same-SOI — report failure.
     finalizePlan(td0, {
       pathologicalUnrecovered: true,
-      sampleFallback: detectSampleFallback(td0),
-    }, 'PLANET-RELATIVE SOLVE FAILED — try another departure date');
+      sampleFallback: detectSampleFallback(td0)}, 'PLANET-RELATIVE SOLVE FAILED — try another departure date');
     return;
   }
 
@@ -709,15 +672,13 @@ function computeRouteBody() {
   if (!pathological) {
     finalizePlan(state.transferData, {
       dateAdjusted: false,
-      sampleFallback: detectSampleFallback(state.transferData),
-    }, 'TRANSFER ORBIT COMPUTED');
+      sampleFallback: detectSampleFallback(state.transferData)}, 'TRANSFER ORBIT COMPUTED');
     return;
   }
 
   // Pathological: search nearest feasible window off the main thread when possible.
   const tofHint = state.transferData.transferTime;
   const backend = state.transferData.ephemerisBackend;
-  const classroomMode = state.classroomMode;
   notify('SEARCHING NEAREST FEASIBLE WINDOW…');
 
   // Capture generation so a second Compute supersedes this search.
@@ -725,14 +686,12 @@ function computeRouteBody() {
 
   findNearestFeasibleTransferAsync(originBody, destBody, departureSimTime, tofHint, {
     backend,
-    classroomMode,
     onProgress: ({ i, n }) => {
       if (state._nearestSearchGen !== searchGen) return;
       if (i === 1 || i === n || i % 10 === 0) {
         notify(`SEARCHING WINDOW… ${i}/${n}`);
       }
-    },
-  }).then((fix) => {
+    }}).then((fix) => {
     if (state._nearestSearchGen !== searchGen) return;
     // Origin/dest may have changed during search
     if (state.routeOrigin !== originBody || state.routeDestination !== destBody) return;
@@ -762,8 +721,7 @@ function computeRouteBody() {
       dateAdjusted: adjusted,
       prevDepartureSimTime: adjusted ? prevDepSingle : null,
       pathologicalUnrecovered: unrecovered,
-      sampleFallback: detectSampleFallback(state.transferData),
-    }, unrecovered
+      sampleFallback: detectSampleFallback(state.transferData)}, unrecovered
       ? 'PLAN FAILED — NO FEASIBLE WINDOW (see Plan Status)'
       : adjusted
         ? `LAUNCH ADJUSTED TO ${newDate} (NEAREST FEASIBLE WINDOW)`
@@ -773,7 +731,6 @@ function computeRouteBody() {
     console.error(err);
     finalizePlan(state.transferData, {
       pathologicalUnrecovered: true,
-      sampleFallback: detectSampleFallback(state.transferData),
-    }, 'PLAN FAILED — WINDOW SEARCH ERROR (see Plan Status)');
+      sampleFallback: detectSampleFallback(state.transferData)}, 'PLAN FAILED — WINDOW SEARCH ERROR (see Plan Status)');
   });
 }

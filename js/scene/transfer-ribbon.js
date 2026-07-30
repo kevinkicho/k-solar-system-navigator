@@ -96,9 +96,7 @@ export function setTransferRibbon(points, opts = {}) {
 function defaultLabels() {
   return [
     { frac: 0, text: 'DEP' },
-    { frac: 0.25, text: '25%' },
     { frac: 0.5, text: 'MID' },
-    { frac: 0.75, text: '75%' },
     { frac: 1, text: 'ARR' },
   ];
 }

@@ -90,7 +90,8 @@ export const state = {
    */
   pathOffsetPolicy: 'time_varying',
   pathSampleMode: 'equal_time',
-  endpointMarkerPolicy: 'epoch_true',
+  /** Ghost markers align with path ends (ship–line honesty). */
+  endpointMarkerPolicy: 'match_path_end',
   /** 'visual' | 'physical' | 'both' — dual overlay when both */
   pathGeometry: 'visual',
   /** 'static' | 'rebuild' | 'trail_only' during mission */
@@ -98,7 +99,7 @@ export const state = {
   pathAccuracy: {
     forceVisualLongWay: true,
     sharedPathBuilder: true,
-    adaptiveSampling: false, // ON only after worker (PR8) optional soak
+    adaptiveSampling: true, // densify high-e / long arcs via path refine
     multiRevLambert: false,
     multiRevMax: 1,
     preferSampleDeOuter: true, // banner only, no silent switch

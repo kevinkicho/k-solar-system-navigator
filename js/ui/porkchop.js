@@ -2,15 +2,12 @@ import { DAY } from '../constants.js';
 import { bodyId, findById } from '../data/catalog.js';
 import { state } from '../state.js';
 import {
-  cargoHeatmapMode, cellMaxCargoKg, fillCargoHeatmap,
-} from '../physics/porkchop-cargo.js';
+  cargoHeatmapMode, cellMaxCargoKg, fillCargoHeatmap} from '../physics/porkchop-cargo.js';
 import { hohmannTransfer } from '../physics/kepler.js';
 import {
-  cellTimes, defaultGridSpec, fillGridRow, refineGridSpec,
-} from '../physics/porkchop-grid.js';
+  cellTimes, defaultGridSpec, fillGridRow, refineGridSpec} from '../physics/porkchop-grid.js';
 import {
-  buildWindowShortlist, formatShortlistLines,
-} from '../physics/window-shortlist.js';
+  buildWindowShortlist, formatShortlistLines} from '../physics/window-shortlist.js';
 import { solveTransferOrbit } from '../physics/routing.js';
 import { dateToInputValue, notify, simTimeToDate } from './format.js';
 import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
@@ -159,8 +156,7 @@ export function wirePorkchop() {
       mode: currentCargoMode(),
       falcon9Variant: state.falcon9Variant || 'expendable',
       starshipArch: state.starshipArch || 'unrefueled',
-      tankerCount: state.tankerCount || 0,
-    };
+      tankerCount: state.tankerCount || 0};
   }
 
   function cargoKey() {
@@ -324,8 +320,7 @@ export function wirePorkchop() {
       minDv: Infinity, maxDv: -Infinity,
       minC3: Infinity, maxC3: -Infinity,
       minVI: Infinity, maxVI: -Infinity,
-      minIdx: null,
-    };
+      minIdx: null};
   }
 
   /**
@@ -352,14 +347,10 @@ export function wirePorkchop() {
         const endTime = performance.now() + 14;
         while (performance.now() < endTime && iy < ny) {
           const planOpts = {
-            backend: state.classroomMode
-              ? 'approx'
-              : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
-            classroomMode: !!state.classroomMode,
-            maxRevolutions: (state.pathAccuracy?.multiRevLambert && !state.classroomMode)
+            backend: (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
+            maxRevolutions: (state.pathAccuracy?.multiRevLambert )
               ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
-              : 0,
-          };
+              : 0};
           const row = fillGridRow(body1, body2, gridSpec, iy, data, c3, vinf, planOpts);
           applyRowStats(row, acc);
           iy++;
@@ -457,8 +448,7 @@ export function wirePorkchop() {
           applyRowStats({
             minDv: rowMinDv, maxDv: rowMaxDv, minIx: rowMinIx, iy,
             minC3: rowMinC3, maxC3: rowMaxC3,
-            minVI: rowMinVI, maxVI: rowMaxVI,
-          }, acc);
+            minVI: rowMinVI, maxVI: rowMaxVI}, acc);
           nextIy = iy + 1;
           if (onProgress) onProgress(nextIy, ny, acc);
           return;
@@ -499,11 +489,8 @@ export function wirePorkchop() {
           body1Id,
           body2Id,
           // Match planning Need: product sample-de (L2/L3-plan) unless classroom
-          backend: state.classroomMode
-            ? 'approx'
-            : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
-          classroomMode: !!state.classroomMode,
-          maxRevolutions: (state.pathAccuracy?.multiRevLambert && !state.classroomMode)
+          backend: (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
+          maxRevolutions: (state.pathAccuracy?.multiRevLambert )
             ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
             : 0,
           gridSpec: {
@@ -512,9 +499,7 @@ export function wirePorkchop() {
             tofMin: gridSpec.tofMin,
             tofMax: gridSpec.tofMax,
             nx: gridSpec.nx,
-            ny: gridSpec.ny,
-          },
-        });
+            ny: gridSpec.ny}});
       } catch (err) {
         workerReady = false;
         finish({ ok: false, reason: 'error', nextIy: 0, acc });
@@ -545,16 +530,14 @@ export function wirePorkchop() {
           ...opts,
           requireRunning: true,
           startIy,
-          seedAcc: result.acc,
-        });
+          seedAcc: result.acc});
       }
       // Worker unavailable at start of call.
     }
 
     return fillGridMainThread(body1, body2, gridSpec, data, c3, vinf, {
       ...opts,
-      requireRunning: true,
-    });
+      requireRunning: true});
   }
 
   /**
@@ -578,8 +561,7 @@ export function wirePorkchop() {
     // Prefer main-thread for small refine (avoids cancel races with worker).
     const acc = await fillGridMainThread(body1, body2, rSpec, data, c3, vinf, {
       requestId,
-      requireRunning: false,
-    });
+      requireRunning: false});
 
     if (!acc || requestId !== activeRequestId || !pcState) return;
 
@@ -589,8 +571,7 @@ export function wirePorkchop() {
       dv: coarseInfo.dv,
       c3: coarseInfo.c3,
       vinf: coarseInfo.vinf,
-      refined: false,
-    };
+      refined: false};
 
     if (acc.minIdx && acc.minDv <= coarseInfo.dv + REFINE_DV_NOISE) {
       const { dep, tof } = cellTimes(rSpec, acc.minIdx.ix, acc.minIdx.iy);
@@ -601,8 +582,7 @@ export function wirePorkchop() {
         dv: data[idx],
         c3: c3[idx],
         vinf: vinf[idx],
-        refined: true,
-      };
+        refined: true};
     }
 
     // Ensure refine never reports worse than coarse beyond noise: clamp to coarse if needed.
@@ -613,8 +593,7 @@ export function wirePorkchop() {
         dv: coarseInfo.dv,
         c3: coarseInfo.c3,
         vinf: coarseInfo.vinf,
-        refined: false,
-      };
+        refined: false};
     }
 
     const sel = { ix, iy, ...best };
@@ -664,8 +643,7 @@ export function wirePorkchop() {
       dvMin:   Infinity, dvMax:   -Infinity,
       c3Min:   Infinity, c3Max:   -Infinity,
       vinfMin: Infinity, vinfMax: -Infinity,
-      hohmannTof: gridSpec.hohmannTof, minCell: null, selectedCell: null,
-    };
+      hohmannTof: gridSpec.hohmannTof, minCell: null, selectedCell: null};
     cargoCacheKey = '';
     renderAxes(pcState);
     routeLabel.innerHTML = `${body1.name.toUpperCase()} &rarr; ${body2.name.toUpperCase()} &middot; ${fmt(simTimeToDate(departStart))} + ${(gridSpec.departSpan / (365.25 * DAY)).toFixed(1)}yr`;
@@ -690,8 +668,7 @@ export function wirePorkchop() {
         repaintAll();
         updateLegend();
         progressFill.style.width = (100 * iyDone / ny).toFixed(1) + '%';
-      },
-    });
+      }});
 
     if (requestId !== activeRequestId || !pcState) return;
 
@@ -714,27 +691,21 @@ export function wirePorkchop() {
       // Multi-candidate shortlist under planning backend
       try {
         const planOpts = {
-          backend: state.classroomMode
-            ? 'approx'
-            : (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
-          classroomMode: !!state.classroomMode,
-          maxRevolutions: (state.pathAccuracy?.multiRevLambert && !state.classroomMode)
+          backend: (state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx'),
+          maxRevolutions: (state.pathAccuracy?.multiRevLambert )
             ? Math.min(2, state.pathAccuracy.multiRevMax ?? 1)
-            : 0,
-        };
+            : 0};
         let shortlist = buildWindowShortlist(pcState.data, gridSpec, body1, body2, {
           topN: 8,
           planOpts,
-          reevaluate: true,
-        });
+          reevaluate: true});
         // Dense neighborhood re-eval under planning ephemeris (richer refine)
         try {
           const { refineShortlistNeighborhood } = await import('../physics/window-refine.js');
           const refined = refineShortlistNeighborhood(shortlist, body1, body2, gridSpec, {
             planOpts,
             subdiv: 3,
-            topN: 8,
-          });
+            topN: 8});
           if (refined?.shortlist?.length) {
             shortlist = refined.shortlist;
             pcState.refineMeta = { nEvals: refined.nEvals, refined: refined.refined };
@@ -746,7 +717,7 @@ export function wirePorkchop() {
         state.windowShortlist = shortlist;
         renderShortlistPanel(shortlist);
         // Optional server rank (App Hosting) — non-blocking
-        if (!state.classroomMode && typeof fetch === 'function') {
+        if (typeof fetch === 'function') {
           fetch('/api/planning/window-shortlist', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -754,9 +725,7 @@ export function wirePorkchop() {
               origin: body1.name,
               dest: body2.name,
               fidelity: planOpts.backend,
-              candidates: shortlist,
-            }),
-          }).then((r) => r.json()).then((j) => {
+              candidates: shortlist})}).then((r) => r.json()).then((j) => {
             if (j?.ok && j.shortlist) {
               pcState.serverShortlist = j.shortlist;
             }
@@ -769,8 +738,7 @@ export function wirePorkchop() {
             dest: body2.name,
             shortlist,
             fidelity: state.fidelityLevel,
-            backend: planOpts.backend,
-          }).then((id) => {
+            backend: planOpts.backend}).then((id) => {
             if (id) notify('WINDOW CAMPAIGN SAVED TO CLOUD');
           }).catch(() => {});
         }).catch(() => {});
@@ -780,8 +748,7 @@ export function wirePorkchop() {
             dest: body2.name,
             shortlist,
             fidelity: state.fidelityLevel,
-            save: false,
-          }).then((data) => {
+            save: false}).then((data) => {
             if (data?.ok && data.shortlist?.length) {
               pcState.cloudShortlist = data.shortlist;
             }
@@ -830,8 +797,7 @@ export function wirePorkchop() {
         pcState.selectedCell = {
           ix: s.ix, iy: s.iy,
           dep: s.dep_sim, tof: s.tof_s, dv: s.dv_m_s,
-          c3: s.c3_m2_s2, vinf: s.vinf_arr_m_s,
-        };
+          c3: s.c3_m2_s2, vinf: s.vinf_arr_m_s};
         showSelection(pcState.selectedCell);
         applyBtn.disabled = false;
         repaintAll();
@@ -884,8 +850,7 @@ export function wirePorkchop() {
       dv_m_s: dv,
       falcon9Variant: state.falcon9Variant || 'expendable',
       starshipArch: state.starshipArch || 'unrefueled',
-      tankerCount: state.tankerCount || 0,
-    });
+      tankerCount: state.tankerCount || 0});
     if (kg == null) {
       return { text: mode === 'f9' ? 'C3 out of table' : '—', title: '' };
     }
@@ -893,13 +858,11 @@ export function wirePorkchop() {
       const variant = state.falcon9Variant === 'asds' ? 'ASDS' : 'expendable';
       return {
         text: `${fmtCargoKg(kg)} max @ C₃ (${variant})`,
-        title: 'Illustrative F9 payload-vs-C3 — not SpaceX performance',
-      };
+        title: 'Illustrative F9 payload-vs-C3 — not SpaceX performance'};
     }
     return {
       text: `${fmtCargoKg(kg)} max @ cell Δv`,
-      title: 'Concept-grade Starship cargo at selected cell need Δv',
-    };
+      title: 'Concept-grade Starship cargo at selected cell need Δv'};
   }
 
   function showSelection(cell) {
