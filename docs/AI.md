@@ -89,6 +89,24 @@ Honesty: **local multi-leg seeds only** — not a global tour optimizer, not fli
 | Results `#ai-readiness-strip` | Visual + Fix buttons |
 | Tools `get_watchdogs` / `apply_watchdog_action` | Agent access |
 
+## Studio tools (depth program)
+
+See [STUDIO.md](./STUDIO.md). Highlights:
+
+| Tool | Effect |
+|------|--------|
+| `get_window_families` | Cluster shortlist into seasons |
+| `get_architecture_matrix` | SS/F9 trades vs Need |
+| `pin_plan` / `diff_plan_pins` | Compare up to 3 snapshots |
+| `get_residual_dashboard` | Path / n-body / launch geometry trust |
+| `apply_fidelity_preset` | Product pipeline wizard |
+| `run_campaign_dag` | Branching campaign (arch + recover + windows) |
+| `run_playbook` / `list_playbooks` | Named ladders |
+| `get_moon_system_sketch` | Same-SOI templates (not CR3BP) |
+| `add_dsm_seed` | Educational DSM Need sketch |
+
+Multi-role prompts: `js/agent/roles.js` (navigator / vehicle / fidelity / ops / orchestrator).
+
 ## Narratives
 
 - Porkchop shortlist → **AI window narrative**
@@ -97,6 +115,7 @@ Honesty: **local multi-leg seeds only** — not a global tour optimizer, not fli
 - Results → **Dual critics** (physics / vehicle / ops)
 - Results → **Red-team** (devil’s advocate)
 - FAB → **Personality** industrial | coach (tone only; physics unchanged)
+- Results → **HELIOS STUDIO** panel (families, matrix, pins, DAG, playbooks)
 
 ## Production AI paths
 

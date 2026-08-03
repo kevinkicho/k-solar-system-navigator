@@ -215,3 +215,108 @@ export async function exportMissionPackage(td) {
   const { notify } = await import('./format.js');
   notify('MISSION PACKAGE EXPORTED · PRELIMINARY ANALYSIS');
 }
+
+/**
+ * Stakeholder package v2 — brief + family calendar + architecture matrix + residuals + pins.
+ * Downloads additional markdown artifact alongside standard package.
+ */
+export async function exportStakeholderPackage(td) {
+  if (!td) {
+    const { notify } = await import('./format.js');
+    notify('COMPUTE A TRAJECTORY FIRST');
+    return;
+  }
+  await exportMissionPackage(td);
+
+  const { clusterWindowFamilies, formatFamilyCalendar } = await import('../physics/window-families.js');
+  const { buildArchitectureMatrix } = await import('../physics/architecture-matrix.js');
+  const { buildResidualDashboard } = await import('../physics/residual-dashboard.js');
+  const { getPlanPins } = await import('../physics/plan-pins.js');
+  const { needWithDsmSketch } = await import('../physics/dsm-nodes.js');
+
+  const base = baseName(td);
+  const fam = state.windowFamilies
+    || (state.windowShortlist ? clusterWindowFamilies(state.windowShortlist) : null);
+  const need = td.dossier?.need || null;
+  const matrix = state.architectureMatrix
+    || (need ? buildArchitectureMatrix(need, {
+      cargoMass_kg: state.cargoMass_kg,
+      originBody: state.routeOrigin,
+    }) : null);
+  const residual = buildResidualDashboard(td, state);
+  const pins = getPlanPins();
+  const dsm = needWithDsmSketch(
+    need?.need_dv_m_s ?? td.dvTotal_lambert ?? null,
+    state.dsmNodes || [],
+  );
+
+  const lines = [
+    `# HELIOS Stakeholder Package v2`,
+    ``,
+    `**Product class:** Preliminary mission design — **not flight-certified**, not range safety, not SpaceX performance warranty.`,
+    ``,
+    `Generated: ${new Date().toISOString()}`,
+    `Build context: route ${td.body1?.name || '?'} → ${td.body2?.name || '?'}`,
+    ``,
+    `## Executive triad`,
+    `- Need: ${need?.need_dv_m_s != null ? formatVelocity(need.need_dv_m_s) : '—'}`,
+    `- Status: ${td.dossier?.status || '—'} · analysis-ready: ${td.dossier?.mission_ready ? 'YES' : 'NO'}`,
+    ``,
+    `## Window families (local shortlist clusters)`,
+  ];
+  if (fam?.families?.length) {
+    for (const line of formatFamilyCalendar(fam)) lines.push(`- ${line}`);
+    lines.push(``, `_${fam.note}_`);
+  } else {
+    lines.push(`- (no shortlist — run porkchop / open windows)`);
+  }
+
+  lines.push(``, `## Architecture matrix`);
+  if (matrix?.rows?.length) {
+    for (const r of matrix.rows) {
+      lines.push(
+        `- ${r.recommended ? '★ ' : ''}${r.label}: feasible=${r.feasible} cap=${r.capability_dv_m_s != null ? formatVelocity(r.capability_dv_m_s) : '—'} margin=${r.margin_dv_m_s != null ? formatVelocity(r.margin_dv_m_s) : '—'}`,
+      );
+    }
+    lines.push(``, `_${matrix.note}_`);
+  } else {
+    lines.push(`- (compute transfer first)`);
+  }
+
+  lines.push(``, `## Residual / trust dashboard`);
+  for (const it of residual.items || []) {
+    lines.push(`- **${it.title}** — ${it.detail}`);
+  }
+  lines.push(``, `_${residual.note}_`);
+
+  lines.push(``, `## DSM sketch`);
+  lines.push(
+    `- Combined Need sketch: Lambert ${dsm.lambert_need_m_s != null ? formatVelocity(dsm.lambert_need_m_s) : '—'} + DSM ${formatVelocity(dsm.dsm_total_m_s)} → ${dsm.combined_need_m_s != null ? formatVelocity(dsm.combined_need_m_s) : '—'}`,
+  );
+  lines.push(`_${dsm.note}_`);
+
+  lines.push(``, `## Pinned plan comparisons`);
+  if (pins.length) {
+    for (const p of pins) {
+      lines.push(`- ${p.label}: Need ${p.triad?.need_m_s != null ? formatVelocity(p.triad.need_m_s) : '—'} · ready=${!!p.dossier?.mission_ready}`);
+    }
+  } else {
+    lines.push(`- (none)`);
+  }
+
+  lines.push(
+    ``,
+    `## Disclaimers`,
+    `- Stored numbers are snapshots — recompute for authority.`,
+    `- Window families and itineraries are local seeds — not global optima.`,
+    `- Vehicle models are educational — not OEM warranty.`,
+    ``,
+    `---`,
+    `*HELIOS Stakeholder Package v2*`,
+    ``,
+  );
+
+  downloadBlob(`${base}-stakeholder.md`, lines.join('\n'), 'text/markdown');
+  const { notify } = await import('./format.js');
+  notify('STAKEHOLDER PACKAGE v2 EXPORTED');
+}

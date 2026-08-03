@@ -177,6 +177,14 @@ export const state = {
    * Local multi-leg template seeds — not a global tour optimum.
    */
   itinerarySuggestions: null,
+  /** Window families clustered from shortlist (studio). */
+  windowFamilies: null,
+  /** Architecture trade matrix (studio). */
+  architectureMatrix: null,
+  /** Educational DSM nodes (Need sketch add-on — not re-optimized Lambert). */
+  dsmNodes: [],
+  /** Plan compare pins (max 3; also localStorage). */
+  planPins: null,
   /** Optional ascent loss class budget (m/s), not mixed into Lambert Need. */
   ascentLossBudget_m_s: 0,
   /** Launch-site band for DLA gate (default any = no constraint). */

@@ -234,6 +234,119 @@ export const HELIOS_AGENT_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_window_families',
+      description: 'Cluster porkchop shortlist into launch-season window families (local only).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_architecture_matrix',
+      description: 'Evaluate Starship/F9 architecture trades against current Need.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'pin_plan',
+      description: 'Pin current plan snapshot for compare board (max 3).',
+      parameters: {
+        type: 'object',
+        properties: { label: { type: 'string' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'diff_plan_pins',
+      description: 'Diff the two most recent pinned plans.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_residual_dashboard',
+      description: 'Path honesty / n-body residual / launch geometry trust dashboard (analysis only).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_fidelity_preset',
+      description: 'Apply fidelity wizard: inner-product | outer-dense | publication | ops-review | hermetic-l1',
+      parameters: {
+        type: 'object',
+        properties: { presetId: { type: 'string' } },
+        required: ['presetId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_campaign_dag',
+      description: 'Branching campaign DAG: compute, architecture matrix, recover, window families.',
+      parameters: {
+        type: 'object',
+        properties: {
+          origin: { type: 'string' },
+          destination: { type: 'string' },
+          departure: { type: 'string' },
+          cargoMass_kg: { type: 'number' },
+          autoRecover: { type: 'boolean' },
+          suggestGa: { type: 'boolean' },
+          suggestItineraries: { type: 'boolean' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_playbook',
+      description: 'Run a named playbook (pb-unrefueled-mars, pb-outer-venus, pb-nogo-ladder, pb-fidelity-product).',
+      parameters: {
+        type: 'object',
+        properties: { playbookId: { type: 'string' } },
+        required: ['playbookId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_playbooks',
+      description: 'List built-in and custom mission playbooks.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_moon_system_sketch',
+      description: 'Same-SOI moon-system tour templates (not CR3BP).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_dsm_seed',
+      description: 'Add educational mid-course DSM Need sketch node (not re-optimized Lambert).',
+      parameters: {
+        type: 'object',
+        properties: { dv_m_s: { type: 'number' }, epoch_frac: { type: 'number' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'list_bodies',
       description: 'List available body names for routing.',
       parameters: { type: 'object', properties: {} },
@@ -257,9 +370,10 @@ export const AGENT_SYSTEM_WITH_TOOLS = `You are HELIOS AI core — campaign co-p
 
 Rules:
 - Industrial preliminary workstation only — not flight-certified, not range safety, not operational OD, not SpaceX warranty.
-- Prefer run_mission_campaign for multi-step setup (origin, dest, date/year, cargo, vehicle, site, compute).
-- Prefer run_campaign_with_log when the user wants step-by-step campaign log / human approval gates.
-- Prefer get_mission_brief_context or get_watchdogs before analysis. On NO-GO: propose_gate_recovery then apply_gate_recovery with user intent.
+- Prefer run_mission_campaign or run_campaign_dag for multi-step setup.
+- Prefer run_playbook for named ladders (unrefueled Mars, outer assist, NO-GO recovery, fidelity).
+- Prefer get_mission_brief_context, get_watchdogs, get_residual_dashboard, get_architecture_matrix, get_window_families before analysis.
+- On NO-GO: propose_gate_recovery then apply_gate_recovery with user intent.
 - For multi-stop tours: suggest_itineraries then apply_itinerary (local seeds only — not global tour optimum).
 - For assists: suggest_ga (local seeds only — not global tour optimum).
 - Numbers come only from tool results / live context — never invent Δv.

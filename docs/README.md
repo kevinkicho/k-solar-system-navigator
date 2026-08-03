@@ -17,6 +17,7 @@ HELIOS on `main` is an **industrial preliminary mission-design workstation** (no
 | **GA** | Manual +FLYBY; **SUGGEST GA** Accept/Keep; coarse/thorough local seeds; named dual templates |
 | **Reliability** | Plan Dossier gates; Launch / Fly study blocked without `mission_ready` |
 | **Cloud** | Auth; Firestore plans; RTDB campaigns; Storage dense packs; App Hosting + Functions |
+| **Studio depth** | Window families · architecture matrix · plan pins · fidelity wizard · residual dashboard · DSM sketch · campaign DAG · playbooks · stakeholder package v2 — see [STUDIO.md](./STUDIO.md) |
 | **Tests** | `npm run precommit` = physics + server + agent + Playwright; `release:check` optional live smoke |
 | **Classroom mode** | **Removed** (2026-07-30). `?firebase=0` remains for hermetic offline/CI only |
 
@@ -37,6 +38,8 @@ HELIOS on `main` is an **industrial preliminary mission-design workstation** (no
 | [trajectory-accuracy-design.md](./trajectory-accuracy-design.md) | **Implemented** (PR1–PR11 + residuals) | Ship–path pipeline |
 | [firebase-app-hosting.md](./firebase-app-hosting.md) | **Implemented** | Next.js shell |
 | [firebase.md](./firebase.md) | **Implemented** | Auth/plans offline flags |
+| [STUDIO.md](./STUDIO.md) | **Landed** (2026-08) | Campaign depth studio · DAG · playbooks · packages |
+| [AI.md](./AI.md) | **Current** | AI core, tools, narratives |
 
 Historical sections may still mention classroom mode or “educational product.” Treat those as **design history**. Runtime product is industrial preliminary.
 
@@ -50,6 +53,8 @@ Historical sections may still mention classroom mode or “educational product.�
 | Hosting serve `web/public` only | **Landed** — `hosting.public: web/public` + prepare |
 | Expanded Playwright multi-leg | **Landed** — `test:ui:multileg` in precommit |
 | Dual-URL build-sha smoke | `npm run smoke:build-sha` after deploy |
+| Org ACLs / public headless plan API | Scaffold only (`shared_plans`) |
+| DSM re-optimized multi-leg | Sketch Need add-on only today |
 
 ## Branch policy
 

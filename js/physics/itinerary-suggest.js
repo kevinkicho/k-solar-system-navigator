@@ -104,6 +104,44 @@ export function itineraryTemplates(origin, dest) {
       rationale: 'VEEGA-inspired template (not a global optimum search)',
     });
   }
+  // Outer / return family expansions (local seeds)
+  if (o === 'earth' && d === 'saturn' && jupiter) {
+    out.push({
+      id: 'itin-ej-saturn',
+      kind: 'assist',
+      label: 'Earth → Jupiter → Saturn',
+      bodies: [jupiter],
+      rationale: 'Outer energy-shaping via Jupiter (local seed · not Cassini redesign)',
+    });
+  }
+  if (o === 'earth' && d === 'saturn' && venus && jupiter) {
+    out.push({
+      id: 'itin-evj-saturn',
+      kind: 'assist-dual',
+      label: 'Earth → Venus → Jupiter → Saturn',
+      bodies: [venus, jupiter],
+      rationale: 'VEEGA-class energy + Jupiter for Saturn (local dual template)',
+    });
+  }
+  if (o === 'mars' && d === 'earth' && venus) {
+    out.push({
+      id: 'itin-mars-return-venus',
+      kind: 'assist',
+      label: 'Mars → Venus → Earth',
+      bodies: [venus],
+      rationale: 'Return-path Venus assist sketch',
+    });
+  }
+  // Historical-pattern labels (educational analogues only)
+  if (o === 'earth' && d === 'jupiter' && mars) {
+    out.push({
+      id: 'itin-pioneer-class',
+      kind: 'assist',
+      label: 'Earth → Mars → Jupiter (Pioneer-class energy sketch)',
+      bodies: [mars],
+      rationale: 'Educational analogue pattern · not a reconstruction of historical OD',
+    });
+  }
 
   // Fill from dual templates / assist candidates
   for (const t of dualFlybyTemplates(origin, dest)) {
@@ -212,15 +250,12 @@ export function suggestItineraries(origin, dest, depHint, routeOpts = {}, opts =
     } catch { /* skip */ }
   }
 
-  // Rank: lower Need first; slight preference for fewer stops when similar
-  suggestions.sort((a, b) => {
-    const da = a.dvTotal_m_s ?? 1e15;
-    const db = b.dvTotal_m_s ?? 1e15;
-    if (Math.abs(da - db) < 200) {
-      return (a.stops?.length || 2) - (b.stops?.length || 2);
-    }
-    return da - db;
-  });
+  // Multi-objective local rank (Need / TOF / stop count) — still local seeds only
+  const weights = normalizeWeights(opts.weights);
+  for (const s of suggestions) {
+    s.score = scoreItinerary(s, weights, suggestions);
+  }
+  suggestions.sort((a, b) => (a.score ?? 1e15) - (b.score ?? 1e15));
 
   if (suggestions[0]) {
     suggestions[0].recommended = true;
@@ -232,7 +267,32 @@ export function suggestItineraries(origin, dest, depHint, routeOpts = {}, opts =
     note: 'Intelligent itinerary suggestions are local multi-leg seeds — not a global tour optimizer, not flight-certified.',
     direct,
     suggestions,
+    weights,
     generated_at: new Date().toISOString(),
     thorough: !!opts.thorough,
   };
+}
+
+/**
+ * @param {{ need?: number, tof?: number, stops?: number }} w
+ * Weights higher = more preference for lower that metric (cost).
+ */
+function normalizeWeights(w = {}) {
+  const need = w.need != null ? Number(w.need) : 1;
+  const tof = w.tof != null ? Number(w.tof) : 0.35;
+  const stops = w.stops != null ? Number(w.stops) : 0.2;
+  const sum = Math.max(1e-9, need + tof + stops);
+  return { need: need / sum, tof: tof / sum, stops: stops / sum };
+}
+
+function scoreItinerary(s, weights, all) {
+  const dvs = all.map((x) => x.dvTotal_m_s).filter((v) => Number.isFinite(v));
+  const tofs = all.map((x) => x.tof_days).filter((v) => Number.isFinite(v));
+  const maxDv = Math.max(...dvs, 1);
+  const maxTof = Math.max(...tofs, 1);
+  const maxStops = Math.max(...all.map((x) => x.stops?.length || 2), 2);
+  const nd = (s.dvTotal_m_s ?? maxDv) / maxDv;
+  const nt = (s.tof_days ?? maxTof) / maxTof;
+  const ns = (s.stops?.length || 2) / maxStops;
+  return weights.need * nd + weights.tof * nt + weights.stops * ns;
 }

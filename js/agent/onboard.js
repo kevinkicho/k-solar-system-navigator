@@ -197,6 +197,100 @@ async function executeCommand(cmd) {
       });
     }
 
+    case 'get_window_families': {
+      const { clusterWindowFamilies } = await import('../physics/window-families.js');
+      const short = state.windowShortlist;
+      if (!short?.length) return { ok: false, error: 'no shortlist — open windows first', families: [] };
+      const pack = clusterWindowFamilies(short);
+      state.windowFamilies = pack;
+      return pack;
+    }
+
+    case 'get_architecture_matrix': {
+      const { buildArchitectureMatrix } = await import('../physics/architecture-matrix.js');
+      const need = state.transferData?.dossier?.need;
+      if (!need) throw new Error('Compute transfer first (no Need)');
+      const matrix = buildArchitectureMatrix(need, {
+        cargoMass_kg: state.cargoMass_kg,
+        originBody: state.routeOrigin,
+      });
+      state.architectureMatrix = matrix;
+      return matrix;
+    }
+
+    case 'pin_plan': {
+      const { pinPlan, getPlanPins } = await import('../physics/plan-pins.js');
+      if (!state.transferData) throw new Error('Compute transfer first');
+      const p = pinPlan(state, { label: args.label });
+      state.planPins = getPlanPins();
+      return { ok: true, pin: p, n: state.planPins.length };
+    }
+
+    case 'diff_plan_pins': {
+      const { getPlanPins, diffPlanPins } = await import('../physics/plan-pins.js');
+      const pins = getPlanPins();
+      if (pins.length < 2) return { ok: false, error: 'need at least 2 pins' };
+      return { ok: true, ...diffPlanPins(pins[0], pins[1]), pins: pins.slice(0, 2).map((p) => p.label) };
+    }
+
+    case 'get_residual_dashboard': {
+      const { buildResidualDashboard } = await import('../physics/residual-dashboard.js');
+      return buildResidualDashboard(state.transferData, state);
+    }
+
+    case 'apply_fidelity_preset': {
+      const { applyFidelityPreset } = await import('../physics/fidelity-presets.js');
+      const r = applyFidelityPreset(state, args.presetId || args.id);
+      if (!r.ok) throw new Error(r.error || 'preset failed');
+      return r;
+    }
+
+    case 'run_campaign_dag': {
+      const { runCampaignDag } = await import('./campaign-dag.js');
+      const dag = await runCampaignDag(args);
+      return {
+        ok: true,
+        id: dag?.id,
+        status: dag?.status,
+        nodes: (dag?.nodes || []).map((n) => ({
+          id: n.id, status: n.status, label: n.label, detail: n.detail,
+        })),
+      };
+    }
+
+    case 'run_playbook': {
+      const { runPlaybook } = await import('./playbook-runner.js');
+      return runPlaybook(args.playbookId || args.id);
+    }
+
+    case 'list_playbooks': {
+      const { listPlaybooks } = await import('./playbooks.js');
+      return {
+        playbooks: listPlaybooks().map((p) => ({
+          id: p.id, label: p.label, description: p.description, n_steps: p.steps?.length,
+        })),
+      };
+    }
+
+    case 'get_moon_system_sketch': {
+      const { moonSystemTemplates } = await import('../physics/moon-system-sketch.js');
+      return moonSystemTemplates(state.routeOrigin, state.routeDestination);
+    }
+
+    case 'add_dsm_seed': {
+      const { suggestMidcourseDsmSeed, normalizeDsmNodes, needWithDsmSketch } = await import('../physics/dsm-nodes.js');
+      const seed = suggestMidcourseDsmSeed({
+        dv_m_s: args.dv_m_s,
+        epoch_frac: args.epoch_frac,
+      });
+      state.dsmNodes = normalizeDsmNodes([...(state.dsmNodes || []), ...seed]);
+      const sketch = needWithDsmSketch(
+        state.transferData?.dossier?.need?.need_dv_m_s ?? state.transferData?.dvTotal_lambert ?? null,
+        state.dsmNodes,
+      );
+      return { ok: true, nodes: state.dsmNodes, sketch };
+    }
+
     case 'list_bodies':
       return { bodies: listBodyNames() };
 

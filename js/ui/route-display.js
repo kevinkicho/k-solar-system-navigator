@@ -436,12 +436,13 @@ export function renderRouteUI() {
     syncFidelityChip();
     syncProductClassFooters();
   } catch { /* */ }
-  // AI core: next-actions strip + brief / ask (Results)
+  // AI core: next-actions strip + brief / ask (Results) + Studio depth panel
   try {
     const host = document.getElementById('transfer-results')
       || document.getElementById('results-hero')?.parentElement;
     if (host) {
       import('./ai-chrome.js').then((m) => m.renderNextActionsStrip?.(host)).catch(() => {});
+      import('./studio-panel.js').then((m) => m.renderStudioPanel?.(host)).catch(() => {});
     }
   } catch { /* */ }
 }
