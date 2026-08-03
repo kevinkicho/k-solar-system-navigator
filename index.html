@@ -1160,12 +1160,13 @@ input[type="range"]::-webkit-slider-thumb {
         <div class="flyby-header">
           <span class="slot-label">Gravity assist / flybys</span>
           <span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">
+            <button class="btn-tiny" id="btn-itinerary-suggest" title="Intelligent multi-leg itinerary seeds (templates + local evaluation). Accept or keep current.">SUGGEST ITINERARY</button>
             <button class="btn-tiny" id="btn-ga-suggest" title="Suggest gravity-assist paths (coarse local seed). Accept or keep current.">SUGGEST GA</button>
             <button class="btn-tiny" id="btn-snap-flybys" title="Optimize flyby dates ±30 days for minimum Δv">SNAP</button>
             <button class="btn-tiny" id="btn-add-flyby" title="Manually add a gravity-assist flyby body between origin and destination">+ FLYBY</button>
           </span>
         </div>
-        <p class="surface-hint" style="margin:4px 0 6px">Prefer <strong>SUGGEST GA</strong> for recommended assist paths (Accept / Keep). <strong>+ FLYBY</strong> still lets you pick the body and dates yourself.</p>
+        <p class="surface-hint" style="margin:4px 0 6px">Prefer <strong>SUGGEST ITINERARY</strong> for multi-stop tour seeds, or <strong>SUGGEST GA</strong> for assist paths (Accept / Keep). <strong>+ FLYBY</strong> still lets you pick the body and dates yourself. Local seeds only — not a global tour optimizer.</p>
         <div id="flyby-list"></div>
       </div>
       <div class="route-field-row">
@@ -1491,8 +1492,8 @@ input[type="range"]::-webkit-slider-thumb {
       <tr><td>High-energy Δv gate</td><td>Warn above 30 km/s; fail only above 50 km/s (Mercury-class departures are real)</td></tr>
     </table>
 
-    <h3>Gravity assist (patched-conic)</h3>
-    <p><strong>SUGGEST GA</strong> ranks direct vs single-planet assist seeds (coarse local multi-leg window). Accept applies flybys + dates; Keep leaves your plan unchanged. Manual <strong>+ FLYBY</strong> still lets you choose the body. Not a global tour optimizer; not flight-certified.</p>
+    <h3>Gravity assist &amp; itineraries (patched-conic)</h3>
+    <p><strong>SUGGEST ITINERARY</strong> ranks named multi-leg tour templates (e.g. Earth→Venus→Mars, VEEGA-class families) with local patched-conic evaluation. <strong>SUGGEST GA</strong> ranks direct vs single-planet assist seeds (coarse local multi-leg window). Accept applies flybys + dates; Keep leaves your plan unchanged. Manual <strong>+ FLYBY</strong> still lets you choose the body. Not a global tour optimizer; not flight-certified.</p>
     <p>At each flyby the spacecraft's V<sub>∞</sub> turning angle is checked against the maximum achievable at minimum-safe periapsis (planet radius × 1.1):</p>
     <p><code>e = 1 + r_p · V∞² / μ_planet</code> &nbsp; · &nbsp; <code>δ_max = 2·asin(1/e_min)</code></p>
     <p>Infeasible swingbys are flagged <span class="pill amber">TOO SHARP</span> with the required-vs-minimum periapsis shown.</p>

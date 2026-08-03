@@ -132,6 +132,71 @@ async function executeCommand(cmd) {
       };
     }
 
+    case 'suggest_itineraries': {
+      const thoroughEl = document.getElementById('itin-thorough');
+      if (thoroughEl && args.thorough != null) thoroughEl.checked = !!args.thorough;
+      const { runItinerarySuggest } = await import('../ui/itinerary-ui.js');
+      const pack = await runItinerarySuggest();
+      return {
+        ok: true,
+        n: pack?.suggestions?.length ?? state.itinerarySuggestions?.suggestions?.length ?? 0,
+        recommended:
+          pack?.suggestions?.find((s) => s.recommended)?.itineraryLabel
+          || pack?.suggestions?.find((s) => s.recommended)?.label
+          || null,
+        note: pack?.note || state.itinerarySuggestions?.note || null,
+      };
+    }
+
+    case 'apply_itinerary': {
+      const pack = state.itinerarySuggestions;
+      const idx = Number(args.index ?? 0);
+      if (!pack?.suggestions?.length) {
+        throw new Error('No itinerary pack — run suggest_itineraries first');
+      }
+      const s = pack.suggestions[idx];
+      if (!s) throw new Error(`Invalid itinerary index ${idx}`);
+      const { applyItinerary } = await import('../ui/itinerary-ui.js');
+      applyItinerary(s);
+      return {
+        ok: true,
+        applied: s.itineraryLabel || s.label,
+        index: idx,
+        stops: s.stops,
+      };
+    }
+
+    case 'run_campaign_with_log': {
+      const { runCampaignWithLog } = await import('./campaign-runner.js');
+      const run = await runCampaignWithLog(args, {
+        requireApproval: !!args.requireApproval,
+      });
+      return {
+        ok: true,
+        id: run?.id,
+        status: run?.status,
+        steps: (run?.steps || []).map((s) => ({
+          id: s.id,
+          status: s.status,
+          label: s.label,
+          detail: s.detail,
+        })),
+      };
+    }
+
+    case 'get_watchdogs': {
+      const { runWatchdogs } = await import('./watchdogs.js');
+      return runWatchdogs();
+    }
+
+    case 'apply_watchdog_action': {
+      const { applyWatchdogAction } = await import('./watchdogs.js');
+      return applyWatchdogAction({
+        type: args.type || args.actionType,
+        value: args.value,
+      });
+    }
+
     case 'list_bodies':
       return { bodies: listBodyNames() };
 

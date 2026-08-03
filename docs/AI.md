@@ -46,10 +46,14 @@
 | Tool | Effect |
 |------|--------|
 | `run_mission_campaign` | Origin/dest/date/vehicle/site → compute (+ optional GA/windows) |
+| `run_campaign_with_log` | Staged campaign + step log + optional approve gates |
 | `propose_gate_recovery` | List recovery options from fails |
 | `apply_gate_recovery` | Apply one recovery + recompute |
 | `find_nearest_window` | Nearest feasible seed + recompute |
 | `suggest_ga` | Open SUGGEST GA search |
+| `suggest_itineraries` | Intelligent multi-leg tour seeds |
+| `apply_itinerary` | Accept seed from last itinerary pack |
+| `get_watchdogs` / `apply_watchdog_action` | Readiness / path / fidelity fixes |
 
 NL heuristic: `parseCampaignHint()` pre-parses “Earth Mars 2028 2t Starship Cape”.
 
@@ -58,11 +62,41 @@ NL heuristic: `parseCampaignHint()` pre-parses “Earth Mars 2028 2t Starship Ca
 - Session turns: `js/agent/memory.js` (localStorage + Firestore `users/{uid}/ai_memory/latest`)
 - Token/time HUD: `js/agent/usage-session.js` (Ollama usage fields)
 
+## Intelligent itineraries
+
+| UI / tool | Role |
+|-----------|------|
+| **SUGGEST ITINERARY** (`btn-itinerary-suggest`) | Named multi-leg tour templates + local patched-conic evaluation |
+| `suggest_itineraries` / `apply_itinerary` | Agent tools (C2 + FAB Tools) |
+| `js/physics/itinerary-suggest.js` | Template library + ranking |
+| `js/ui/itinerary-ui.js` | Accept / Keep panel + AI itinerary coach |
+
+Honesty: **local multi-leg seeds only** — not a global tour optimizer, not flight-certified.
+
+## Campaign run log & approve gates
+
+| Module | Role |
+|--------|------|
+| `js/agent/campaign-runner.js` | Step log + optional human approve bar |
+| `run_campaign_with_log` | Tool for staged campaign with approvals |
+| Results strip | Renders `#ai-campaign-log` |
+
+## Watchdogs (readiness / path / fidelity)
+
+| Module | Role |
+|--------|------|
+| `js/agent/watchdogs.js` | Always-on alerts + deterministic Fix actions |
+| Results `#ai-readiness-strip` | Visual + Fix buttons |
+| Tools `get_watchdogs` / `apply_watchdog_action` | Agent access |
+
 ## Narratives
 
 - Porkchop shortlist → **AI window narrative**
 - GA pack → **GA coach** (auto after SUGGEST GA)
+- Itinerary pack → **Itinerary coach** (auto after SUGGEST ITINERARY)
 - Results → **Dual critics** (physics / vehicle / ops)
+- Results → **Red-team** (devil’s advocate)
+- FAB → **Personality** industrial | coach (tone only; physics unchanged)
 
 ## Production AI paths
 

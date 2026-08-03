@@ -139,6 +139,7 @@ try {
   applyBodyScales();
   try {
     import('./ui/ga-suggest-ui.js').then((m) => m.wireGaSuggestUi?.()).catch(() => {});
+    import('./ui/itinerary-ui.js').then((m) => m.wireItineraryUi?.()).catch(() => {});
   } catch { /* */ }
 } catch (err) {
   console.error('[HELIOS] viz/map-mode wiring failed', err);

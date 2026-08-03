@@ -47,11 +47,16 @@ export const C2_ACTIONS = new Set([
   'get_state',
   'get_mission_brief_context',
   'run_mission_campaign',
+  'run_campaign_with_log',
   'propose_gate_recovery',
   'apply_gate_recovery',
   'find_nearest_window',
   'set_launch_site',
   'suggest_ga',
+  'suggest_itineraries',
+  'apply_itinerary',
+  'get_watchdogs',
+  'apply_watchdog_action',
   'list_bodies',
   'set_route',
   'compute_route',
@@ -1015,6 +1020,106 @@ export const AGENT_TOOL_DEFS = [
       name: 'list_bodies',
       description: 'List major planets / catalog body names available for routing.',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'suggest_ga',
+      description: 'Run SUGGEST GA gravity-assist path search (local seeds).',
+      parameters: {
+        type: 'object',
+        properties: { thorough: { type: 'boolean' } },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'suggest_itineraries',
+      description:
+        'Intelligent multi-leg itinerary seeds (named templates + local evaluation). Not a global tour optimizer.',
+      parameters: {
+        type: 'object',
+        properties: { thorough: { type: 'boolean' } },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_itinerary',
+      description: 'Apply last itinerary pack suggestion by 0-based index.',
+      parameters: {
+        type: 'object',
+        properties: { index: { type: 'number' } },
+        required: ['index'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_mission_campaign',
+      description: 'Full campaign: origin/dest/date/vehicle/site → compute (+ optional GA).',
+      parameters: {
+        type: 'object',
+        properties: {
+          origin: { type: 'string' },
+          destination: { type: 'string' },
+          departure: { type: 'string' },
+          vehicleId: { type: 'string' },
+          cargoMass_kg: { type: 'number' },
+          suggestGa: { type: 'boolean' },
+          compute: { type: 'boolean' },
+        },
+        additionalProperties: true,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_campaign_with_log',
+      description: 'Campaign with step log and optional human approve gates.',
+      parameters: {
+        type: 'object',
+        properties: {
+          origin: { type: 'string' },
+          destination: { type: 'string' },
+          requireApproval: { type: 'boolean' },
+          suggestGa: { type: 'boolean' },
+          autoRecover: { type: 'boolean' },
+        },
+        additionalProperties: true,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_watchdogs',
+      description: 'Readiness / path-honesty / fidelity watchdog alerts.',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_watchdog_action',
+      description: 'Apply watchdog fix (set_path_geometry, set_ephemeris, compute, recover, …).',
+      parameters: {
+        type: 'object',
+        properties: {
+          type: { type: 'string' },
+          value: {},
+        },
+        required: ['type'],
+        additionalProperties: true,
+      },
     },
   },
 ];

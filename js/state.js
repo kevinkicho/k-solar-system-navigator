@@ -172,6 +172,11 @@ export const state = {
    * User Accept applies a path; Keep clears without changing the route.
    */
   gaSuggestions: null,
+  /**
+   * Latest intelligent itinerary pack from SUGGEST ITINERARY (or null).
+   * Local multi-leg template seeds — not a global tour optimum.
+   */
+  itinerarySuggestions: null,
   /** Optional ascent loss class budget (m/s), not mixed into Lambert Need. */
   ascentLossBudget_m_s: 0,
   /** Launch-site band for DLA gate (default any = no constraint). */
@@ -185,6 +190,8 @@ export const state = {
   ai: {
     model: null, // filled from localStorage / /api/models default
     toolsEnabled: false,
+    /** Tone: industrial (terse) | coach (teaching) */
+    personality: 'industrial',
   },
 
   mission: {

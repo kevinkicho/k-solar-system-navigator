@@ -857,6 +857,59 @@ option[hidden] {
   max-height: 280px; overflow-y: auto; user-select: text;
 }
 
+/* Readiness watchdogs + campaign run log */
+.ai-readiness-strip {
+  margin: 10px 0 8px; padding: 10px 12px;
+  border: 1px solid rgba(255, 152, 0, 0.28);
+  border-radius: 2px;
+  background: rgba(40, 25, 0, 0.35);
+}
+.ai-wd-list {
+  list-style: none; margin: 0; padding: 0;
+}
+.ai-wd-alert {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px;
+  padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 11px;
+}
+.ai-wd-alert strong { color: var(--cyan); flex: 1 1 100%; }
+.ai-wd-alert.level-fail strong { color: #ff6b6b; }
+.ai-wd-alert.level-warn strong { color: var(--amber, #ff9800); }
+.ai-wd-alert.level-ok strong { color: #00e676; }
+.ai-wd-alert .ai-next-why { flex: 1 1 60%; font-size: 9px; color: var(--text-dim); }
+
+.ai-campaign-log {
+  margin: 10px 0 8px; padding: 10px 12px;
+  border: 1px solid rgba(0, 212, 255, 0.22);
+  border-radius: 2px;
+  background: rgba(0, 20, 40, 0.4);
+}
+.ai-run-steps {
+  margin: 0; padding-left: 18px; font-size: 11px;
+}
+.ai-run-step {
+  margin: 4px 0; color: var(--text);
+}
+.ai-run-status {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px; letter-spacing: 0.5px;
+  color: var(--text-dim); margin-right: 6px;
+  text-transform: uppercase;
+}
+.ai-run-step.status-done .ai-run-status { color: #00e676; }
+.ai-run-step.status-error .ai-run-status,
+.ai-run-step.status-rejected .ai-run-status { color: #ff6b6b; }
+.ai-run-step.status-awaiting_approval .ai-run-status { color: var(--amber, #ff9800); }
+.ai-run-step.status-running .ai-run-status { color: var(--cyan); }
+.ai-run-detail { display: block; font-size: 9px; color: var(--text-dim); margin-top: 2px; }
+.ai-approve-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin-top: 8px; padding: 8px;
+  border: 1px solid var(--amber, #ff9800);
+  background: rgba(60, 40, 0, 0.5);
+  font-size: 11px;
+}
+
 /* legacy classroom selectors removed — keep empty block for CSS parse safety if needed */
 .helios-removed-classroom-chip-placeholder,
 .helios-removed-classroom-cloud-placeholder {

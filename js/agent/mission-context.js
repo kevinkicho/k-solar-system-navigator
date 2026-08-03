@@ -77,9 +77,21 @@ export function buildRichMissionContext(appState, extra = {}) {
           recommended: appState.gaSuggestions.suggestions?.find((s) => s.recommended)?.label || null,
         }
       : { has_pack: false },
+    itinerary: appState?.itinerarySuggestions
+      ? {
+          has_pack: true,
+          thorough: !!appState.itinerarySuggestions.thorough,
+          n: appState.itinerarySuggestions.suggestions?.length ?? 0,
+          recommended:
+            appState.itinerarySuggestions.suggestions?.find((s) => s.recommended)?.itineraryLabel
+            || appState.itinerarySuggestions.suggestions?.find((s) => s.recommended)?.label
+            || null,
+        }
+      : { has_pack: false },
     ai: {
       model: appState?.ai?.model || null,
       tools: !!appState?.ai?.toolsEnabled,
+      personality: appState?.ai?.personality || 'industrial',
     },
   };
 }
@@ -167,6 +179,22 @@ export function ruleBasedNextActions(ctx) {
       label: 'SUGGEST GA — compare assist seeds',
       priority: 55,
       reason: 'No gravity-assist suggestion pack yet',
+    });
+  }
+  if (ctx.route?.origin && ctx.route?.destination && !ctx.itinerary?.has_pack) {
+    actions.push({
+      id: 'suggest_itineraries',
+      label: 'SUGGEST ITINERARY — multi-leg tour seeds',
+      priority: 58,
+      reason: 'No intelligent itinerary pack yet (local templates only)',
+    });
+  }
+  if (ctx.fidelity?.pathGeometry === 'visual') {
+    actions.push({
+      id: 'path_physical',
+      label: 'Restore product physical path geometry',
+      priority: 72,
+      reason: 'Visual path geometry breaks ship≡line honesty for Need analysis',
     });
   }
   if (ctx.fidelity?.backend === 'approx') {

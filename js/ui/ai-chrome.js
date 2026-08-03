@@ -83,11 +83,23 @@ export function wireAiChrome() {
 }
 
 /**
- * Inject next-actions strip into a host element (Results).
+ * Inject readiness watchdogs + next-actions strip into a host element (Results).
  * @param {HTMLElement|null} host
  */
 export function renderNextActionsStrip(host) {
   if (!host) return;
+
+  // Campaign run log (if any) — subscribe once per host
+  import('../agent/campaign-runner.js').then((m) => {
+    m.renderCampaignLog(host);
+    if (!host.dataset.aiCampaignBound) {
+      host.dataset.aiCampaignBound = '1';
+      m.onCampaignRunChange(() => m.renderCampaignLog(host));
+    }
+  }).catch(() => {});
+
+  renderReadinessStrip(host);
+
   let strip = document.getElementById('ai-next-actions');
   if (!strip) {
     strip = document.createElement('div');
@@ -99,6 +111,7 @@ export function renderNextActionsStrip(host) {
   if (!next.length) {
     strip.innerHTML = '';
     strip.hidden = true;
+    // still keep readiness + campaign
     return;
   }
   strip.hidden = false;
@@ -115,8 +128,11 @@ export function renderNextActionsStrip(host) {
       <button type="button" class="btn-tiny" id="ai-btn-brief">Mission brief</button>
       <button type="button" class="btn-tiny" id="ai-btn-ask">Ask AI about plan</button>
       <button type="button" class="btn-tiny" id="ai-btn-critics">Dual critics</button>
+      <button type="button" class="btn-tiny" id="ai-btn-redteam">Red-team</button>
       <button type="button" class="btn-tiny" id="ai-btn-recover">Auto-recover</button>
+      <button type="button" class="btn-tiny" id="ai-btn-itin">Suggest itinerary</button>
       <button type="button" class="btn-tiny" id="ai-btn-ga-coach">GA coach</button>
+      <button type="button" class="btn-tiny" id="ai-btn-itin-coach">Itinerary coach</button>
     </div>
     <div id="ai-brief-out" class="ai-brief-out" hidden></div>
   `;
@@ -161,6 +177,20 @@ export function renderNextActionsStrip(host) {
     }
   });
 
+  strip.querySelector('#ai-btn-redteam')?.addEventListener('click', async () => {
+    const el = out();
+    if (!el) return;
+    el.hidden = false;
+    el.textContent = 'Red-teaming plan…';
+    try {
+      const { redTeamReview } = await import('../agent/narratives.js');
+      const r = await redTeamReview();
+      el.textContent = r.review;
+    } catch (e) {
+      el.textContent = e.message || 'Red-team failed';
+    }
+  });
+
   strip.querySelector('#ai-btn-recover')?.addEventListener('click', async () => {
     const el = out();
     if (!el) return;
@@ -181,6 +211,24 @@ export function renderNextActionsStrip(host) {
     }
   });
 
+  strip.querySelector('#ai-btn-itin')?.addEventListener('click', async () => {
+    const el = out();
+    if (!el) return;
+    el.hidden = false;
+    el.textContent = 'Building intelligent itineraries…';
+    try {
+      const { runItinerarySuggest } = await import('./itinerary-ui.js');
+      const pack = await runItinerarySuggest();
+      const n = pack?.suggestions?.length ?? 0;
+      const rec = pack?.suggestions?.find((s) => s.recommended);
+      el.textContent = rec
+        ? `Itineraries: ${n}. Recommended: ${rec.itineraryLabel || rec.label}. Accept in the itinerary panel.`
+        : `Itineraries: ${n}. Open SUGGEST ITINERARY panel to accept.`;
+    } catch (e) {
+      el.textContent = e.message || 'Itinerary suggest failed';
+    }
+  });
+
   strip.querySelector('#ai-btn-ga-coach')?.addEventListener('click', async () => {
     const el = out();
     if (!el) return;
@@ -193,6 +241,77 @@ export function renderNextActionsStrip(host) {
     } catch (e) {
       el.textContent = e.message || 'GA coach failed — run SUGGEST GA first';
     }
+  });
+
+  strip.querySelector('#ai-btn-itin-coach')?.addEventListener('click', async () => {
+    const el = out();
+    if (!el) return;
+    el.hidden = false;
+    el.textContent = 'Itinerary coach…';
+    try {
+      const { itineraryCoach } = await import('../agent/narratives.js');
+      const r = await itineraryCoach();
+      el.textContent = r.narrative;
+    } catch (e) {
+      el.textContent = e.message || 'Itinerary coach failed — run SUGGEST ITINERARY first';
+    }
+  });
+}
+
+/**
+ * Always-on readiness / fidelity / path-honesty strip.
+ */
+export function renderReadinessStrip(host) {
+  if (!host) return;
+  let strip = document.getElementById('ai-readiness-strip');
+  if (!strip) {
+    strip = document.createElement('div');
+    strip.id = 'ai-readiness-strip';
+    strip.className = 'ai-readiness-strip';
+    // Prefer before next-actions
+    const next = document.getElementById('ai-next-actions');
+    if (next && next.parentNode === host) host.insertBefore(strip, next);
+    else host.appendChild(strip);
+  }
+
+  import('../agent/watchdogs.js').then(({ runWatchdogs, applyWatchdogAction }) => {
+    const wd = runWatchdogs();
+    const alerts = wd.alerts || [];
+    if (!alerts.length) {
+      strip.hidden = true;
+      strip.innerHTML = '';
+      return;
+    }
+    strip.hidden = false;
+    strip.innerHTML = `
+      <div class="ai-next-title">AI READINESS · ${escapeHtml(wd.readiness)} · ${escapeHtml(wd.personality || 'industrial')}</div>
+      <ul class="ai-wd-list">
+        ${alerts.map((a) => `
+          <li class="ai-wd-alert level-${escapeAttr(a.level || 'info')}" data-id="${escapeAttr(a.id)}">
+            <strong>${escapeHtml(a.title)}</strong>
+            <span class="ai-next-why">${escapeHtml(a.detail)}</span>
+            ${a.action ? `<button type="button" class="btn-tiny ai-wd-act" data-type="${escapeAttr(a.action.type)}" data-value="${escapeAttr(String(a.action.value ?? ''))}">Fix</button>` : ''}
+          </li>`).join('')}
+      </ul>
+    `;
+    strip.querySelectorAll('.ai-wd-act').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const type = btn.getAttribute('data-type');
+        let value = btn.getAttribute('data-value');
+        if (value === 'true') value = true;
+        else if (value === 'false') value = false;
+        else if (value === '') value = undefined;
+        btn.disabled = true;
+        try {
+          await applyWatchdogAction({ type, value });
+          renderNextActionsStrip(host);
+        } catch (e) {
+          btn.textContent = 'Failed';
+        }
+      });
+    });
+  }).catch(() => {
+    strip.hidden = true;
   });
 }
 

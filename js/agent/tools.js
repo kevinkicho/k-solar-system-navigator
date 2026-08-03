@@ -159,6 +159,81 @@ export const HELIOS_AGENT_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'suggest_itineraries',
+      description:
+        'Run intelligent multi-leg itinerary search (named tour templates + local evaluation). Not a global tour optimizer.',
+      parameters: {
+        type: 'object',
+        properties: { thorough: { type: 'boolean' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_itinerary',
+      description:
+        'Apply a suggestion from the last SUGGEST ITINERARY pack by index (0 = top / recommended).',
+      parameters: {
+        type: 'object',
+        properties: { index: { type: 'number', description: '0-based index into last pack' } },
+        required: ['index'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_campaign_with_log',
+      description:
+        'Run multi-step campaign with step log and optional human approve gates (Results AI strip). Prefer when user wants staged campaign + approval.',
+      parameters: {
+        type: 'object',
+        properties: {
+          origin: { type: 'string' },
+          destination: { type: 'string' },
+          departure: { type: 'string' },
+          vehicleId: { type: 'string' },
+          cargoMass_kg: { type: 'number' },
+          starshipArch: { type: 'string' },
+          launchSiteId: { type: 'string' },
+          clearFirst: { type: 'boolean' },
+          compute: { type: 'boolean' },
+          suggestGa: { type: 'boolean' },
+          autoRecover: { type: 'boolean' },
+          requireApproval: { type: 'boolean' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_watchdogs',
+      description:
+        'Read readiness / path-honesty / fidelity watchdog alerts (always-on agent advice).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_watchdog_action',
+      description:
+        'Apply a watchdog fix: set_path_geometry | set_ephemeris | enable_horizons | compute | recover',
+      parameters: {
+        type: 'object',
+        properties: {
+          type: { type: 'string' },
+          value: {},
+        },
+        required: ['type'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'list_bodies',
       description: 'List available body names for routing.',
       parameters: { type: 'object', properties: {} },
@@ -183,7 +258,9 @@ export const AGENT_SYSTEM_WITH_TOOLS = `You are HELIOS AI core — campaign co-p
 Rules:
 - Industrial preliminary workstation only — not flight-certified, not range safety, not operational OD, not SpaceX warranty.
 - Prefer run_mission_campaign for multi-step setup (origin, dest, date/year, cargo, vehicle, site, compute).
-- Prefer get_mission_brief_context before analysis. On NO-GO: propose_gate_recovery then apply_gate_recovery with user intent.
+- Prefer run_campaign_with_log when the user wants step-by-step campaign log / human approval gates.
+- Prefer get_mission_brief_context or get_watchdogs before analysis. On NO-GO: propose_gate_recovery then apply_gate_recovery with user intent.
+- For multi-stop tours: suggest_itineraries then apply_itinerary (local seeds only — not global tour optimum).
 - For assists: suggest_ga (local seeds only — not global tour optimum).
 - Numbers come only from tool results / live context — never invent Δv.
 - Keep answers concise; label uncertainties.`;

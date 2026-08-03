@@ -45,8 +45,21 @@ check('transfer present', !!ctx.transfer);
 check('mission ready', ctx.dossier?.mission_ready === true);
 const nextReady = ruleBasedNextActions(ctx);
 check('ready suggests fly study', nextReady.some((a) => a.id === 'fly_study'));
+check('ready suggests itinerary when no pack', nextReady.some((a) => a.id === 'suggest_itineraries'));
+check('itinerary pack flag false', ctx.itinerary?.has_pack === false);
 check('prompt context non-empty', formatContextForPrompt(ctx).length > 50);
 check('prompt mentions preliminary', /preliminary|not flight/i.test(formatContextForPrompt(ctx)));
+
+const withItin = buildRichMissionContext({
+  ...readyState,
+  itinerarySuggestions: {
+    thorough: false,
+    suggestions: [{ recommended: true, itineraryLabel: 'Earth → Mars (direct)', label: 'direct' }],
+  },
+  ai: { personality: 'coach' },
+});
+check('itinerary has_pack', withItin.itinerary?.has_pack === true);
+check('personality coach', withItin.ai?.personality === 'coach');
 
 const nogo = buildRichMissionContext({
   routeOrigin: { name: 'Earth' },

@@ -30,18 +30,27 @@ import { parseCampaignHint } from '../agent/campaign-parse.js';
 import { syncAiModelChip } from './ai-chrome.js';
 import { state } from '../state.js';
 
-const SYSTEM_PROMPT = `You are HELIOS Assistant — core co-pilot for the HELIOS Mission Design workstation (browser launch-planning analysis).
+const SYSTEM_PROMPT_BASE = `You are HELIOS Assistant — core co-pilot for the HELIOS Mission Design workstation (browser launch-planning analysis).
 
 Scope and honesty:
 - Live planning pipeline workstation (DE440s sample table + optional live Horizons inject). NOT flight-certified, NOT range safety, NOT operational SPICE OD, NOT SpaceX-certified performance.
 - Physics: sample-DE / L3 DE440s-baked table for planning (product), L1 Approximate Positions for scene animation only, Lambert transfers, Need/Capability/Margin vehicle triad, READY/NO-GO Plan Dossier (analysis completeness).
 - Prefer unrefueled Starship or Falcon 9 C₃ table for vehicle models.
+- Intelligent itineraries / SUGGEST GA are local multi-leg seeds — not global tour optima.
 - If asked for operational flight design or certification, say clearly that HELIOS is preliminary analysis only.
 
-You can explain routes, Δv, porkchops, vehicles, fidelity badges, and plan quality gates.
-When the user wants the UI changed (set Earth→Mars, compute route), enable Tools or use the CLI agent.
+You can explain routes, Δv, porkchops, itineraries, vehicles, fidelity badges, and plan quality gates.
+When the user wants the UI changed (set Earth→Mars, compute route, suggest itinerary), enable Tools or use the CLI agent.
 
 Keep answers concise, technical when needed, and label uncertainties.`;
+
+function systemPrompt() {
+  const p = state.ai?.personality || 'industrial';
+  if (p === 'coach') {
+    return `${SYSTEM_PROMPT_BASE}\nTone: coaching — teach why recommendations matter in short plain language.`;
+  }
+  return `${SYSTEM_PROMPT_BASE}\nTone: industrial — terse bullets and numbers first.`;
+}
 
 function el(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
@@ -266,6 +275,27 @@ export function wireAgentChat() {
   const toolsCb = el('input', { type: 'checkbox', id: 'helios-tools-enabled' });
   toolsCb.title = 'Allow model to set route / compute via onboard tools (in-process)';
   toolsCb.checked = !!state.ai?.toolsEnabled;
+  const personalitySel = el('select', {
+    id: 'helios-personality',
+    'aria-label': 'AI personality',
+    title: 'industrial = terse · coach = teaching',
+  });
+  for (const [val, label] of [['industrial', 'Industrial'], ['coach', 'Coach']]) {
+    const o = el('option', { value: val, text: label });
+    if ((state.ai?.personality || localStorage.getItem('helios-ai-personality') || 'industrial') === val) {
+      o.selected = true;
+    }
+    personalitySel.appendChild(o);
+  }
+  try {
+    const storedP = localStorage.getItem('helios-ai-personality');
+    if (storedP && state.ai) state.ai.personality = storedP;
+  } catch { /* */ }
+  personalitySel.addEventListener('change', () => {
+    if (state.ai) state.ai.personality = personalitySel.value;
+    try { localStorage.setItem('helios-ai-personality', personalitySel.value); } catch { /* */ }
+    appendMsg('system', `Personality → ${personalitySel.value}`);
+  });
   const saveTok = el('button', {
     type: 'button',
     className: 'hc-close',
@@ -330,7 +360,11 @@ export function wireAgentChat() {
     ]),
     el('label', { style: 'display:flex;gap:4px;align-items:center;cursor:pointer' }, [
       toolsCb,
-      el('span', { text: 'Tools — campaign, recovery, route, compute…' }),
+      el('span', { text: 'Tools — campaign, recovery, itinerary, route, compute…' }),
+    ]),
+    el('label', { style: 'display:flex;gap:6px;align-items:center' }, [
+      el('span', { text: 'Personality' }),
+      personalitySel,
     ]),
   ]);
 
@@ -644,8 +678,8 @@ export function wireAgentChat() {
       }
 
       // Auto-enable tools for campaign-like requests
-      const looksLikeCampaign = /\b(set|go|plan|campaign|earth|mars|jupiter|compute|flyby|cargo)\b/i.test(text)
-        && (toolsCb.checked || parseCampaignHint(text).destination);
+      const looksLikeCampaign = /\b(set|go|plan|campaign|earth|mars|jupiter|compute|flyby|cargo|itinerary|tour)\b/i.test(text)
+        && (toolsCb.checked || parseCampaignHint(text).destination || /\bitinerary\b/i.test(text));
       const useTools = !!toolsCb.checked || looksLikeCampaign;
       if (looksLikeCampaign && !toolsCb.checked) {
         appendMsg('system', 'Auto-enabling Tools for campaign-style request…');
@@ -678,7 +712,7 @@ export function wireAgentChat() {
         );
       } else {
         const messages = [
-          { role: 'system', content: SYSTEM_PROMPT + contextNote },
+          { role: 'system', content: systemPrompt() + contextNote },
           ...history.slice(-16),
         ];
         thinking.textContent = '';
