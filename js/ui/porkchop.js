@@ -209,7 +209,7 @@ export function wirePorkchop() {
     btn.title = mode === 'f9'
       ? 'Max payload kg from illustrative F9 C₃ table (Earth departure only) — not SpaceX performance'
       : mode === 'ss'
-        ? 'Max cargo kg from concept-grade Starship rocket equation at cell total Δv'
+        ? 'Max cargo kg from Starship rocket-equation model at cell total Δv'
         : 'Select Falcon 9 (Earth origin) or Starship unrefueled/tanker for cargo heatmap';
     btn.classList.toggle('na', !mode);
   }
@@ -840,7 +840,7 @@ export function wirePorkchop() {
     const mode = currentCargoMode();
     if (!mode) {
       if (state.vehicleId === 'falcon9') {
-        return { text: 'n/a (Earth dep only)', title: 'Falcon 9 illustrative table applies only to Earth departure' };
+        return { text: 'n/a (Earth dep only)', title: 'Falcon 9 C3 table applies only to Earth departure' };
       }
       return { text: '—', title: 'Select Falcon 9 (Earth) or SS unrefueled/tanker for cargo readout' };
     }

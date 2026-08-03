@@ -795,6 +795,13 @@
   color: var(--red, #ff6b6b);
   border-color: var(--red, #ff6b6b);
 }
+/* Mock / concept / demo controls — never shown in product UI */
+.helios-mock-hidden,
+[hidden].helios-mock-hidden,
+option[hidden] {
+  display: none !important;
+}
+
 /* legacy classroom selectors removed — keep empty block for CSS parse safety if needed */
 .helios-removed-classroom-chip-placeholder,
 .helios-removed-classroom-cloud-placeholder {

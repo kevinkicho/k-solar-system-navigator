@@ -1,7 +1,9 @@
 /**
  * Product pathGeometry defaults: physical, MAP restore, effectivePathGeometry.
  */
-import { state, effectivePathGeometry, PRODUCT_PATH_GEOMETRY } from '../js/state.js';
+import {
+  state, effectivePathGeometry, pathSampleGeometry, PRODUCT_PATH_GEOMETRY,
+} from '../js/state.js';
 
 let failed = 0;
 function check(label, ok, detail = '') {
@@ -30,6 +32,15 @@ const before = effectivePathGeometry();
 state.pathGeometry = 'both'; // MAP on
 state.pathGeometry = before || PRODUCT_PATH_GEOMETRY; // MAP off restore
 check('MAP exit restore physical', state.pathGeometry === 'physical');
+
+check('pathSampleGeometry physical → physical', pathSampleGeometry('physical') === 'physical');
+check('pathSampleGeometry both → physical', pathSampleGeometry('both') === 'physical');
+check('pathSampleGeometry visual → visual', pathSampleGeometry('visual') === 'visual');
+
+// ACCURATE-off contract: never leave silent visual as product default
+state.pathGeometry = 'both';
+state.pathGeometry = PRODUCT_PATH_GEOMETRY;
+check('ACCURATE-off restore physical', state.pathGeometry === 'physical');
 
 if (failed) {
   console.error(`${failed} path geometry check(s) failed`);

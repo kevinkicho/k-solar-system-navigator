@@ -1,7 +1,7 @@
 /**
  * Export transfer path samples as CSV (scene-frame AU) for external tools.
  */
-import { state } from '../state.js';
+import { state, pathSampleGeometry } from '../state.js';
 import { DAY } from '../constants.js';
 import { buildTransferPathSamples } from '../physics/transfer-path.js';
 import { notify } from './format.js';
@@ -13,8 +13,8 @@ import { notify } from './format.js';
  */
 export function buildPathCsv(td, opts = {}) {
   if (!td) throw new Error('No transfer');
-  const geom = opts.geometry
-    || (state.pathGeometry === 'physical' ? 'physical' : 'visual');
+  // Default: Need-aligned physical path (including dual overlay mode)
+  const geom = opts.geometry || pathSampleGeometry();
   const nSamples = opts.nSamples ?? 321;
   const built = buildTransferPathSamples(td, {
     geometry: geom,

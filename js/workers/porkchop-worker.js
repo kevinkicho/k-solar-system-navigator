@@ -29,7 +29,7 @@ function yieldTick() {
 async function runSweep(msg) {
   const {
     requestId, body1Id, body2Id, gridSpec,
-    backend = 'approx',
+    backend = 'sample-de',
     maxRevolutions = 0,
   } = msg;
   activeRequestId = requestId;

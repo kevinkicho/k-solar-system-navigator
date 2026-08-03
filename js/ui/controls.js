@@ -136,7 +136,7 @@ export function wireControls() {
     }
     if (dispSel) dispSel.value = state.display.mode;
     if (archRow) archRow.style.display = state.vehicleId === 'sh-starship' ? 'flex' : 'none';
-    if (archSel) archSel.value = state.starshipArch || 'legacy-demo';
+    if (archSel) archSel.value = state.starshipArch || 'unrefueled';
     if (tankerRow) tankerRow.style.display = state.vehicleId === 'sh-starship' && state.starshipArch === 'tanker-n' ? 'flex' : 'none';
     if (tankerIn) tankerIn.value = String(state.tankerCount || 0);
     if (f9Row) f9Row.style.display = state.vehicleId === 'falcon9' ? 'flex' : 'none';
@@ -235,13 +235,13 @@ export function wireControls() {
   if (ascentSel) ascentSel.onchange = () => {
     state.ascentLossBudget_m_s = Number(ascentSel.value) || 0;
     notify(state.ascentLossBudget_m_s
-      ? `ASCENT LOSS BUDGET ${state.ascentLossBudget_m_s} m/s (EDUCATIONAL — NOT IN LAMBERT NEED)`
+      ? `ASCENT LOSS BUDGET ${state.ascentLossBudget_m_s} m/s (analysis only — not in Lambert Need)`
       : 'ASCENT LOSS BUDGET OFF');
     rerenderIfRoute();
   };
   if (siteSel) siteSel.onchange = () => {
     state.launchSiteId = siteSel.value || 'any';
-    notify(`LAUNCH SITE (EDU): ${(state.launchSiteId || 'any').toUpperCase()}`);
+    notify(`LAUNCH SITE: ${(state.launchSiteId || 'any').toUpperCase()}`);
     rerenderIfRoute();
   };
 
@@ -426,7 +426,7 @@ export function wireControls() {
       if (e.key === 'Escape' && overlay.classList.contains('visible')) close();
     });
 
-    // Optional Horizons educational compare — only runs on explicit click.
+    // Optional Horizons live compare — only runs on explicit click.
     // Planning path never calls Horizons; default is zero network.
     const hzBtn = document.getElementById('btn-horizons-compare');
     const hzOut = document.getElementById('horizons-compare-result');
@@ -445,7 +445,7 @@ export function wireControls() {
         try {
           const { compareBodyIfOptedIn, resolveHorizonsCommand } = await import('../physics/ephemeris-horizons.js');
           if (!resolveHorizonsCommand(body)) {
-            if (hzOut) hzOut.textContent = `${body.name} is not in the educational Horizons adapter.`;
+            if (hzOut) hzOut.textContent = `${body.name} is not in the Horizons adapter.`;
             notify('BODY NOT SUPPORTED FOR HORIZONS COMPARE');
             return;
           }
@@ -470,7 +470,7 @@ export function wireControls() {
           const au = result.comparison.distanceAU;
           const msg = `${body.name} @ ${epoch.toISOString().slice(0, 16)}Z — |Δr| ≈ ${
             km >= 1e6 ? (km / 1e6).toFixed(2) + ' M km' : km.toFixed(0) + ' km'
-          } (${au.toExponential(2)} AU) vs approximate ephemeris. Badge → L2-compare (educational only — not SPICE). Planning still uses offline approximate ephemeris (L1 geometry).`;
+          } (${au.toExponential(2)} AU) vs approximate ephemeris. Badge → L2-compare (analysis only — not SPICE OD). Product planning uses sample-DE / L3-plan.`;
           if (hzOut) hzOut.textContent = msg;
           notify(`HORIZONS L2-compare · Δr ≈ ${km >= 1e6 ? (km / 1e6).toFixed(1) + 'M km' : Math.round(km) + ' km'}`);
           if (state.transferData) renderRouteUI();

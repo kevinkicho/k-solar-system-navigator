@@ -207,8 +207,8 @@ function buildPanels(body) {
     <div class="bd-globe-panel">
       <div class="bd-globe" id="bd-globe" role="img" aria-label="3D preview of ${body.name}"></div>
       <p class="bd-media-cap">${hasTex
-    ? 'Educational 3D globe · NASA-derived map (CDN)'
-    : 'Educational 3D globe · catalog color (no map texture)'}</p>
+    ? '3D globe · NASA-derived map (CDN)'
+    : '3D globe · catalog color (no map texture)'}</p>
     </div>
     ${section('Identity', identity)}
     ${sats ? section(`Satellites in HELIOS (${moonList.length})`, sats) : ''}
@@ -229,7 +229,7 @@ function buildPanels(body) {
     ${section('Gallery', `
       <div class="bd-gallery" id="bd-gallery">${galleryHtml}</div>
       <p class="bd-media-cap">
-        Embeddable public-domain / educational stills ·
+        Embeddable public-domain stills ·
         <a href="${nasaSearchPageUrl(body)}" target="_blank" rel="noopener noreferrer">images.nasa.gov</a>
         <span id="bd-gallery-live-status"></span>
       </p>
@@ -312,7 +312,7 @@ export function openBodyDossier(body) {
 
   const actions = overlay.querySelector('#body-dossier-actions');
   actions.innerHTML = `
-    <div class="bd-bottom-hint">Educational dossier · use route actions to plan</div>
+    <div class="bd-bottom-hint">Body dossier · use route actions to plan</div>
     <div class="bd-bottom-actions">
       <button type="button" class="route-btn secondary" id="bd-set-origin">Set as Origin</button>
       <button type="button" class="route-btn secondary" id="bd-set-dest">Set as Destination</button>

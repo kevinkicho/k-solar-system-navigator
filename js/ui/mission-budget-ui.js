@@ -11,7 +11,7 @@ import { needOptsFromTransfer } from '../physics/need-geometry.js';
 function baseNeedOpts() {
   return {
     vehicleId: state.vehicleId,
-    starshipArch: state.starshipArch ?? 'legacy-demo',
+    starshipArch: state.starshipArch ?? 'unrefueled',
     costBasis: state.costBasis,
     aeroassistFactor: state.aeroassistFactor ?? 0,
     launchSiteId: state.launchSiteId || 'any',
@@ -27,7 +27,7 @@ export function requiredDeltaV(td) {
 
 export function transferBudgetNow() {
   return getTransferBudget(state.vehicleId, state.abstractBudget_m_s, {
-    starshipArch: state.starshipArch ?? 'legacy-demo',
+    starshipArch: state.starshipArch ?? 'unrefueled',
     cargoMass_kg: state.cargoMass_kg ?? 0,
     tankerCount: state.tankerCount ?? 0,
   });

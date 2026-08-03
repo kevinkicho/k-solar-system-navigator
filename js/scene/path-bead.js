@@ -3,7 +3,7 @@
  */
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-import { state, effectivePathGeometry } from '../state.js';
+import { state, pathSampleGeometry } from '../state.js';
 import { sampleTransferPathAtTime } from '../physics/transfer-path.js';
 import { scene } from './setup.js';
 import { isSchematic } from '../display-scale.js';
@@ -66,10 +66,7 @@ export function updatePathBead(simTime) {
     return;
   }
 
-  const pg = effectivePathGeometry();
-  const geom = (state.physicsAccurate || pg === 'physical')
-    ? 'physical'
-    : (pg === 'both' ? 'visual' : pg);
+  const geom = pathSampleGeometry();
   const sample = sampleTransferPathAtTime(td, simTime, {
     geometry: geom,
     exaggerate: geom !== 'physical' && !isSchematic() && !state.physicsAccurate,

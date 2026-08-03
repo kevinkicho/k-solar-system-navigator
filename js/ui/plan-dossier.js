@@ -204,7 +204,7 @@ function buildAscentBlock(vehEng, need) {
     ideal_stack_dv_m_s: idealStack,
     residual_after_ascent_m_s: residual,
     residual_minus_need_m_s: residual != null && needDv != null ? residual - needDv : null,
-    note: 'Ascent loss is educational framing — not included in Lambert Need or C₃.'};
+    note: 'Ascent loss is analysis framing only — not included in Lambert Need or C₃.'};
 }
 
 function confidenceLabel(c, status) {

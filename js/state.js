@@ -14,6 +14,17 @@ export function effectivePathGeometry(override) {
   return PRODUCT_PATH_GEOMETRY;
 }
 
+/**
+ * Geometry for ship-aligned sampling (bead, tour, CSV, ship).
+ * Dual overlay (`both`) rides the physical / Need branch.
+ * @param {string|null|undefined} [override]
+ * @returns {'visual'|'physical'}
+ */
+export function pathSampleGeometry(override) {
+  const g = effectivePathGeometry(override);
+  return (g === 'physical' || g === 'both') ? 'physical' : 'visual';
+}
+
 export const state = {
   selectedBody: null,
   routeOrigin: null,

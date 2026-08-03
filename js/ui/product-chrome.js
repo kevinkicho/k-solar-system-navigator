@@ -20,7 +20,7 @@ export function syncFidelityChip(opts = {}) {
 
 export function syncProductClassFooters() {
   const f = state.fidelityLevel || 'L2-plan';
-  const line = `HELIOS · Industrial preliminary design · Not flight-certified · Not range safety · Eph: ${f}`;
+  const line = `HELIOS · Live planning pipeline · Preliminary analysis · Not flight-certified · Not range safety · Eph: ${f}`;
   for (const id of ['product-class-footer-plan', 'product-class-footer-results']) {
     const el = document.getElementById(id);
     if (el) el.textContent = line;

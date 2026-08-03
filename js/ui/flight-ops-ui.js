@@ -231,7 +231,7 @@ function exportOemLike() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  notify('EDUCATIONAL OEM-LIKE EXPORTED — NOT CCSDS FLIGHT PRODUCT');
+  notify('OEM-LIKE EXPORT — PRELIMINARY ANALYSIS · NOT CCSDS FLIGHT PRODUCT');
 }
 
 function escapeHtml(s) {

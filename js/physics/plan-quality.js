@@ -327,7 +327,7 @@ export function runQualityGates(td, measurement = null, opts = {}) {
       level,
       message: ok
         ? `Asymptote |DLA| ${dlaUse.toFixed(1)}° within site band ${siteMax}° (${opts.launchSiteId || 'site'}).`
-        : `Asymptote |DLA| ${dlaUse.toFixed(1)}° exceeds educational site band ${siteMax}° (${opts.launchSiteId || 'site'}) — not range safety.`,
+        : `Asymptote |DLA| ${dlaUse.toFixed(1)}° exceeds site DLA band ${siteMax}° (${opts.launchSiteId || 'site'}) — not range safety.`,
       detail: { dla_deg: dlaUse, site_max_deg: siteMax, site: opts.launchSiteId },
     });
   }

@@ -1047,7 +1047,7 @@ input[type="range"]::-webkit-slider-thumb {
         <button type="button" class="campaign-step" data-step="window" title="Departure epoch &amp; launch windows">2 Window</button>
         <button type="button" class="campaign-step" data-step="vehicle" title="Vehicle stack &amp; cargo">3 Vehicle</button>
         <button type="button" class="campaign-step" data-step="compute" title="Compute trajectory">4 Compute</button>
-        <button type="button" class="campaign-step" data-step="review" title="GO / NO-GO review">5 Review</button>
+        <button type="button" class="campaign-step" data-step="review" title="READY / NO-GO analysis review">5 Review</button>
       </nav>
       <div class="scenario-row">
         <select id="scenario-select" title="Load a mission template">
@@ -1169,25 +1169,26 @@ input[type="range"]::-webkit-slider-thumb {
       </div>
       <div class="route-field-row">
         <label>Vehicle / architecture</label>
-        <select id="vehicle-select" title="Vehicle architecture (illustrative performance models)">
-          <option value="sh-starship">Super Heavy + Starship</option>
-          <option value="falcon9">Falcon 9 (illustrative C3 table)</option>
-          <option value="abstract">Abstract Δv budget</option>
-          <option value="chem-medium">Chemical medium (6 km/s)</option>
-          <option value="fh-class">Heavy-lift chemical abstract (9 km/s)</option>
-          <option value="high-energy">High-energy / advanced (15 km/s)</option>
+        <select id="vehicle-select" title="Flight stack for Need / Capability / Margin (live planning models)">
+          <option value="sh-starship" selected>Super Heavy + Starship (unrefueled injection)</option>
+          <option value="falcon9">Falcon 9 (C₃–payload performance table)</option>
+          <!-- Mock / abstract stacks kept for share-hash import only — not shown in UI -->
+          <option value="abstract" hidden>Abstract Δv budget</option>
+          <option value="chem-medium" hidden>Chemical medium (6 km/s)</option>
+          <option value="fh-class" hidden>Heavy-lift chemical abstract (9 km/s)</option>
+          <option value="high-energy" hidden>High-energy / advanced (15 km/s)</option>
         </select>
       </div>
 
       <details class="plan-advanced" id="plan-advanced">
-        <summary>Advanced · architecture, cargo, ephemeris, site</summary>
+        <summary>Advanced · architecture, live ephemeris, path, site</summary>
         <div class="plan-advanced-body">
           <div class="route-field-row" id="starship-arch-row">
             <label>Starship architecture</label>
-            <select id="starship-arch" title="SS architecture mode">
-              <option value="legacy-demo">Legacy stack (booster-only Δv)</option>
-              <option value="unrefueled">Unrefueled LEO→TMI (injection)</option>
+            <select id="starship-arch" title="SS architecture for capability model">
+              <option value="unrefueled" selected>Unrefueled LEO→TMI (injection)</option>
               <option value="tanker-n">Tanker refuel (N tankers)</option>
+              <option value="legacy-demo" hidden>Legacy stack (hidden mock)</option>
             </select>
           </div>
           <div class="route-field-row" id="tanker-row" style="display:none">
@@ -1197,7 +1198,7 @@ input[type="range"]::-webkit-slider-thumb {
           <div class="route-field-row" id="f9-variant-row" style="display:none">
             <label>Falcon 9 variant</label>
             <select id="f9-variant">
-              <option value="expendable">Expendable (illustrative)</option>
+              <option value="expendable">Expendable</option>
               <option value="asds">ASDS / recovery derate</option>
             </select>
           </div>
@@ -1209,38 +1210,38 @@ input[type="range"]::-webkit-slider-thumb {
             <label>Aeroassist factor (arrival)</label>
             <input type="number" id="aeroassist-factor" min="0" max="0.9" step="0.05" value="0" title="Reduces arrival capture Need only (0–0.9)">
           </div>
-          <div class="route-field-row" id="abstract-budget-row" style="display:none">
+          <div class="route-field-row helios-mock-hidden" id="abstract-budget-row" style="display:none" hidden>
             <label>Abstract budget (m/s)</label>
             <input type="number" id="abstract-budget" min="500" max="50000" step="100" value="8000">
           </div>
           <div class="route-field-row">
-            <label>Cost basis (legacy / abstract)</label>
+            <label>Δv cost basis</label>
             <select id="cost-basis-select" title="Heliocentric leg vs full parking-orbit mission Δv">
-              <option value="helio">Heliocentric leg</option>
-              <option value="mission">Full mission (parking)</option>
+              <option value="helio">Heliocentric leg Need</option>
+              <option value="mission">Full mission (parking) Need</option>
             </select>
           </div>
           <div class="route-field-row" id="ephemeris-backend-row">
-            <label>Planning ephemeris</label>
-            <select id="ephemeris-backend" title="Product default: offline sample table (L2/L3-plan). Use approx for L1 only.">
-              <option value="approx">Approximate Positions (L1)</option>
-              <option value="sample-de" selected>Offline sample table (L2/L3-plan · DE440s bake when available)</option>
+            <label>Planning ephemeris (live pipeline)</label>
+            <select id="ephemeris-backend" title="Product: DE440s offline sample table (L2/L3-plan). L1 approx hidden from default workflow.">
+              <option value="sample-de" selected>DE440s offline sample table (L2/L3-plan)</option>
+              <option value="approx" hidden>Approximate Positions (L1 · debug only)</option>
             </select>
             <label style="font-size:10px;display:flex;gap:6px;align-items:center;margin-top:6px" id="horizons-inject-wrap">
-              <input type="checkbox" id="flag-horizons-inject" title="Optional network: inject Horizons VECTORS at dep/arr for Need">
-              Horizons endpoint inject (network · analysis · not live SPICE)
+              <input type="checkbox" id="flag-horizons-inject" title="Live network: inject JPL Horizons VECTORS at dep/arr endpoints into Need">
+              Live Horizons endpoint inject (network · VECTORS → Need)
             </label>
-            <p class="surface-hint" style="margin-top:4px">Inject fetches live JPL Horizons for origin/dest (and flybys) before Compute. Offline sample-DE remains product default. Not SPICE OD.</p>
+            <p class="surface-hint" style="margin-top:4px">Default: offline DE440s sample table. Enable Live Horizons to inject public VECTORS at departure/arrival before Compute. Not closed-loop SPICE OD.</p>
           </div>
           <div class="route-field-row" id="lt-need-row">
             <label style="font-size:10px;display:flex;gap:6px;align-items:center">
-              <input type="checkbox" id="flag-lt-need" title="Add light-time TOF compare sketch on Need (does not replace geometric Need)">
-              Light-time Need compare (analysis)
+              <input type="checkbox" id="flag-lt-need" title="Add light-time TOF compare on Need (does not replace geometric Need)">
+              Light-time TOF compare (ops analysis)
             </label>
-            <p class="surface-hint" style="margin-top:4px">Reports LT-adjusted TOF sketch next to Need — not aberration OD.</p>
+            <p class="surface-hint" style="margin-top:4px">Reports LT-adjusted TOF next to Need — geometric Lambert Need unchanged.</p>
           </div>
-          <div class="route-field-row" id="ascent-loss-row">
-            <label>Ascent loss budget (analysis)</label>
+          <div class="route-field-row helios-mock-hidden" id="ascent-loss-row" hidden>
+            <label>Ascent loss budget (not in Lambert Need)</label>
             <select id="ascent-loss-budget" title="Ascent gravity/drag loss class — not added into Lambert Need">
               <option value="0">Off (default)</option>
               <option value="1500">1.5 km/s class</option>
@@ -1249,16 +1250,16 @@ input[type="range"]::-webkit-slider-thumb {
           </div>
           <div class="route-field-row" id="launch-site-row">
             <label>Launch site (DLA band)</label>
-            <select id="launch-site" title="Illustrative |DLA| vs site latitude band — not range safety">
+            <select id="launch-site" title="|DLA| vs site latitude band — planning gate, not range safety">
               <option value="any">No site constraint</option>
               <option value="cape">Cape-class (~28.5°N)</option>
               <option value="vandenberg">Vandenberg-class (~34.7°N)</option>
               <option value="kourou">Kourou-class (~5.2°N)</option>
             </select>
           </div>
-          <div class="route-field-row">
+          <div class="route-field-row helios-mock-hidden" hidden>
             <label>Vehicle lab</label>
-            <button type="button" class="btn-tiny" id="btn-vehicle-lab" title="Browse SH / Starship / F9 engineering without a route">OPEN VEHICLE LAB</button>
+            <button type="button" class="btn-tiny" id="btn-vehicle-lab" title="Internal vehicle model browser">OPEN VEHICLE LAB</button>
           </div>
           <div class="route-field-row">
             <label>Display scale</label>
@@ -1269,10 +1270,10 @@ input[type="range"]::-webkit-slider-thumb {
           </div>
           <div class="route-field-row">
             <label>Path geometry</label>
-            <select id="path-geometry-select" title="Product default: physical (matches Need). Visual is cinematic twin only.">
-              <option value="visual">Scene (visual / cinematic twin)</option>
-              <option value="physical" selected>Physical (real inclination · product default)</option>
-              <option value="both">Both (overlay)</option>
+            <select id="path-geometry-select" title="Product default: physical (matches Need). Dual overlay for MAP/ACCURATE.">
+              <option value="physical" selected>Physical (matches Need · product default)</option>
+              <option value="both">Both (physical + visual overlay)</option>
+              <option value="visual" hidden>Scene visual twin (hidden mock path)</option>
             </select>
           </div>
           <div class="route-field-row">
@@ -1417,7 +1418,7 @@ input[type="range"]::-webkit-slider-thumb {
     <button class="pc-metric-btn active" data-metric="dv" title="Total Δv (departure + arrival)">Δv TOTAL</button>
     <button class="pc-metric-btn" data-metric="c3" title="C3 = |V∞|² at departure — what launchers spec">C3 (DEPART)</button>
     <button class="pc-metric-btn" data-metric="vinf" title="V∞ magnitude at arrival — drives orbit-insertion Δv">V∞ ARRIVE</button>
-    <button class="pc-metric-btn" data-metric="cargo" title="Max cargo kg for active vehicle (F9 Earth or SS unrefueled/tanker) — illustrative models">MAX CARGO</button>
+    <button class="pc-metric-btn" data-metric="cargo" title="Max cargo kg for active vehicle (F9 Earth or SS unrefueled/tanker) — planning models">MAX CARGO</button>
   </div>
   <div class="pc-canvas-wrap">
     <div class="pc-ylabel">TRANSIT DURATION (days)</div>
@@ -1495,8 +1496,8 @@ input[type="range"]::-webkit-slider-thumb {
     <p><code>e = 1 + r_p · V∞² / μ_planet</code> &nbsp; · &nbsp; <code>δ_max = 2·asin(1/e_min)</code></p>
     <p>Infeasible swingbys are flagged <span class="pill amber">TOO SHARP</span> with the required-vs-minimum periapsis shown.</p>
 
-    <h3>Vehicle model (illustrative performance)</h3>
-    <p>Results use a <strong>Need / Capability / Margin</strong> triad for launch planning review. Architectures: <strong>Falcon 9</strong> (illustrative payload-vs-C3 table), <strong>Starship + Super Heavy</strong> (legacy stack booster-only Δv, unrefueled LEO→TMI injection, N-tanker refuel), and abstract Δv budgets. <strong>Not SpaceX-certified performance; not flight operations.</strong></p>
+    <h3>Vehicle model (live planning pipeline)</h3>
+    <p>Results use a <strong>Need / Capability / Margin</strong> triad from the live planning pipeline. Architectures: <strong>Falcon 9</strong> (C₃–payload performance table), <strong>Starship + Super Heavy</strong> (unrefueled LEO→TMI injection, optional N-tanker). Mock abstract stacks are hidden. <strong>Not SpaceX-certified performance; not flight operations.</strong></p>
     <p>Legacy stack mode keeps Super Heavy transfer Δv with Starship propellant reserved; cargo-aware arches use rocket-equation Starship capability at requested cargo mass. Margin may be Δv, cargo kg, or tankers depending on the primary metric.</p>
 
     <h3>Ephemeris fidelity badges</h3>

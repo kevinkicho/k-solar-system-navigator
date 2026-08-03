@@ -56,7 +56,7 @@ export function buildMeasurementCard(td) {
   const request = {
     vehicleId: state.vehicleId,
     cargoMass_kg: state.cargoMass_kg ?? 0,
-    starshipArch: state.starshipArch ?? 'legacy-demo',
+    starshipArch: state.starshipArch ?? 'unrefueled',
     tankerCount: state.tankerCount ?? 0,
     falcon9Variant: state.falcon9Variant || 'expendable',
     abstractBudget_m_s: state.abstractBudget_m_s,

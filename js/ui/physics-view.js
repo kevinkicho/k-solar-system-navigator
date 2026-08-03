@@ -5,11 +5,14 @@
  * Accuracy comes from js/physics (Lambert, Kepler, ephemeris). This mode only aligns the
  * *scene* with physical frames (no inclination ×8, physical path, dual overlay).
  */
-import { state, effectivePathGeometry } from '../state.js';
+import { state, effectivePathGeometry, PRODUCT_PATH_GEOMETRY } from '../state.js';
 import { setDisplayMode } from '../display-scale.js';
 import { rebuildOrbitLines, syncMapModeUi } from './map-mode.js';
 import { updateViewBadge } from './share.js';
 import { applyBodyScales } from '../scene/body-scale.js';
+
+/** Geometry before ACCURATE dual-overlay (restore on exit → product physical). */
+let _pathGeomBeforeAccurate = null;
 
 /**
  * @param {boolean} on
@@ -22,14 +25,16 @@ export function setPhysicsAccurateView(on, opts = {}) {
   if (want) {
     state.mapMode = true;
     setDisplayMode('schematic');
-    // Physical path is primary; also keep dual overlay so cinematic divergence is visible
+    if (state.pathGeometry !== 'both') {
+      _pathGeomBeforeAccurate = effectivePathGeometry();
+    }
+    // Physical path is primary; dual overlay shows cinematic twin for comparison
     state.pathGeometry = 'both';
     state.pathOffsetPolicy = 'time_varying';
-    // Prefer equal-time Kepler sampling (already default)
     state.pathSampleMode = 'equal_time';
     state.showDvArrows = true;
     state.showPathBead = true;
-    // Higher planning fidelity (offline sample endpoints — not SPICE)
+    // Live planning pipeline: sample-DE / L3 when baked
     state.ephemerisBackend = 'sample-de';
     state.fidelityLevel = 'L2-plan';
     if (state.pathAccuracy) {
@@ -45,7 +50,13 @@ export function setPhysicsAccurateView(on, opts = {}) {
   } else {
     state.mapMode = false;
     setDisplayMode('cinematic');
-    state.pathGeometry = 'visual';
+    // Restore product physical (never force visual after ACCURATE)
+    if (state.pathGeometry === 'both') {
+      state.pathGeometry = _pathGeomBeforeAccurate || PRODUCT_PATH_GEOMETRY;
+      _pathGeomBeforeAccurate = null;
+    } else if (!state.pathGeometry || state.pathGeometry === 'visual') {
+      state.pathGeometry = PRODUCT_PATH_GEOMETRY;
+    }
     if (state.pathAccuracy) state.pathAccuracy.nbodyOverlay = false;
     const flagNbody = document.getElementById('flag-nbody');
     if (flagNbody) flagNbody.checked = false;
@@ -67,8 +78,8 @@ export function setPhysicsAccurateView(on, opts = {}) {
   if (!opts.silent) {
     import('./format.js').then(({ notify }) => {
       notify(want
-        ? 'PHYSICS-ACCURATE · L2-plan sample-DE · schematic path · n-body residual overlay (Need unchanged) · Three.js display only'
-        : 'CINEMATIC VIEW — exaggerated inclinations for readability');
+        ? 'ACCURATE VIEW · sample-DE planning · physical path · dual overlay · n-body residual (Need unchanged)'
+        : 'CINEMATIC VIEW — physical path kept · exaggerated body inclinations for readability');
     });
   }
 

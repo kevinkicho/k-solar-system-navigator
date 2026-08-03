@@ -33,14 +33,14 @@ export function wireVehicleLab() {
     ];
     let html = `
       <p style="font-size:10px;color:var(--amber);margin-bottom:8px">
-        Illustrative vehicle models — not SpaceX-certified. Lab does <strong>not</strong> prove a mission is feasible without a computed plan.
+        Live planning vehicle models — not SpaceX-certified. Lab does <strong>not</strong> prove a mission is feasible without a computed plan.
       </p>
       <div class="vehicle-provenance" style="font-size:9px;opacity:0.9;margin-bottom:10px;padding:8px;border:1px solid var(--border);border-radius:2px">
         <div class="result-subtitle" style="margin-bottom:4px">MODEL PROVENANCE</div>
-        <div class="info-row"><span class="key">Class</span><span class="val">Preliminary industrial · not User’s Guide</span></div>
-        <div class="info-row"><span class="key">Falcon 9</span><span class="val">Illustrative C₃–payload knots (public order-of-magnitude)</span></div>
-        <div class="info-row"><span class="key">Starship</span><span class="val">Rocket-equation arches: unrefueled / tanker-n / legacy-demo</span></div>
-        <div class="info-row"><span class="key">Review</span><span class="val">2026-08 · not performance warranty</span></div>
+        <div class="info-row"><span class="key">Class</span><span class="val">Live planning models · not User’s Guide · not flight-certified</span></div>
+        <div class="info-row"><span class="key">Falcon 9</span><span class="val">C₃–payload performance table (public order-of-magnitude knots)</span></div>
+        <div class="info-row"><span class="key">Starship</span><span class="val">Rocket-equation: unrefueled injection / N-tanker</span></div>
+        <div class="info-row"><span class="key">Pipeline</span><span class="val">Need = Lambert + sample-DE/L3 · Capability = vehicle model</span></div>
       </div>`;
 
     // Design-for-Need paper study (uses current transfer Need when available)

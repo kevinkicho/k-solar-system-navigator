@@ -45,7 +45,7 @@ export function buildPlanObject(td) {
   const request = {
     vehicleId: state.vehicleId,
     cargoMass_kg: state.cargoMass_kg ?? 0,
-    starshipArch: state.starshipArch ?? 'legacy-demo',
+    starshipArch: state.starshipArch ?? 'unrefueled',
     tankerCount: state.tankerCount ?? 0,
     falcon9Variant: state.falcon9Variant || 'expendable',
     abstractBudget_m_s: state.abstractBudget_m_s,
@@ -96,7 +96,7 @@ export function buildPlanObject(td) {
       basis: costBasis,
       view: state.display?.mode || 'cinematic',
       cargo: Math.round(state.cargoMass_kg || 0),
-      arch: state.vehicleId === 'sh-starship' ? (state.starshipArch || 'legacy-demo') : undefined,
+      arch: state.vehicleId === 'sh-starship' ? (state.starshipArch || 'unrefueled') : undefined,
       tankers: state.starshipArch === 'tanker-n' ? (state.tankerCount || 0) : undefined,
       f9v: state.vehicleId === 'falcon9' ? (state.falcon9Variant || 'expendable') : undefined,
       eph: (state.ephemerisBackend === 'sample-de' ) ? 'sample' : undefined,

@@ -1,8 +1,8 @@
 /**
- * Educational flight-ops helpers (light-time, ops gates, OEM-like export).
+ * Flight-ops analysis helpers (light-time, ops gates, OEM-like export).
  *
  * NOT flight-certified. NOT range safety. NOT operational OD.
- * Provides an ops-workflow *training* surface on top of HELIOS concept-grade physics.
+ * Live planning analysis surface on HELIOS preliminary physics.
  */
 
 import { AU, DAY } from '../constants.js';
@@ -30,7 +30,7 @@ export function formatLightTime(sec) {
 
 /**
  * Stellar-aberration angle sketch: θ ≈ v/c (rad) for transverse motion.
- * Educational magnitude only — not full IAU aberration or planetary LT iteration.
+ * Analysis magnitude only — not full IAU aberration or planetary LT iteration.
  * @param {number} v_m_s speed relative to solar-system barycenter class
  * @returns {{ theta_rad: number, theta_arcsec: number, theta_deg: number }|null}
  */
@@ -42,12 +42,12 @@ export function stellarAberrationSketch(v_m_s) {
     theta_deg: theta * (180 / Math.PI),
     theta_arcsec: theta * (180 / Math.PI) * 3600,
     v_m_s,
-    note: 'Stellar-aberration class angle θ≈v/c — educational magnitude only, not applied to Need.',
+    note: 'Stellar-aberration class angle θ≈v/c — analysis magnitude only, not applied to Need.',
   };
 }
 
 /**
- * Educational geometric vs apparent note (+ aberration magnitude sketch).
+ * Geometric vs apparent analysis note (+ aberration magnitude sketch).
  * @param {object} td transfer data
  */
 export function lightTimeSummary(td) {
@@ -106,7 +106,7 @@ export function lightTimeAberrationAnalysis(td) {
 }
 
 /**
- * Educational light-time alternate Need sketch.
+ * Light-time alternate Need sketch.
  * Shifts arrival epoch by one-way LT at arrival r and re-solves Δv if caller provides recompute.
  * Here: report Δt and fractional TOF impact only — full re-Lambert is opt-in via routing.
  *
@@ -142,7 +142,7 @@ export function buildFlightOpsGates(td, ctx = {}) {
     code: 'G_OPS_NOT_CERTIFIED',
     level: 'warn',
     title: 'Not flight-certified',
-    detail: 'HELIOS flight-ops mode is educational workflow training — not range safety, not mission assurance, not certified SPICE OD.',
+    detail: 'HELIOS flight-ops mode is preliminary analysis workflow — not range safety, not mission assurance, not certified SPICE OD.',
   });
 
   const meta = ctx.sampleMeta;
@@ -174,7 +174,7 @@ export function buildFlightOpsGates(td, ctx = {}) {
       code: 'G_OPS_LIVE_HORIZONS',
       level: 'warn',
       title: 'Live Horizons inject active',
-      detail: 'Network endpoint inject is educational and not a closed-loop navigation system.',
+      detail: 'Network endpoint inject is live network inject, not a closed-loop navigation system.',
     });
   }
 
@@ -193,7 +193,7 @@ export function buildFlightOpsGates(td, ctx = {}) {
       code: 'G_OPS_LT_TOF_FRACTION',
       level: lt.lt_frac_tof > 0.001 ? 'warn' : 'pass',
       title: `LT / TOF ≈ ${(lt.lt_frac_tof * 100).toFixed(3)}%`,
-      detail: 'One-way light time as fraction of transfer TOF — educational scale check only.',
+      detail: 'One-way light time as fraction of transfer TOF — analysis scale check only.',
     });
   }
 
@@ -206,7 +206,7 @@ export function buildFlightOpsGates(td, ctx = {}) {
 }
 
 /**
- * Minimal CCSDS OEM-like text (educational). Not a validated CCSDS product.
+ * Minimal CCSDS OEM-like text \(preliminary\). Not a validated CCSDS product.
  * @param {object} td
  * @param {Array<{t:number,x:number,y:number,z:number}>} samples scene AU
  */
@@ -215,7 +215,7 @@ export function buildEducationalOem(td, samples = []) {
   const d = td?.body2?.name || 'DEST';
   const lines = [
     'CCSDS_OEM_VERS = 2.0',
-    'COMMENT Educational HELIOS OEM-like export — NOT a CCSDS-validated flight product',
+    'COMMENT HELIOS OEM-like export \(preliminary\) — NOT a CCSDS-validated flight product',
     'COMMENT Geometric heliocentric scene-frame AU states; not Earth-fixed, not OD',
     `CREATION_DATE = ${new Date().toISOString()}`,
     'ORIGINATOR = HELIOS-EDU',
@@ -250,7 +250,7 @@ export function buildEducationalOem(td, samples = []) {
 }
 
 export function opsDisclaimer() {
-  return 'HELIOS flight-ops mode is educational only: not certified for flight, not range safety, not operational SPICE/OD.';
+  return 'HELIOS flight-ops mode is preliminary analysis only: not certified for flight, not range safety, not operational SPICE/OD.';
 }
 
 // silence unused

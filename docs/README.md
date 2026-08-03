@@ -2,7 +2,7 @@
 
 Living index of product/architecture designs. Each design file keeps historical technical content. **Header status + this index are authoritative for “is this landed?”**
 
-**Last docs sweep:** 2026-08-02 · honesty hardening · pathGeometry restore · sample-de planner defaults · READY (analysis) language.
+**Last docs sweep:** 2026-08-02 · live planning pipeline · mock/concept UI hidden · ACCURATE path restore · pathSampleGeometry.
 
 ## As-built product snapshot
 
@@ -11,7 +11,8 @@ HELIOS on `main` is an **industrial preliminary mission-design workstation** (no
 | Area | State |
 |---|---|
 | **Physics** | Dual-branch Lambert; multi-leg patched-conic GA; porkchop; Need/Capability/Margin; asymptote/DLA/dogleg |
-| **Fidelity** | Product **L2-plan** sample-DE → **L3-plan** when DE440s bake present; Horizons inject opt-in; dense SPK packs |
+| **Fidelity** | Live pipeline: **L2-plan** sample-DE → **L3-plan** DE440s bake; **live Horizons** inject opt-in; dense SPK packs |
+| **UI honesty** | Mock abstract vehicles / legacy-demo / L1 approx / visual-only path **hidden** from product UI |
 | **Path honesty** | Shared `transfer-path`; default `pathGeometry: physical`; adaptive densify ON; ghosts `match_path_end` |
 | **GA** | Manual +FLYBY; **SUGGEST GA** Accept/Keep; coarse/thorough local seeds; named dual templates |
 | **Reliability** | Plan Dossier gates; Launch / Fly study blocked without `mission_ready` |

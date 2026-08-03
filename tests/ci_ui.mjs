@@ -206,7 +206,11 @@ try {
     await page.waitForTimeout(150);
   }
   const legText = (await page.locator('#transfer-results').textContent()).trim();
-  check('legacy demo banner or label', /LEGACY|legacy/i.test(legText));
+  // legacy-demo is hidden from product UI — only unrefueled / tanker remain visible
+  check('starship arch product unrefueled (legacy-demo hidden)', await page.evaluate(() => {
+    const o = document.querySelector('#starship-arch option[value="legacy-demo"]');
+    return o && (o.hidden || o.style.display === 'none' || o.getAttribute('hidden') != null);
+  }));
 
   section('4. SCENARIO LOAD + AUTO COMPUTE');
   await page.locator('.rail-tab[data-tab="plan"]').click().catch(() => {});

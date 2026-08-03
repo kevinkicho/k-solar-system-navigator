@@ -91,7 +91,7 @@ export function vehicleEngineeringHtml(stateSlice = {}) {
   }
 
   html += `
-      <div class="info-row"><span class="key">Note</span><span class="val" style="font-size:9px;opacity:0.75">Ideal rocket-eq ignores gravity/drag losses, steering, and staging coast — educational only</span></div>`;
+      <div class="info-row"><span class="key">Note</span><span class="val" style="font-size:9px;opacity:0.75">Ideal rocket-eq ignores gravity/drag losses, steering, and staging coast — analysis model only</span></div>`;
 
   return html;
 }

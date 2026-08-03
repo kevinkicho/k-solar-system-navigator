@@ -2,7 +2,7 @@
  * Simple camera tour: dolly along current transfer from departure toward arrival.
  */
 import * as THREE from 'three';
-import { state } from '../state.js';
+import { state, pathSampleGeometry } from '../state.js';
 import { camera3D, controls } from './setup.js';
 import { buildTransferPathSamples } from '../physics/transfer-path.js';
 import { notify } from '../ui/format.js';
@@ -32,7 +32,7 @@ export function startTransferTour() {
     return;
   }
 
-  const geom = state.physicsAccurate || state.pathGeometry === 'physical' ? 'physical' : 'visual';
+  const geom = pathSampleGeometry();
   const built = buildTransferPathSamples(td, {
     geometry: geom,
     exaggerate: geom !== 'physical' && !isSchematic() && !state.physicsAccurate,

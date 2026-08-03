@@ -346,7 +346,7 @@ export function updateMission() {
   }
   if (rEl) {
     if (progress < 1) {
-      // Prefer pure heliocentric radius for educational honesty
+      // Prefer pure heliocentric radius for path honesty
       const rh = shipInfo?.r_helio;
       const rAu = shipInfo?.r_AU != null
         ? shipInfo.r_AU

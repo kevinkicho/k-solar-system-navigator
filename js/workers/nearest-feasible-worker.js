@@ -33,7 +33,7 @@ self.onmessage = async (ev) => {
     body2Id,
     depHint,
     tofHint,
-    backend = 'approx',
+    backend = 'sample-de',
     allowPast = false,
   } = msg;
 

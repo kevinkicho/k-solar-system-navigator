@@ -106,10 +106,10 @@ const oem = buildEducationalOem(td, [
   { t: 86400, x: 1.01, y: 0.01, z: 0 },
 ]);
 check('OEM has CCSDS header', oem.includes('CCSDS_OEM_VERS'));
-check('OEM educational disclaimer', /NOT a CCSDS|Educational/i.test(oem));
+check('OEM preliminary disclaimer', /NOT a CCSDS|preliminary|not certified/i.test(oem));
 check('OEM has state lines', oem.split('\n').length > 15);
 check('OEM empty samples comment', buildEducationalOem(td, []).includes('No path samples'));
-check('opsDisclaimer present', /educational only/i.test(opsDisclaimer()));
+check('opsDisclaimer present', /preliminary|not certified|not range safety/i.test(opsDisclaimer()));
 
 // Synthetic spice vs bootstrap detect
 setSampleTableForTests({

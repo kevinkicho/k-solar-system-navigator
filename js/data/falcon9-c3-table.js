@@ -4,7 +4,7 @@
 // not a User's Guide extract and not a performance guarantee.
 
 export const F9_DISCLAIMER =
-  'Illustrative Falcon 9 payload-vs-C3 model — preliminary analysis only · not SpaceX performance data or warranty.';
+  'Falcon 9 C₃–payload performance table (live planning model) — preliminary analysis only · not SpaceX warranty.';
 
 /** ASDS / recovery derate on max payload (K4). */
 export const F9_ASDS_DERATE = 0.65;

@@ -347,13 +347,13 @@ function visualWarnHtml(td) {
     parts.push(`<div class="visual-fallback-warn" role="status">ℹ Visual longWay could not match physical — path branch diverged; Δv still from physical Lambert.</div>`);
   }
   if (offsetPol === 'time_varying' && !hasCosine) {
-    parts.push(`<div class="visual-fallback-note" role="status">Path offset=time_varying: includes sun barycenter motion (educational) — not third-body gravity on the coast.</div>`);
+    parts.push(`<div class="visual-fallback-note" role="status">Path offset=time_varying: includes sun barycenter motion — not third-body gravity on the coast.</div>`);
   }
   if (td.revolutions > 0) {
-    parts.push(`<div class="visual-fallback-note" role="status">Multi-rev Lambert N=${td.revolutions} (flag and/or auto when TOF&gt;400 d — educational branch, not certified).</div>`);
+    parts.push(`<div class="visual-fallback-note" role="status">Multi-rev Lambert N=${td.revolutions} (flag and/or auto when TOF&gt;400 d — preliminary branch, not certified).</div>`);
   }
   if (state.pathAccuracy?.nbodyOverlay ) {
-    parts.push(`<div class="visual-fallback-note" role="status">n-body coast overlay = educational residual under Approximate Positions — not navigation OD. Need/Δv unchanged.</div>`);
+    parts.push(`<div class="visual-fallback-note" role="status">n-body coast overlay = analysis residual only — not navigation OD. Need/Δv unchanged.</div>`);
   }
   // PR9: outer-system sample-DE recommend (no silent switch)
   const outerBanner = outerSampleDeBanner(td);

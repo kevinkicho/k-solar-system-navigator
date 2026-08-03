@@ -80,6 +80,13 @@ check('planning backend resolve sample-de', /PRODUCT_PLANNING_BACKEND|resolvePla
 check('Vehicle Lab model provenance', /MODEL PROVENANCE|model provenance/i.test(
   readFileSync(resolve(ROOT, 'js/ui/vehicle-lab.js'), 'utf8')));
 check('Launch site not edu-labeled', !/Launch site \(edu/.test(indexHtml));
+check('Mock abstract vehicles hidden', /value=["']abstract["'][^>]*hidden|value=["']abstract["']\s+hidden/.test(indexHtml)
+  || /option value=["']abstract["'] hidden/.test(indexHtml));
+check('legacy-demo arch hidden', /legacy-demo[^>]*hidden|value=["']legacy-demo["'][^>]*hidden/.test(indexHtml));
+check('pathSampleGeometry export', /export function pathSampleGeometry/.test(stateJs));
+check('Live Horizons inject label', /Live Horizons|Horizons endpoint inject/i.test(indexHtml));
+check('Vehicle Lab hidden from product UI', /helios-mock-hidden|btn-vehicle-lab[\s\S]{0,80}hidden|hidden[\s\S]{0,40}btn-vehicle-lab/.test(indexHtml)
+  || /helios-mock-hidden[\s\S]{0,200}btn-vehicle-lab/.test(indexHtml));
 check('product-chrome module', existsSync(resolve(ROOT, 'js/ui/product-chrome.js')));
 check('Ship pathGeometry honesty in routing', /pathGeometry.*physical|geometry === 'physical'/.test(
   readFileSync(resolve(ROOT, 'js/physics/routing.js'), 'utf8')));
