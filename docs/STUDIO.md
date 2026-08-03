@@ -53,10 +53,28 @@ After compute, Results mounts:
 
 `tests/studio_depth.mjs` (in `npm run test:physics`)
 
+## Pass 2 (2026-08-03) — remaining recommendations
+
+| Feature | Module / surface |
+|---------|------------------|
+| Need waterfall | `js/physics/need-waterfall.js` · Studio button · `get_need_waterfall` |
+| Vehicle DoE | `js/physics/vehicle-doe.js` · cargo/tanker sweeps · `get_vehicle_doe` |
+| Launch Geometry Card | `js/physics/launch-geometry-card.js` · `get_launch_geometry` |
+| Sample-return sketch | `js/physics/free-return-sketch.js` · outbound+return Lamberts (not free-return OD) |
+| Itinerary catalog UI | Studio · `get_itinerary_catalog` |
+| AI eval harness | `js/agent/eval-harness.js` · golden NL parse + tool contracts |
+| Multi-role FAB | Role picker + `roles.js` in system prompt |
+| Companion mode | `?companion=1` · top-bar COMPANION · `set_companion_mode` |
+| Headless rank API | `POST /api/planning/rank-candidates` (App Hosting + `server.js`) |
+| Window calendar CSV | Studio export |
+| Scenario library | studio-mars / studio-jupiter / studio-europa-io + companion demos |
+| Horizons residual row | residual dashboard |
+| Local reviews list | Studio · `listLocalReviews` |
+
 ## Still deferred (honest backlog)
 
-- Full DAG visual editor / multi-user org ACLs  
-- Headless public plan compute API  
-- True free-return / multi-rev free-return design  
+- Full DAG visual editor / multi-user org ACLs with share tokens  
+- Full Lambert compute on server (rank API is candidates-only)  
+- True free-return corridor / multi-rev free-return OD  
 - DSM re-optimized multi-leg Lambert  
-- Mobile-first companion app shell  
+- Native mobile app (companion mode is browser shell only)  

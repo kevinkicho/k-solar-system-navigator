@@ -291,6 +291,74 @@ async function executeCommand(cmd) {
       return { ok: true, nodes: state.dsmNodes, sketch };
     }
 
+    case 'get_need_waterfall': {
+      const { buildNeedWaterfall } = await import('../physics/need-waterfall.js');
+      const wf = buildNeedWaterfall({
+        need: state.transferData?.dossier?.need,
+        vehicleId: state.vehicleId,
+        ascentBudget_m_s: state.ascentLossBudget_m_s,
+        dsmNodes: state.dsmNodes,
+        captureBudget_m_s: state.captureBudget_m_s,
+      });
+      state.needWaterfall = wf;
+      return wf;
+    }
+
+    case 'get_vehicle_doe': {
+      const { runVehicleDoe } = await import('../physics/vehicle-doe.js');
+      const need = state.transferData?.dossier?.need;
+      if (!need) throw new Error('Compute transfer first');
+      const doe = runVehicleDoe(need, {
+        cargoMass_kg: state.cargoMass_kg,
+        originBody: state.routeOrigin,
+        starshipArch: state.starshipArch,
+        tankerCount: state.tankerCount,
+      });
+      state.vehicleDoe = doe;
+      return doe;
+    }
+
+    case 'get_launch_geometry': {
+      const { buildLaunchGeometryCard } = await import('../physics/launch-geometry-card.js');
+      return buildLaunchGeometryCard(state.transferData, state);
+    }
+
+    case 'sketch_sample_return': {
+      const { sketchSampleReturn, canSketchSampleReturn } = await import('../physics/free-return-sketch.js');
+      if (!canSketchSampleReturn(state.routeOrigin, state.routeDestination)) {
+        throw new Error('sample-return sketch needs Earth↔planet');
+      }
+      const home = (state.routeOrigin?.name || '').toLowerCase() === 'earth'
+        ? state.routeOrigin : state.routeDestination;
+      const target = home === state.routeOrigin ? state.routeDestination : state.routeOrigin;
+      const dep = state.transferData?.departureSimTime ?? timeState.simTime ?? 0;
+      const sketch = sketchSampleReturn(home, target, dep, {
+        ephemerisBackend: state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx',
+      }, { stay_days: args.stay_days ?? 30 });
+      state.sampleReturnSketch = sketch;
+      return sketch;
+    }
+
+    case 'get_itinerary_catalog': {
+      const { itineraryTemplates } = await import('../physics/itinerary-suggest.js');
+      if (!state.routeOrigin || !state.routeDestination) {
+        throw new Error('Set origin and destination');
+      }
+      return {
+        templates: itineraryTemplates(state.routeOrigin, state.routeDestination).map((t) => ({
+          id: t.id, label: t.label, kind: t.kind, rationale: t.rationale,
+          bodies: (t.bodies || []).map((b) => b.name),
+        })),
+        product_class: 'preliminary-not-flight-certified',
+        note: 'Local templates only — not a global tour optimizer',
+      };
+    }
+
+    case 'set_companion_mode': {
+      const { applyCompanionMode } = await import('../ui/companion-mode.js');
+      return applyCompanionMode(!!(args.on ?? args.enabled ?? args.value));
+    }
+
     case 'list_bodies':
       return { bodies: listBodyNames() };
 

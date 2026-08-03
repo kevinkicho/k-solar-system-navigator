@@ -14,6 +14,12 @@ import { buildResidualDashboard } from '../physics/residual-dashboard.js';
 import { suggestMidcourseDsmSeed, needWithDsmSketch, normalizeDsmNodes } from '../physics/dsm-nodes.js';
 import { moonSystemTemplates } from '../physics/moon-system-sketch.js';
 import { listPlaybooks } from '../agent/playbooks.js';
+import { buildNeedWaterfall } from '../physics/need-waterfall.js';
+import { runVehicleDoe } from '../physics/vehicle-doe.js';
+import { buildLaunchGeometryCard } from '../physics/launch-geometry-card.js';
+import { itineraryTemplates } from '../physics/itinerary-suggest.js';
+import { listLocalReviews } from '../firebase/shared-plans.js';
+import { applyCompanionMode } from './companion-mode.js';
 
 function esc(s) {
   return String(s || '')
@@ -62,18 +68,26 @@ export function renderStudioPanel(host) {
 
   el.innerHTML = `
     <div class="ai-next-title">HELIOS STUDIO · campaign depth</div>
-    <p class="studio-note">Window families · architecture matrix · compare pins · fidelity wizard · residuals · DSM sketch · playbooks. Preliminary only — not flight-certified.</p>
+    <p class="studio-note">Campaign depth studio — families · matrix · pins · waterfall · DoE · launch geometry · itinerary catalog · sample-return · companion. Preliminary only — not flight-certified.</p>
     <div class="studio-actions">
       <button type="button" class="btn-tiny" data-act="families">Window families</button>
       <button type="button" class="btn-tiny" data-act="matrix">Architecture matrix</button>
+      <button type="button" class="btn-tiny" data-act="waterfall">Need waterfall</button>
+      <button type="button" class="btn-tiny" data-act="doe">Vehicle DoE</button>
+      <button type="button" class="btn-tiny" data-act="launch-geo">Launch geometry</button>
+      <button type="button" class="btn-tiny" data-act="catalog">Itinerary catalog</button>
+      <button type="button" class="btn-tiny" data-act="sample-return">Sample-return sketch</button>
       <button type="button" class="btn-tiny" data-act="pin">Pin plan</button>
       <button type="button" class="btn-tiny" data-act="diff">Diff pins</button>
       <button type="button" class="btn-tiny" data-act="clear-pins">Clear pins</button>
       <button type="button" class="btn-tiny" data-act="residual">Residuals</button>
       <button type="button" class="btn-tiny" data-act="dsm">Add DSM seed</button>
+      <button type="button" class="btn-tiny" data-act="calendar-csv">Calendar CSV</button>
       <button type="button" class="btn-tiny" data-act="dag">Run campaign DAG</button>
       <button type="button" class="btn-tiny" data-act="review">Save review link</button>
+      <button type="button" class="btn-tiny" data-act="reviews">List reviews</button>
       <button type="button" class="btn-tiny" data-act="stakeholder">Stakeholder package</button>
+      <button type="button" class="btn-tiny" data-act="companion">Companion mode</button>
     </div>
     <div class="studio-row">
       <label>Fidelity wizard
@@ -99,6 +113,8 @@ export function renderStudioPanel(host) {
       ${renderResidualHtml(residual)}
       ${renderMoonHtml(moonPack)}
       ${renderDsmHtml()}
+      ${renderWaterfallHtml(td)}
+      ${renderCatalogHtml()}
     </div>
   `;
 
@@ -186,6 +202,38 @@ function renderDsmHtml() {
     <ul class="studio-list">${nodes.map((n) => `<li>${esc(n.label)} · ${fmtKmS(n.dv_m_s)} @ f=${n.epoch_frac}</li>`).join('')}</ul>
     <p>Lambert ${fmtKmS(sketch.lambert_need_m_s)} + DSM ${fmtKmS(sketch.dsm_total_m_s)} → combined ${fmtKmS(sketch.combined_need_m_s)}</p>
     <p class="studio-muted">${esc(sketch.note)}</p></div>`;
+}
+
+function renderWaterfallHtml(td) {
+  if (!td) {
+    return '<div class="studio-block"><strong>Need waterfall</strong><p class="studio-muted">Compute first.</p></div>';
+  }
+  const wf = buildNeedWaterfall({
+    need: td.dossier?.need,
+    vehicleId: state.vehicleId,
+    ascentBudget_m_s: state.ascentLossBudget_m_s,
+    dsmNodes: state.dsmNodes,
+    captureBudget_m_s: state.captureBudget_m_s,
+  });
+  return `<div class="studio-block"><strong>Need waterfall</strong>
+    <ul class="studio-list">${wf.rows.map((r) => `
+      <li><strong>${esc(r.label)}</strong>: ${fmtKmS(r.dv_m_s)}
+        ${r.in_lambert_need ? '<span class="studio-muted">· in Need</span>' : '<span class="studio-muted">· outside Need</span>'}
+      </li>`).join('')}</ul>
+    <p class="studio-muted">${esc(wf.note)}</p></div>`;
+}
+
+function renderCatalogHtml() {
+  const o = state.routeOrigin;
+  const d = state.routeDestination;
+  if (!o || !d) {
+    return '<div class="studio-block"><strong>Itinerary catalog</strong><p class="studio-muted">Set origin/destination.</p></div>';
+  }
+  const tpls = itineraryTemplates(o, d);
+  return `<div class="studio-block"><strong>Itinerary catalog (${tpls.length})</strong>
+    <ul class="studio-list">${tpls.slice(0, 8).map((t) => `
+      <li><strong>${esc(t.label)}</strong> — ${esc(t.rationale)}</li>`).join('')}</ul>
+    <p class="studio-muted">Local templates only — not a global tour optimizer.</p></div>`;
 }
 
 async function handleAct(act, el, host) {
@@ -335,6 +383,142 @@ async function handleAct(act, el, host) {
       const { exportStakeholderPackage } = await import('./mission-package.js');
       await exportStakeholderPackage(state.transferData);
       notify('STAKEHOLDER PACKAGE DOWNLOADED');
+      return;
+    }
+    if (act === 'waterfall') {
+      if (!state.transferData) {
+        notify('COMPUTE FIRST');
+        return;
+      }
+      const wf = buildNeedWaterfall({
+        need: state.transferData.dossier?.need,
+        vehicleId: state.vehicleId,
+        ascentBudget_m_s: state.ascentLossBudget_m_s,
+        dsmNodes: state.dsmNodes,
+        captureBudget_m_s: state.captureBudget_m_s,
+      });
+      state.needWaterfall = wf;
+      if (out) {
+        out.hidden = false;
+        out.textContent = wf.rows.map((r) => `${r.label}: ${fmtKmS(r.dv_m_s)}`).join('\n')
+          + `\n\nOutside Lambert: ${fmtKmS(wf.stack_outside_lambert_m_s)}\n${wf.note}`;
+      }
+      renderStudioPanel(host);
+      return;
+    }
+    if (act === 'doe') {
+      const need = state.transferData?.dossier?.need;
+      if (!need?.need_dv_m_s && need?.need_dv_m_s !== 0) {
+        notify('COMPUTE FIRST');
+        return;
+      }
+      const doe = runVehicleDoe(need, {
+        cargoMass_kg: state.cargoMass_kg,
+        originBody: state.routeOrigin,
+        starshipArch: state.starshipArch,
+        tankerCount: state.tankerCount,
+      });
+      state.vehicleDoe = doe;
+      if (out) {
+        out.hidden = false;
+        const cargoLines = (doe.cargo?.rows || []).slice(0, 8).map((r) =>
+          `cargo ${r.cargoMass_kg} kg → ${r.feasible ? 'OK' : 'no'} margin ${fmtKmS(r.margin_dv_m_s)}`);
+        const tankLines = (doe.tankers?.rows || []).filter((r) => r.feasible).slice(0, 6).map((r) =>
+          `N=${r.tankerCount} tankers OK · cap ${fmtKmS(r.capability_dv_m_s)}`);
+        out.textContent = ['CARGO SWEEP', ...cargoLines, '', 'TANKER SWEEP (feasible)', ...tankLines,
+          '', `min tankers @ cargo: ${doe.tankers?.min_tankers_for_need ?? '—'}`, doe.cargo?.note || ''].join('\n');
+      }
+      notify('VEHICLE DoE READY');
+      return;
+    }
+    if (act === 'launch-geo') {
+      const card = buildLaunchGeometryCard(state.transferData, state);
+      if (out) {
+        out.hidden = false;
+        out.textContent = card.ok ? card.lines.join('\n') + `\n\n${card.disclaimer}` : (card.error || 'unavailable');
+      }
+      return;
+    }
+    if (act === 'catalog') {
+      if (!state.routeOrigin || !state.routeDestination) {
+        notify('SET ORIGIN AND DESTINATION');
+        return;
+      }
+      const tpls = itineraryTemplates(state.routeOrigin, state.routeDestination);
+      if (out) {
+        out.hidden = false;
+        out.textContent = tpls.map((t) => `· ${t.label}\n  ${t.rationale}`).join('\n\n');
+      }
+      renderStudioPanel(host);
+      return;
+    }
+    if (act === 'sample-return') {
+      const { sketchSampleReturn, canSketchSampleReturn } = await import('../physics/free-return-sketch.js');
+      if (!canSketchSampleReturn(state.routeOrigin, state.routeDestination)) {
+        notify('SAMPLE-RETURN SKETCH: use Earth↔planet');
+        return;
+      }
+      const home = (state.routeOrigin?.name || '').toLowerCase() === 'earth'
+        ? state.routeOrigin : state.routeDestination;
+      const target = home === state.routeOrigin ? state.routeDestination : state.routeOrigin;
+      const dep = state.transferData?.departureSimTime ?? 0;
+      const sketch = sketchSampleReturn(home, target, dep, {
+        ephemerisBackend: state.ephemerisBackend === 'sample-de' ? 'sample-de' : 'approx',
+      }, { stay_days: 30 });
+      state.sampleReturnSketch = sketch;
+      if (out) {
+        out.hidden = false;
+        out.textContent = sketch.ok
+          ? `${sketch.label}\nOutbound ${fmtKmS(sketch.outbound?.dvTotal_m_s)} · Return ${fmtKmS(sketch.inbound?.dvTotal_m_s)}\nTotal ${fmtKmS(sketch.total_dv_m_s)} · TOF ${sketch.total_tof_days?.toFixed?.(0) ?? '—'} d\n\n${sketch.note}`
+          : (sketch.error || 'failed');
+      }
+      notify(sketch.ok ? 'SAMPLE-RETURN SKETCH READY' : 'SKETCH FAILED');
+      return;
+    }
+    if (act === 'calendar-csv') {
+      const fam = state.windowFamilies
+        || (state.windowShortlist ? clusterWindowFamilies(state.windowShortlist) : null);
+      if (!fam?.families?.length) {
+        notify('NO FAMILIES — RUN WINDOW FAMILIES FIRST');
+        return;
+      }
+      const rows = [['season', 'tof_band', 'n', 'best_dep', 'best_dv_m_s', 'recommended']];
+      for (const f of fam.families) {
+        rows.push([
+          f.season_year,
+          f.tof_band,
+          f.n,
+          f.best?.dep_iso || '',
+          f.best_dv_m_s ?? '',
+          f.recommended ? 'yes' : '',
+        ]);
+      }
+      const csv = rows.map((r) => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'helios-window-families.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+      notify('CALENDAR CSV DOWNLOADED');
+      return;
+    }
+    if (act === 'reviews') {
+      const list = listLocalReviews();
+      if (out) {
+        out.hidden = false;
+        out.textContent = list.length
+          ? list.slice(0, 10).map((r) => `${r.id} · ${r.title || 'review'} · ${r.created_at || ''}`).join('\n')
+          : 'No local reviews yet — Save review link first.';
+      }
+      return;
+    }
+    if (act === 'companion') {
+      applyCompanionMode(!state.companionMode);
+      notify(state.companionMode ? 'COMPANION MODE ON' : 'COMPANION MODE OFF');
+      const btn = document.getElementById('btn-companion');
+      if (btn) btn.textContent = state.companionMode ? 'FULL' : 'COMPANION';
       return;
     }
   } catch (e) {

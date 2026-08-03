@@ -15,6 +15,7 @@
     "test:ai-models": "node tests/ai_models_unit.mjs",
     "test:mission-context": "node tests/mission_context.mjs",
     "test:ai-eval": "node tests/ai_campaign_eval.mjs",
+    "test:ai-harness": "node tests/studio_depth2.mjs",
     "test:nearest": "node tests/nearest_feasible.mjs",
     "test:ui": "node tests/ui_smoke.mjs",
     "test:ui:ci": "node tests/ci_ui.mjs",

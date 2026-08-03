@@ -951,6 +951,30 @@ option[hidden] {
 .helios-studio .studio-table tr.is-no td:last-child { color: #ff6b6b; }
 .helios-studio .studio-out { max-height: 200px; }
 
+/* Companion / mobile campaign mode */
+html.helios-companion #scene-container canvas,
+body.helios-companion #scene-container {
+  opacity: 0.55;
+}
+html.helios-companion #right-rail,
+body.helios-companion #right-rail {
+  width: min(100vw, 420px);
+  max-width: 100%;
+}
+html.helios-companion .helios-studio,
+body.helios-companion .helios-studio {
+  border-color: rgba(0, 230, 118, 0.4);
+}
+html.helios-companion .rail-pane[data-pane="results"],
+body.helios-companion .rail-pane[data-pane="results"] {
+  display: block !important;
+}
+@media (max-width: 720px) {
+  .helios-studio .studio-actions { gap: 4px; }
+  .helios-studio .btn-tiny { font-size: 9px; padding: 4px 6px; }
+  .helios-studio .studio-table { font-size: 9px; }
+}
+
 /* legacy classroom selectors removed — keep empty block for CSS parse safety if needed */
 .helios-removed-classroom-chip-placeholder,
 .helios-removed-classroom-cloud-placeholder {

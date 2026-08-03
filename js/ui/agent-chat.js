@@ -27,6 +27,8 @@ import { getMissionAiBundle, selectModel as coreSelectModel } from '../agent/ai-
 import { appendMemoryTurn, memorySummaryForPrompt, loadMemoryFromCloud } from '../agent/memory.js';
 import { formatUsageSession, getUsageSession } from '../agent/usage-session.js';
 import { parseCampaignHint } from '../agent/campaign-parse.js';
+import { roleSystemPrompt, listRoles } from '../agent/roles.js';
+import { recommendToolsForText } from '../agent/eval-harness.js';
 import { syncAiModelChip } from './ai-chrome.js';
 import { state } from '../state.js';
 
@@ -46,10 +48,12 @@ Keep answers concise, technical when needed, and label uncertainties.`;
 
 function systemPrompt() {
   const p = state.ai?.personality || 'industrial';
-  if (p === 'coach') {
-    return `${SYSTEM_PROMPT_BASE}\nTone: coaching — teach why recommendations matter in short plain language.`;
-  }
-  return `${SYSTEM_PROMPT_BASE}\nTone: industrial — terse bullets and numbers first.`;
+  const role = state.aiRole || state.ai?.role || 'orchestrator';
+  const roleBlock = roleSystemPrompt(role);
+  const tone = p === 'coach'
+    ? 'Tone: coaching — teach why recommendations matter in short plain language.'
+    : 'Tone: industrial — terse bullets and numbers first.';
+  return `${SYSTEM_PROMPT_BASE}\n\n## Active role\n${roleBlock}\n\n${tone}`;
 }
 
 function el(tag, attrs = {}, children = []) {
@@ -366,6 +370,36 @@ export function wireAgentChat() {
       el('span', { text: 'Personality' }),
       personalitySel,
     ]),
+    (() => {
+      const roleSel = el('select', {
+        id: 'helios-ai-role',
+        'aria-label': 'AI role',
+        title: 'Multi-role co-pilot perspective',
+      });
+      const cur = state.aiRole || 'orchestrator';
+      for (const r of listRoles()) {
+        const o = el('option', { value: r.id, text: r.label });
+        if (r.id === cur) o.selected = true;
+        roleSel.appendChild(o);
+      }
+      roleSel.addEventListener('change', () => {
+        state.aiRole = roleSel.value;
+        if (state.ai) state.ai.role = roleSel.value;
+        try { localStorage.setItem('helios-ai-role', roleSel.value); } catch { /* */ }
+        appendMsg('system', `Role → ${roleSel.value}`);
+      });
+      try {
+        const stored = localStorage.getItem('helios-ai-role');
+        if (stored) {
+          state.aiRole = stored;
+          roleSel.value = stored;
+        }
+      } catch { /* */ }
+      return el('label', { style: 'display:flex;gap:6px;align-items:center' }, [
+        el('span', { text: 'Role' }),
+        roleSel,
+      ]);
+    })(),
   ]);
 
   // Voice input (optional Web Speech API)
@@ -687,8 +721,16 @@ export function wireAgentChat() {
       let reply;
 
       if (useTools) {
+        const toolHint = recommendToolsForText(text);
+        const roleExtra = `\n[Active role: ${state.aiRole || 'orchestrator'}]\n[Heuristic tools for this utterance: ${toolHint.join(', ')}]`;
         const messages = [
-          { role: 'system', content: AGENT_SYSTEM_WITH_TOOLS + contextNote },
+          {
+            role: 'system',
+            content: AGENT_SYSTEM_WITH_TOOLS
+              + '\n' + roleSystemPrompt(state.aiRole || 'orchestrator')
+              + contextNote
+              + roleExtra,
+          },
           ...history.slice(-12),
         ];
         let lastData = null;

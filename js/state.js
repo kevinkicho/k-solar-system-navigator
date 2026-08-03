@@ -185,6 +185,15 @@ export const state = {
   dsmNodes: [],
   /** Plan compare pins (max 3; also localStorage). */
   planPins: null,
+  /** Optional arrival capture class sketch (m/s) for Need waterfall. */
+  captureBudget_m_s: 0,
+  /**
+   * Mobile companion mode — denser Results/studio, less cinematic chrome.
+   * Also ?companion=1
+   */
+  companionMode: false,
+  /** AI multi-role (navigator|vehicle|fidelity|ops|orchestrator). */
+  aiRole: 'orchestrator',
   /** Optional ascent loss class budget (m/s), not mixed into Lambert Need. */
   ascentLossBudget_m_s: 0,
   /** Launch-site band for DLA gate (default any = no constraint). */

@@ -68,6 +68,12 @@ export const C2_ACTIONS = new Set([
   'list_playbooks',
   'get_moon_system_sketch',
   'add_dsm_seed',
+  'get_need_waterfall',
+  'get_vehicle_doe',
+  'get_launch_geometry',
+  'sketch_sample_return',
+  'get_itinerary_catalog',
+  'set_companion_mode',
   'list_bodies',
   'set_route',
   'compute_route',
@@ -621,6 +627,40 @@ async function handleApi(req, res, pathname) {
       },
     });
     return true;
+  }
+
+  // Headless candidate rank (no secrets) — POST body candidates only, no Lambert
+  if (pathname === '/api/planning/rank-candidates') {
+    if (req.method === 'GET') {
+      sendJson(res, 200, {
+        ok: true,
+        endpoint: '/api/planning/rank-candidates',
+        method: 'POST',
+        product_class: 'preliminary-not-flight-certified',
+      });
+      return true;
+    }
+    if (req.method === 'POST') {
+      try {
+        const body = await readJsonBody(req);
+        const candidates = Array.isArray(body?.candidates) ? body.candidates : [];
+        if (!candidates.length) {
+          sendJson(res, 400, { ok: false, error: 'candidates required' });
+          return true;
+        }
+        if (candidates.length > 200) {
+          sendJson(res, 400, { ok: false, error: 'max 200 candidates' });
+          return true;
+        }
+        const { rankPlanCandidates } = await import('./js/physics/plan-api-rank.js');
+        const topN = Math.max(1, Math.min(30, Number(body.topN) || 10));
+        const pack = rankPlanCandidates(candidates, { topN });
+        sendJson(res, 200, pack);
+      } catch (e) {
+        sendJson(res, 500, { ok: false, error: e.message || 'rank failed' });
+      }
+      return true;
+    }
   }
 
   // All other /api/* require auth per T0/T1/T2

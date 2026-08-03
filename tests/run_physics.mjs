@@ -68,6 +68,7 @@ const SUITE = [
   'tests/ga_suggest.mjs',
   'tests/itinerary_suggest.mjs',
   'tests/studio_depth.mjs',
+  'tests/studio_depth2.mjs',
   'tests/core_planning_realism.mjs',
   'tests/launch_site_plane.mjs',
   'tests/need_geometry.mjs',

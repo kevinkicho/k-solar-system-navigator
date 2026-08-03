@@ -304,12 +304,51 @@ export async function exportStakeholderPackage(td) {
     lines.push(`- (none)`);
   }
 
+  // Need waterfall + launch geometry + sample-return if present
+  try {
+    const { buildNeedWaterfall } = await import('../physics/need-waterfall.js');
+    const wf = buildNeedWaterfall({
+      need: td.dossier?.need,
+      vehicleId: state.vehicleId,
+      ascentBudget_m_s: state.ascentLossBudget_m_s,
+      dsmNodes: state.dsmNodes,
+      captureBudget_m_s: state.captureBudget_m_s,
+    });
+    lines.push(``, `## Need waterfall`);
+    for (const r of wf.rows) {
+      lines.push(`- ${r.label}: ${r.dv_m_s != null ? formatVelocity(r.dv_m_s) : '—'} (${r.in_lambert_need ? 'in Need' : 'outside Need'})`);
+    }
+    lines.push(`_${wf.note}_`);
+  } catch { /* */ }
+
+  try {
+    const { buildLaunchGeometryCard } = await import('../physics/launch-geometry-card.js');
+    const card = buildLaunchGeometryCard(td, state);
+    if (card.ok) {
+      lines.push(``, `## Launch geometry`);
+      for (const l of card.lines) lines.push(`- ${l}`);
+      lines.push(`_${card.disclaimer}_`);
+    }
+  } catch { /* */ }
+
+  if (state.sampleReturnSketch?.ok) {
+    const s = state.sampleReturnSketch;
+    lines.push(
+      ``,
+      `## Sample-return sketch`,
+      `- ${s.label}`,
+      `- Total Δv class: ${s.total_dv_m_s != null ? formatVelocity(s.total_dv_m_s) : '—'}`,
+      `- ${s.note}`,
+    );
+  }
+
   lines.push(
     ``,
     `## Disclaimers`,
     `- Stored numbers are snapshots — recompute for authority.`,
     `- Window families and itineraries are local seeds — not global optima.`,
     `- Vehicle models are educational — not OEM warranty.`,
+    `- Sample-return sketch is not free-return OD.`,
     ``,
     `---`,
     `*HELIOS Stakeholder Package v2*`,

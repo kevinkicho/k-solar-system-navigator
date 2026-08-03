@@ -140,6 +140,27 @@ export function buildResidualDashboard(td, appState = {}) {
     });
   }
 
+  // Horizons inject residual class (if last compare stored on td)
+  const hz = td.horizonsCompare || td.horizonsResidual || appState.lastHorizonsCompare || null;
+  if (hz) {
+    const dr = hz.delta_r_km ?? hz.dr_km ?? hz.miss_km;
+    items.push({
+      id: 'horizons',
+      level: dr != null && Number(dr) > 1e5 ? 'warn' : 'info',
+      title: 'Horizons inject / compare residual',
+      detail: dr != null
+        ? `Δr class ≈ ${Number(dr).toExponential(2)} km · analysis only · not OD`
+        : (hz.note || 'Horizons compare recorded'),
+    });
+  } else if (appState.horizonsEndpointInject) {
+    items.push({
+      id: 'horizons',
+      level: 'info',
+      title: 'Horizons inject ON',
+      detail: 'Live VECTORS at dep/arr for Need — residual card fills after compare/inject',
+    });
+  }
+
   return {
     ...product,
     items,

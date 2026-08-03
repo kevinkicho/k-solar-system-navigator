@@ -347,6 +347,60 @@ export const HELIOS_AGENT_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_need_waterfall',
+      description: 'Ascent + Lambert + DSM + capture educational Need stack (Lambert remains dossier authority).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_vehicle_doe',
+      description: 'Cargo/tanker design-of-experiments sweep at current Need.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_launch_geometry',
+      description: 'Launch Geometry Card: DLA/RLA asymptote + site plane sketch.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'sketch_sample_return',
+      description: 'Educational outbound+stay+return sketch (not free-return OD).',
+      parameters: {
+        type: 'object',
+        properties: { stay_days: { type: 'number' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_itinerary_catalog',
+      description: 'List named itinerary templates for current O→D (local seeds).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'set_companion_mode',
+      description: 'Toggle mobile companion mode (dense Results/studio).',
+      parameters: {
+        type: 'object',
+        properties: { on: { type: 'boolean' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'list_bodies',
       description: 'List available body names for routing.',
       parameters: { type: 'object', properties: {} },

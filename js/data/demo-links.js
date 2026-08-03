@@ -111,6 +111,27 @@ export const REFERENCE_MISSIONS = [
     }) || '#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=sh-starship&arch=unrefueled&view=schematic&eph=sample',
     tags: ['accuracy', 'physical'],
   },
+  {
+    id: 'companion-mars',
+    title: 'Companion mode · Earth → Mars',
+    summary: 'Mobile campaign companion shell (`?companion=1`)',
+    query: 'companion=1',
+    hash: buildDemoHash({
+      o: 'earth', d: 'mars', dep: '2033-04-22', tof: 259,
+      veh: 'sh-starship', arch: 'unrefueled', basis: 'helio', view: 'cinematic', eph: 'sample',
+    }) || '#v=1&o=earth&d=mars&dep=2033-04-22&tof=259&veh=sh-starship&arch=unrefueled&eph=sample',
+    tags: ['companion', 'product'],
+  },
+  {
+    id: 'studio-outer',
+    title: 'Studio outer · Earth → Jupiter',
+    summary: 'Itinerary / architecture matrix stress case',
+    hash: buildDemoHash({
+      o: 'earth', d: 'jupiter', dep: '2031-01-10', tof: 1000,
+      veh: 'sh-starship', arch: 'tanker-n', cargo: 1000, basis: 'helio', view: 'cinematic', eph: 'sample',
+    }) || '#v=1&o=earth&d=jupiter&dep=2031-01-10&tof=1000&veh=sh-starship&arch=tanker-n&cargo=1000&eph=sample',
+    tags: ['studio', 'outer'],
+  },
 ];
 
 // Back-compat alias for older imports

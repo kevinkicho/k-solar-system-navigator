@@ -121,6 +121,7 @@ wireSurfacePointUi();
 try {
   wireAiChrome(); // top-bar AI chip (core product surface)
   wireAgentChat(); // FAB chat + onboard agent C2 — never block app boot
+  import('./ui/companion-mode.js').then((m) => m.wireCompanionMode?.()).catch(() => {});
 } catch (err) {
   console.error('[HELIOS] agent chat failed to wire', err);
 }
