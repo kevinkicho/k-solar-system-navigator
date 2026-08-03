@@ -788,7 +788,9 @@ export function wirePorkchop() {
             ${lines[i] || `#${s.rank}`}
           </button>`).join('')}
       </div>
-      <p class="pc-shortlist-note">Click a candidate · neighborhood-refined under planning eph · not global optimum · preliminary</p>`;
+      <p class="pc-shortlist-note">Click a candidate · neighborhood-refined under planning eph · not global optimum · preliminary</p>
+      <button type="button" class="btn-tiny" id="pc-ai-narrative">AI window narrative</button>
+      <div id="pc-ai-narrative-out" class="ai-brief-out" hidden></div>`;
     host.querySelectorAll('.pc-shortlist-item').forEach((btn) => {
       btn.onclick = () => {
         const i = Number(btn.getAttribute('data-si'));
@@ -803,6 +805,19 @@ export function wirePorkchop() {
         repaintAll();
         notify(`SHORTLIST #${s.rank} SELECTED · Δv ${(s.dv_m_s / 1000).toFixed(2)} km/s`);
       };
+    });
+    host.querySelector('#pc-ai-narrative')?.addEventListener('click', async () => {
+      const el = host.querySelector('#pc-ai-narrative-out');
+      if (!el) return;
+      el.hidden = false;
+      el.textContent = 'AI narrative…';
+      try {
+        const { porkchopNarrative } = await import('../agent/narratives.js');
+        const r = await porkchopNarrative();
+        el.textContent = r.narrative;
+      } catch (e) {
+        el.textContent = e.message || 'AI narrative unavailable';
+      }
     });
   }
 

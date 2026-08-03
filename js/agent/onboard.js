@@ -86,6 +86,52 @@ async function executeCommand(cmd) {
       };
     }
 
+    case 'run_mission_campaign': {
+      const { runMissionCampaign } = await import('./campaign.js');
+      return runMissionCampaign(args);
+    }
+
+    case 'propose_gate_recovery': {
+      const { proposeGateRecovery } = await import('./recovery.js');
+      return proposeGateRecovery();
+    }
+
+    case 'apply_gate_recovery': {
+      const { applyGateRecovery } = await import('./recovery.js');
+      return applyGateRecovery(args.actionId || args.id, args);
+    }
+
+    case 'find_nearest_window': {
+      const { findNearestWindowAndApply } = await import('./recovery.js');
+      return findNearestWindowAndApply();
+    }
+
+    case 'set_launch_site': {
+      state.launchSiteId = String(args.launchSiteId || 'any');
+      const sel = document.getElementById('launch-site');
+      if (sel) {
+        sel.value = state.launchSiteId;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return { launchSiteId: state.launchSiteId };
+    }
+
+    case 'suggest_ga': {
+      const thoroughEl = document.getElementById('ga-suggest-thorough');
+      if (thoroughEl && args.thorough != null) thoroughEl.checked = !!args.thorough;
+      const { runGaSuggestions } = await import('../ui/ga-suggest-ui.js');
+      if (typeof runGaSuggestions === 'function') {
+        await runGaSuggestions();
+      } else {
+        document.getElementById('btn-ga-suggest')?.click();
+      }
+      return {
+        ok: true,
+        n: state.gaSuggestions?.suggestions?.length ?? 0,
+        recommended: state.gaSuggestions?.suggestions?.find((s) => s.recommended)?.label || null,
+      };
+    }
+
     case 'list_bodies':
       return { bodies: listBodyNames() };
 

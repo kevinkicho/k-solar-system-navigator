@@ -61,7 +61,14 @@ export function formatUsageMetrics(usage) {
  */
 export async function loadModelCatalog() {
   try {
-    const res = await heliosFetch('/api/models', { method: 'GET' });
+    let res = await heliosFetch('/api/models', { method: 'GET' });
+    const ct = res.headers.get('content-type') || '';
+    if (!res.ok || ct.includes('text/html')) {
+      res = await fetch(
+        'https://us-central1-k-solar-system-navigator.cloudfunctions.net/heliosAiModels',
+        { method: 'GET' },
+      );
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       throw new Error(data.error || `models ${res.status}`);

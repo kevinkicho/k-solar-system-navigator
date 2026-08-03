@@ -124,15 +124,23 @@ HELIOS is **AI-centered mission design**: the model is the co-pilot; Lambert/Nee
 
 **Security:** Key never ships to the browser. Loopback by default for `npm start`.
 
-### Ambitious AI roadmap (product direction)
+### AI campaign features (landed)
 
-| Horizon | Capability |
-|---------|------------|
-| **Now** | Model select · mission-aware chat · next-actions · brief · App Hosting proxy |
-| **Next** | Natural-language campaign (“Mars 2028 2t cargo”) → full plan package; AI porkchop narrative; gate auto-recovery scripts |
-| **Stretch** | Multi-agent critique (physics vs vehicle vs ops); persistent mission memory; collaborative shared-lab sessions |
+| Feature | How |
+|---------|-----|
+| **NL campaign** | Tools: `run_mission_campaign` · auto-tools on campaign-like chat · `parseCampaignHint` |
+| **Gate recovery** | `propose_gate_recovery` / `apply_gate_recovery` · Results **Auto-recover** |
+| **Mission memory** | localStorage session + Firestore when signed in |
+| **Porkchop narrative** | Shortlist **AI window narrative** |
+| **GA coach** | Auto after SUGGEST GA + Results button |
+| **Dual critics** | Results **Dual critics** (physics / vehicle / ops) |
+| **Voice** | FAB MIC + optional speak replies (Web Speech API) |
+| **Usage HUD** | Session calls/tokens in FAB settings |
+| **Classic Hosting AI** | Functions `heliosAiChat` / `heliosAiModels` fallback |
 
 Physics remains deterministic JS. AI **never** invents Δv or silences NO-GO gates.
+
+See **`docs/AI.md`** for architecture and secrets.
 
 ### Agentic CLI
 

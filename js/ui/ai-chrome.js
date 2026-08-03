@@ -114,21 +114,26 @@ export function renderNextActionsStrip(host) {
     <div class="ai-next-actions-bar">
       <button type="button" class="btn-tiny" id="ai-btn-brief">Mission brief</button>
       <button type="button" class="btn-tiny" id="ai-btn-ask">Ask AI about plan</button>
+      <button type="button" class="btn-tiny" id="ai-btn-critics">Dual critics</button>
+      <button type="button" class="btn-tiny" id="ai-btn-recover">Auto-recover</button>
+      <button type="button" class="btn-tiny" id="ai-btn-ga-coach">GA coach</button>
     </div>
     <div id="ai-brief-out" class="ai-brief-out" hidden></div>
   `;
 
+  const out = () => strip.querySelector('#ai-brief-out');
+
   strip.querySelector('#ai-btn-brief')?.addEventListener('click', async () => {
-    const out = strip.querySelector('#ai-brief-out');
-    if (!out) return;
-    out.hidden = false;
-    out.textContent = 'Generating brief…';
+    const el = out();
+    if (!el) return;
+    el.hidden = false;
+    el.textContent = 'Generating brief…';
     try {
       const { generateMissionBrief } = await import('../agent/ai-core.js');
       const r = await generateMissionBrief();
-      out.textContent = r.brief;
+      el.textContent = r.brief;
     } catch (e) {
-      out.textContent = e.message || 'Brief failed — start npm start or configure App Hosting OLLAMA_API_KEY';
+      el.textContent = e.message || 'Brief failed — configure OLLAMA_API_KEY (local or App Hosting / Functions)';
     }
   });
 
@@ -139,6 +144,54 @@ export function renderNextActionsStrip(host) {
     if (input) {
       input.value = 'Review this plan: top risks, margin, and what I should do next.';
       input.focus();
+    }
+  });
+
+  strip.querySelector('#ai-btn-critics')?.addEventListener('click', async () => {
+    const el = out();
+    if (!el) return;
+    el.hidden = false;
+    el.textContent = 'Running physics / vehicle / ops critics…';
+    try {
+      const { dualCriticReview } = await import('../agent/narratives.js');
+      const r = await dualCriticReview();
+      el.textContent = r.review;
+    } catch (e) {
+      el.textContent = e.message || 'Critics failed';
+    }
+  });
+
+  strip.querySelector('#ai-btn-recover')?.addEventListener('click', async () => {
+    const el = out();
+    if (!el) return;
+    el.hidden = false;
+    try {
+      const { proposeGateRecovery, applyGateRecovery } = await import('../agent/recovery.js');
+      const pack = proposeGateRecovery();
+      if (!pack.proposals?.length) {
+        el.textContent = 'No automatic recovery proposals (plan may already be READY).';
+        return;
+      }
+      el.textContent = `Proposals:\n${pack.proposals.map((p) => `· ${p.id}: ${p.label}`).join('\n')}\n\nApplying first: ${pack.proposals[0].id}…`;
+      const r = await applyGateRecovery(pack.proposals[0].id);
+      el.textContent += `\n\nApplied ${r.applied}. Remaining fails: ${r.remaining?.fails?.length ?? '?'}`;
+      renderNextActionsStrip(host);
+    } catch (e) {
+      el.textContent = e.message || 'Recovery failed';
+    }
+  });
+
+  strip.querySelector('#ai-btn-ga-coach')?.addEventListener('click', async () => {
+    const el = out();
+    if (!el) return;
+    el.hidden = false;
+    el.textContent = 'GA coach…';
+    try {
+      const { gaTourCoach } = await import('../agent/narratives.js');
+      const r = await gaTourCoach();
+      el.textContent = r.narrative;
+    } catch (e) {
+      el.textContent = e.message || 'GA coach failed — run SUGGEST GA first';
     }
   });
 }

@@ -40,3 +40,40 @@
 1. AI must not override Need/Δv from physics.
 2. READY/NO-GO remains dossier-gated.
 3. Prompts inject live context and always restate preliminary / not certified.
+
+## Campaign & recovery tools
+
+| Tool | Effect |
+|------|--------|
+| `run_mission_campaign` | Origin/dest/date/vehicle/site → compute (+ optional GA/windows) |
+| `propose_gate_recovery` | List recovery options from fails |
+| `apply_gate_recovery` | Apply one recovery + recompute |
+| `find_nearest_window` | Nearest feasible seed + recompute |
+| `suggest_ga` | Open SUGGEST GA search |
+
+NL heuristic: `parseCampaignHint()` pre-parses “Earth Mars 2028 2t Starship Cape”.
+
+## Memory & usage
+
+- Session turns: `js/agent/memory.js` (localStorage + Firestore `users/{uid}/ai_memory/latest`)
+- Token/time HUD: `js/agent/usage-session.js` (Ollama usage fields)
+
+## Narratives
+
+- Porkchop shortlist → **AI window narrative**
+- GA pack → **GA coach** (auto after SUGGEST GA)
+- Results → **Dual critics** (physics / vehicle / ops)
+
+## Production AI paths
+
+| Host | Proxy |
+|------|--------|
+| `npm start` | `server.js` `/api/chat` `/api/models` |
+| App Hosting | Next `web/app/api/{chat,models}` + secret `OLLAMA_API_KEY` |
+| Classic Hosting | Cloud Functions `heliosAiChat` / `heliosAiModels` (set `OLLAMA_API_KEY` on functions) |
+
+```bash
+# Functions secret (example)
+firebase functions:secrets:set OLLAMA_API_KEY
+# or env on deploy machine
+```

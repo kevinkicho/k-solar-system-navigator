@@ -24,6 +24,9 @@ import {
   FALLBACK_DEFAULT_MODEL,
 } from '../agent/models.js';
 import { getMissionAiBundle, selectModel as coreSelectModel } from '../agent/ai-core.js';
+import { appendMemoryTurn, memorySummaryForPrompt, loadMemoryFromCloud } from '../agent/memory.js';
+import { formatUsageSession, getUsageSession } from '../agent/usage-session.js';
+import { parseCampaignHint } from '../agent/campaign-parse.js';
 import { syncAiModelChip } from './ai-chrome.js';
 import { state } from '../state.js';
 
@@ -182,6 +185,14 @@ function injectStyles() {
   font-size: 9px; color: var(--text-dim); opacity: 0.9; margin-top: 4px;
   font-family: var(--font-mono, monospace);
 }
+.hc-voice-row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+#helios-voice-btn {
+  font-size: 9px; letter-spacing: 0.5px; padding: 4px 8px;
+  border: 1px solid var(--border); background: rgba(0,0,0,0.35);
+  color: var(--text-dim); border-radius: 4px; cursor: pointer;
+  font-family: var(--font-display, Orbitron, monospace);
+}
+#helios-voice-btn.listening { color: var(--amber); border-color: rgba(255,152,0,0.5); }
 @media (max-width: 768px) {
   #helios-fab { right: 12px; bottom: calc(56px + 52px); width: 50px; height: 50px; }
   #helios-chat-panel {
@@ -283,15 +294,35 @@ export function wireAgentChat() {
     text: 'REFRESH MODELS',
     onClick: () => refreshModels({ force: true }),
   });
+  const usageHud = el('div', {
+    id: 'helios-usage-hud',
+    className: 'hc-model-meta',
+    text: formatUsageSession(),
+  });
+  const voiceBtn = el('button', {
+    type: 'button',
+    id: 'helios-voice-btn',
+    text: 'MIC',
+    title: 'Speech-to-text (Web Speech API)',
+  });
+  const speakCb = el('input', { type: 'checkbox', id: 'helios-speak-out' });
   const settings = el('div', {
     style: 'display:flex;flex-direction:column;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:9px;color:var(--text-dim)',
   }, [
-    el('div', { text: 'AI core · pick a cloud model above. Tools drive the live planner. Optional API token for shared lab.' }),
+    el('div', { text: 'AI core · model picker · Tools drive campaign/recovery. Session usage below.' }),
+    usageHud,
     el('div', { style: 'display:flex;gap:4px;align-items:center;flex-wrap:wrap' }, [
       tokenInput,
       saveTok,
       clearTok,
       refreshModelsBtn,
+    ]),
+    el('div', { className: 'hc-voice-row' }, [
+      voiceBtn,
+      el('label', { style: 'display:flex;gap:4px;align-items:center;cursor:pointer' }, [
+        speakCb,
+        el('span', { text: 'Speak replies' }),
+      ]),
     ]),
     el('label', { style: 'display:flex;gap:4px;align-items:center;cursor:pointer' }, [
       persistCb,
@@ -299,9 +330,46 @@ export function wireAgentChat() {
     ]),
     el('label', { style: 'display:flex;gap:4px;align-items:center;cursor:pointer' }, [
       toolsCb,
-      el('span', { text: 'Tools — AI can set route, compute, change vehicle…' }),
+      el('span', { text: 'Tools — campaign, recovery, route, compute…' }),
     ]),
   ]);
+
+  // Voice input (optional Web Speech API)
+  let recognition = null;
+  try {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      recognition = new SR();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.onresult = (ev) => {
+        const t = ev.results?.[0]?.[0]?.transcript || '';
+        if (t) {
+          input.value = (input.value ? `${input.value} ` : '') + t;
+        }
+        voiceBtn.classList.remove('listening');
+      };
+      recognition.onerror = () => voiceBtn.classList.remove('listening');
+      recognition.onend = () => voiceBtn.classList.remove('listening');
+    }
+  } catch { /* no speech */ }
+  if (!recognition) {
+    voiceBtn.disabled = true;
+    voiceBtn.title = 'Speech recognition not available in this browser';
+  }
+  voiceBtn.onclick = () => {
+    if (!recognition) return;
+    try {
+      voiceBtn.classList.add('listening');
+      recognition.start();
+    } catch {
+      voiceBtn.classList.remove('listening');
+    }
+  };
+  window.addEventListener('helios-ai-usage', () => {
+    usageHud.textContent = formatUsageSession(getUsageSession());
+  });
+  loadMemoryFromCloud().catch(() => {});
 
   const headSub = el('div', { className: 'hc-sub', text: `model ${getSelectedModel()} · AI core` });
   const head = el('div', { className: 'hc-head' }, [
@@ -549,6 +617,7 @@ export function wireAgentChat() {
     input.value = '';
     appendMsg('user', text);
     history.push({ role: 'user', content: text });
+    appendMemoryTurn('user', text);
     busy = true;
     sendBtn.disabled = true;
     const thinking = appendMsg('assistant', '…');
@@ -559,9 +628,14 @@ export function wireAgentChat() {
         const bundle = getMissionAiBundle();
         contextNote = bundle.promptContext
           || `\n\n[Live planner snapshot: ${JSON.stringify(snapshotState())}]`;
-        // Surface top next-actions in system context for the model
         if (bundle.next?.length) {
           contextNote += `\n[Rule-based next actions: ${bundle.next.map((a) => a.label).join(' | ')}]`;
+        }
+        contextNote += memorySummaryForPrompt(6);
+        // NL campaign hint for tools path
+        const hint = parseCampaignHint(text);
+        if (hint.origin || hint.destination) {
+          contextNote += `\n[Parsed campaign hint: ${JSON.stringify(hint)}]`;
         }
       } catch {
         try {
@@ -569,7 +643,13 @@ export function wireAgentChat() {
         } catch { /* ignore */ }
       }
 
-      const useTools = !!toolsCb.checked;
+      // Auto-enable tools for campaign-like requests
+      const looksLikeCampaign = /\b(set|go|plan|campaign|earth|mars|jupiter|compute|flyby|cargo)\b/i.test(text)
+        && (toolsCb.checked || parseCampaignHint(text).destination);
+      const useTools = !!toolsCb.checked || looksLikeCampaign;
+      if (looksLikeCampaign && !toolsCb.checked) {
+        appendMsg('system', 'Auto-enabling Tools for campaign-style request…');
+      }
       let reply;
 
       if (useTools) {
@@ -585,7 +665,7 @@ export function wireAgentChat() {
             return lastData;
           },
           executeFn: async (name, args) => executeCommand({ action: name, args }),
-          maxRounds: 6,
+          maxRounds: 10,
           onTool: (name, args) => {
             thinking.textContent = `tool → ${name}(${JSON.stringify(args).slice(0, 80)})…`;
           },
@@ -612,6 +692,15 @@ export function wireAgentChat() {
       }
 
       history.push({ role: 'assistant', content: reply });
+      appendMemoryTurn('assistant', reply, { model: activeModel() });
+      if (speakCb.checked && reply && window.speechSynthesis) {
+        try {
+          const u = new SpeechSynthesisUtterance(reply.slice(0, 500));
+          u.rate = 1.05;
+          window.speechSynthesis.speak(u);
+        } catch { /* */ }
+      }
+      usageHud.textContent = formatUsageSession(getUsageSession());
     } catch (err) {
       thinking.classList.add('error');
       thinking.textContent =

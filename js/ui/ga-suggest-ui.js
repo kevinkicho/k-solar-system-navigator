@@ -226,6 +226,28 @@ export async function runGaSuggestions() {
     ? `GA SUGGEST · ${n} path(s) · recommended: ${rec.label}`
     : `GA SUGGEST · ${n} path(s)`);
   try { activateRailTab('plan'); } catch { /* */ }
+
+  // AI GA coach strip (non-blocking)
+  try {
+    let coach = document.getElementById('ga-ai-coach');
+    if (!coach && panel) {
+      coach = document.createElement('div');
+      coach.id = 'ga-ai-coach';
+      coach.className = 'ai-brief-out';
+      coach.style.margin = '8px 0';
+      panel.appendChild(coach);
+    }
+    if (coach) {
+      coach.hidden = false;
+      coach.textContent = 'AI GA coach: generating…';
+      import('../agent/narratives.js').then(({ gaTourCoach }) =>
+        gaTourCoach().then((r) => {
+          coach.textContent = r.narrative;
+        }).catch((e) => {
+          coach.textContent = e.message || 'GA coach unavailable (AI key / network)';
+        }));
+    }
+  } catch { /* */ }
 }
 
 export function wireGaSuggestUi() {
