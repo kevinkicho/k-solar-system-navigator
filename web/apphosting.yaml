@@ -32,15 +32,12 @@ env:
     value: ..
     availability:
       - BUILD
-  # AI core — set secret in Firebase console / App Hosting secrets:
-  #   firebase apphosting:secrets:set OLLAMA_API_KEY
-  # Optional default model (non-secret)
+  # AI core — Ollama Cloud (secret via: firebase apphosting:secrets:set OLLAMA_API_KEY)
   - variable: OLLAMA_MODEL
     value: gemma4:31b-cloud
     availability:
       - RUNTIME
-  # Uncomment when secret is created in the project:
-  # - variable: OLLAMA_API_KEY
-  #   secret: OLLAMA_API_KEY
-  #   availability:
-  #     - RUNTIME
+  - variable: OLLAMA_API_KEY
+    secret: OLLAMA_API_KEY
+    availability:
+      - RUNTIME

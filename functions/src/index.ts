@@ -6,6 +6,7 @@
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {onRequest} from "firebase-functions/v2/https";
+import {defineSecret} from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import {initializeApp, getApps} from "firebase-admin/app";
 import {getDatabase} from "firebase-admin/database";
@@ -18,6 +19,9 @@ if (!getApps().length) {
 }
 
 setGlobalOptions({maxInstances: 10, region: "us-central1"});
+
+/** Ollama Cloud API key (Secret Manager). Set: firebase functions:secrets:set OLLAMA_API_KEY */
+const ollamaApiKey = defineSecret("OLLAMA_API_KEY");
 
 const OLLAMA_TAGS = "https://ollama.com/api/tags";
 const OLLAMA_CHAT = "https://ollama.com/api/chat";
@@ -37,6 +41,12 @@ function cors(res: {set: (k: string, v: string) => void}): void {
 }
 
 function ollamaKey(): string | null {
+  try {
+    const v = ollamaApiKey.value();
+    if (v) return v;
+  } catch {
+    /* secret not bound on this function */
+  }
   return process.env.OLLAMA_API_KEY || null;
 }
 
@@ -62,7 +72,7 @@ export const heliosHealth = onRequest((_req, res) => {
  * List Ollama Cloud models for classic Hosting SPA fallback.
  * Set OLLAMA_API_KEY on the function runtime.
  */
-export const heliosAiModels = onRequest(async (req, res) => {
+export const heliosAiModels = onRequest({secrets: [ollamaApiKey]}, async (req, res) => {
   cors(res);
   if (req.method === "OPTIONS") {
     res.status(204).send("");
@@ -124,7 +134,7 @@ export const heliosAiModels = onRequest(async (req, res) => {
 /**
  * Ollama Cloud chat proxy for classic Hosting SPA fallback.
  */
-export const heliosAiChat = onRequest(async (req, res) => {
+export const heliosAiChat = onRequest({secrets: [ollamaApiKey]}, async (req, res) => {
   cors(res);
   if (req.method === "OPTIONS") {
     res.status(204).send("");
