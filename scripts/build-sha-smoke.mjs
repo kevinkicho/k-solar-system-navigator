@@ -88,10 +88,14 @@ const hReg = await fetchJson(HOSTING + '/assets/dense-spk/registry.json');
 ok('Hosting dense registry', hReg.ok && (hReg.j?.packs?.length || 0) >= 6,
   `packs=${hReg.j?.packs?.length}`);
 
-// Kernels must not be public on Hosting SPA surface
+// Kernels must not be public on Hosting SPA surface.
+// SPA rewrites may return 200 HTML for missing paths — treat HTML/small body as OK (not a real .bsp).
 const kernels = await fetchText(HOSTING + '/assets/kernels/de440s.bsp');
-ok('Hosting does not serve kernels (404/deny)', !kernels.ok || kernels.status === 404,
-  `status=${kernels.status}`);
+const looksLikeHtml = /<!DOCTYPE html|<html/i.test(kernels.text || '');
+const notRealBsp = !kernels.ok || kernels.status === 404 || looksLikeHtml
+  || (kernels.bytes || 0) < 10000;
+ok('Hosting does not serve real SPICE kernels', notRealBsp,
+  `status=${kernels.status} bytes=${kernels.bytes} html=${looksLikeHtml}`);
 
 if (failed) {
   console.error(`\nbuild-sha-smoke: ${failed} failed`);
