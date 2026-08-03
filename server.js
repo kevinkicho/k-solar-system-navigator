@@ -13,7 +13,22 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname);
 
 const OLLAMA_CHAT_URL = 'https://ollama.com/api/chat';
+const OLLAMA_TAGS_URL = 'https://ollama.com/api/tags';
 const DEFAULT_MODEL = 'gemma4:31b-cloud';
+/**
+ * Curated cloud models when live tags are unavailable (or as supplemental).
+ * Prefer live GET https://ollama.com/api/tags with Bearer key (docs.ollama.com/cloud).
+ */
+const CURATED_CLOUD_MODELS = [
+  'gemma4:31b-cloud',
+  'gemma4:26b-cloud',
+  'gpt-oss:120b-cloud',
+  'gpt-oss:20b-cloud',
+  'qwen3-coder:480b-cloud',
+  'deepseek-v3.2-cloud',
+  'minimax-m2.5-cloud',
+  'kimi-k2.5-cloud',
+];
 const MAX_BODY = 2 * 1024 * 1024; // 2 MiB
 const COMMAND_TTL_MS = 5 * 60 * 1000;
 const RESULT_TTL_MS = 10 * 60 * 1000;
@@ -286,9 +301,147 @@ function defaultModel() {
   return process.env.OLLAMA_MODEL || DEFAULT_MODEL;
 }
 
-function buildOllamaChatPayload(body, { stream }) {
+/** Optional comma-separated extra allowlist (e.g. private fine-tunes). */
+function envAllowedModels() {
+  const raw = process.env.OLLAMA_ALLOWED_MODELS || '';
+  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Normalize Ollama tags response into { name, model, size, details, source }.
+ * @param {object} tagsJson
+ * @returns {object[]}
+ */
+export function normalizeOllamaModels(tagsJson) {
+  const list = Array.isArray(tagsJson?.models) ? tagsJson.models : [];
+  return list.map((m) => {
+    const name = m.name || m.model || '';
+    return {
+      name,
+      model: m.model || name,
+      size: m.size ?? null,
+      modified_at: m.modified_at ?? null,
+      details: m.details || null,
+      remote_model: m.remote_model ?? null,
+      remote_host: m.remote_host ?? null,
+      source: 'ollama-cloud-tags',
+    };
+  }).filter((m) => m.name);
+}
+
+/** Merge live tags + curated + env allowlist; de-dupe by name. */
+export function mergeModelCatalog(liveModels = []) {
+  const byName = new Map();
+  for (const m of liveModels) {
+    if (m?.name) byName.set(m.name, { ...m, source: m.source || 'ollama-cloud-tags' });
+  }
+  for (const name of CURATED_CLOUD_MODELS) {
+    if (!byName.has(name)) {
+      byName.set(name, {
+        name,
+        model: name,
+        size: null,
+        details: null,
+        source: 'curated-fallback',
+      });
+    }
+  }
+  for (const name of envAllowedModels()) {
+    if (!byName.has(name)) {
+      byName.set(name, {
+        name,
+        model: name,
+        size: null,
+        details: null,
+        source: 'env-allowlist',
+      });
+    }
+  }
+  const def = defaultModel();
+  if (def && !byName.has(def)) {
+    byName.set(def, {
+      name: def,
+      model: def,
+      size: null,
+      details: null,
+      source: 'env-default',
+    });
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Cache tags briefly so model picker stays responsive. */
+let _tagsCache = { at: 0, models: null, error: null };
+const TAGS_TTL_MS = 60_000;
+
+async function fetchOllamaCloudTags() {
+  const key = process.env.OLLAMA_API_KEY;
+  if (!key) {
+    return { models: [], error: 'OLLAMA_API_KEY not set', live: false };
+  }
+  const now = Date.now();
+  if (_tagsCache.models && now - _tagsCache.at < TAGS_TTL_MS) {
+    return { models: _tagsCache.models, error: _tagsCache.error, live: true, cached: true };
+  }
+  try {
+    const upstream = await fetch(OLLAMA_TAGS_URL, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        Accept: 'application/json',
+      },
+    });
+    const text = await upstream.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+    if (!upstream.ok) {
+      const err = (data && (data.error || data.message)) || `Ollama tags HTTP ${upstream.status}`;
+      _tagsCache = { at: now, models: [], error: err };
+      return { models: [], error: err, live: false };
+    }
+    const models = normalizeOllamaModels(data);
+    _tagsCache = { at: now, models, error: null };
+    return { models, error: null, live: true, cached: false };
+  } catch (e) {
+    const err = e.message || String(e);
+    _tagsCache = { at: now, models: [], error: err };
+    return { models: [], error: err, live: false };
+  }
+}
+
+/**
+ * Allow chat if model is in catalog or matches default.
+ * Reject empty / path-like / injection-ish names.
+ */
+export function isAllowedModel(modelName, catalogNames = null) {
+  const name = String(modelName || '').trim();
+  if (!name || name.length > 128) return false;
+  if (!/^[\w.:@/-]+$/i.test(name)) return false;
+  if (name === defaultModel()) return true;
+  if (envAllowedModels().includes(name)) return true;
+  if (CURATED_CLOUD_MODELS.includes(name)) return true;
+  if (catalogNames && catalogNames.has(name)) return true;
+  // When no live catalog, still allow any reasonable cloud-looking name
+  // (validated again by Ollama upstream).
+  if (!catalogNames && /cloud|gemma|gpt|qwen|deepseek|kimi|minimax|llama|mistral/i.test(name)) {
+    return true;
+  }
+  return false;
+}
+
+function resolveChatModel(requested, catalogNames = null) {
+  const want = String(requested || '').trim();
+  if (want && isAllowedModel(want, catalogNames)) return want;
+  return defaultModel();
+}
+
+function buildOllamaChatPayload(body, { stream, catalogNames = null }) {
   const payload = {
-    model: body.model || defaultModel(),
+    model: resolveChatModel(body.model, catalogNames),
     messages: body.messages || [],
     stream: !!stream,
   };
@@ -312,9 +465,9 @@ function requireOllamaKey() {
   return key;
 }
 
-async function proxyOllamaChat(body) {
+async function proxyOllamaChat(body, catalogNames = null) {
   const key = requireOllamaKey();
-  const payload = buildOllamaChatPayload(body, { stream: false });
+  const payload = buildOllamaChatPayload(body, { stream: false, catalogNames });
 
   const upstream = await fetch(OLLAMA_CHAT_URL, {
     method: 'POST',
@@ -430,6 +583,7 @@ async function handleApi(req, res, pathname) {
       service: 'helios',
       model: defaultModel(),
       ollamaConfigured: Boolean(process.env.OLLAMA_API_KEY),
+      ollamaCloud: true,
       tokenConfigured: Boolean(process.env.HELIOS_API_TOKEN),
       agent: {
         pending: pendingCommands.length,
@@ -437,12 +591,51 @@ async function handleApi(req, res, pathname) {
         onboard: effectiveOnboard(),
         stateAgeMs: ageMs,
       },
+      ai: {
+        core: true,
+        defaultModel: defaultModel(),
+        modelsEndpoint: '/api/models',
+      },
     });
     return true;
   }
 
   // All other /api/* require auth per T0/T1/T2
   if (!requireAuth(req, res)) return true;
+
+  // Model catalog — Ollama Cloud GET /api/tags (docs.ollama.com/cloud, /api/tags)
+  if (pathname === '/api/models' && req.method === 'GET') {
+    try {
+      const tags = await fetchOllamaCloudTags();
+      const catalog = mergeModelCatalog(tags.models);
+      sendJson(res, 200, {
+        ok: true,
+        defaultModel: defaultModel(),
+        live: !!tags.live,
+        cached: !!tags.cached,
+        error: tags.error || null,
+        count: catalog.length,
+        models: catalog,
+        // Usage metrics fields available on chat completions (docs.ollama.com/api/usage)
+        usageFields: [
+          'total_duration',
+          'load_duration',
+          'prompt_eval_count',
+          'prompt_eval_duration',
+          'eval_count',
+          'eval_duration',
+        ],
+      });
+    } catch (e) {
+      sendJson(res, 502, {
+        ok: false,
+        error: e.message || 'models list failed',
+        defaultModel: defaultModel(),
+        models: mergeModelCatalog([]),
+      });
+    }
+    return true;
+  }
 
   // Chat proxy → Ollama Cloud
   if (pathname === '/api/chat' && req.method === 'POST') {
@@ -470,17 +663,40 @@ async function handleApi(req, res, pathname) {
         sendJson(res, 400, { error: 'messages content too large' });
         return true;
       }
-      // Only allow configured default model
-      if (body.model && body.model !== defaultModel()) {
-        body.model = defaultModel();
+      // Resolve model against allowlist + live catalog (no silent force to default if valid)
+      const tags = await fetchOllamaCloudTags();
+      const catalog = mergeModelCatalog(tags.models);
+      const catalogNames = new Set(catalog.map((m) => m.name));
+      if (body.model && !isAllowedModel(body.model, catalogNames)) {
+        sendJson(res, 400, {
+          error: `model not allowed: ${body.model}`,
+          defaultModel: defaultModel(),
+          hint: 'GET /api/models for available cloud models',
+        });
+        return true;
       }
+      body.model = resolveChatModel(body.model, catalogNames);
       // Streaming NDJSON when client requests stream:true (tools stay non-stream)
       if (body.stream === true && !body.tools) {
         await proxyOllamaChatStream(body, res);
         return true;
       }
       body.stream = false;
-      const data = await proxyOllamaChat(body);
+      const data = await proxyOllamaChat(body, catalogNames);
+      // Attach usage summary for clients (docs.ollama.com/api/usage)
+      if (data && typeof data === 'object') {
+        data.helios = {
+          model: body.model,
+          usage: {
+            total_duration: data.total_duration ?? null,
+            load_duration: data.load_duration ?? null,
+            prompt_eval_count: data.prompt_eval_count ?? null,
+            prompt_eval_duration: data.prompt_eval_duration ?? null,
+            eval_count: data.eval_count ?? null,
+            eval_duration: data.eval_duration ?? null,
+          },
+        };
+      }
       sendJson(res, 200, data);
     } catch (e) {
       if (!res.headersSent) {

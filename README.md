@@ -106,16 +106,18 @@ Classic **Firebase Hosting** (`npm run deploy:hosting`) remains available for th
 
 Config: `web/apphosting.yaml`, `firebase.json` → `apphosting.backendId: helios`, `rootDir: web`.
 
-## AI assistant (Ollama Cloud)
+## AI core (Ollama Cloud)
 
-Floating-action-button chat and a CLI agent drive the planner. The API key never ships to the browser.
+AI is a first-class co-pilot for mission design: **model selection**, streaming chat, optional tool-driven planner control, and CLI agent. Physics stays pure JS; the model never replaces Lambert/Need.
 
 1. Copy `.env.example` → `.env` and set `OLLAMA_API_KEY` from [ollama.com/settings/keys](https://ollama.com/settings/keys).
-2. Default model: **`gemma4:31b-cloud`** ([library](https://ollama.com/library/gemma4)).
-3. Start the app: `npm start` → open **`http://127.0.0.1:8080`** (default bind is loopback only).
-4. Use the **AI** FAB (bottom-right) for in-app chat (**streams** tokens as they arrive; enable **Tools** to drive the planner).
+2. Default model: **`gemma4:31b-cloud`** (override with `OLLAMA_MODEL`). Catalog from live **`GET /api/models`** → Ollama Cloud [`/api/tags`](https://docs.ollama.com/api/tags).
+3. Start: `npm start` → **`http://127.0.0.1:8080`** (loopback only by default).
+4. Open the **AI** FAB → pick a **cloud model** → chat (streams; usage metrics when available — [usage](https://docs.ollama.com/api/usage)). Enable **Tools** to set route / compute.
 
-**Security:** Never expose `npm start` beyond loopback. Chat and agent C2 are not a multi-user API. Optional `HELIOS_API_TOKEN` enables shared-lab auth (see `docs/post-landing-hardening-design.md`). Non-loopback bind (`HELIOS_BIND=0.0.0.0`) **requires** a token.
+**Security:** Key stays in local `.env` / Node proxy — never in the browser bundle. Do not expose `npm start` beyond loopback without `HELIOS_API_TOKEN`.
+
+API docs: [Ollama Cloud](https://docs.ollama.com/cloud) · [chat](https://docs.ollama.com/api/chat) · [tags](https://docs.ollama.com/api/tags).
 
 ### Agentic CLI
 

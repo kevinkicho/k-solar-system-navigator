@@ -71,6 +71,15 @@ check('health.ok', health.json?.ok === true);
 check('health has model', typeof health.json?.model === 'string');
 check('health has ollamaConfigured bool', typeof health.json?.ollamaConfigured === 'boolean');
 check('health.tokenConfigured false', health.json?.tokenConfigured === false);
+check('health.ai.core', health.json?.ai?.core === true);
+check('health.ai.modelsEndpoint', health.json?.ai?.modelsEndpoint === '/api/models');
+
+const models = await request(port, 'GET', '/api/models');
+check('GET /api/models → 200', models.status === 200);
+check('models.ok', models.json?.ok === true);
+check('models has defaultModel', typeof models.json?.defaultModel === 'string');
+check('models array non-empty', Array.isArray(models.json?.models) && models.json.models.length > 0);
+check('models includes curated gemma4', (models.json?.models || []).some((m) => /gemma4/i.test(m.name || '')));
 
 const badChat = await request(port, 'POST', '/api/chat', { messages: [] });
 check('POST /api/chat empty messages → 400', badChat.status === 400);

@@ -178,6 +178,14 @@ export const state = {
   launchSiteId: 'any',
   /** If true, G_SITE_DLA is fail instead of warn. */
   planStrictSite: false,
+  /**
+   * AI co-pilot (Ollama Cloud) — core assistant for mission design.
+   * model is selected in FAB UI; key stays on server (.env OLLAMA_API_KEY).
+   */
+  ai: {
+    model: null, // filled from localStorage / /api/models default
+    toolsEnabled: false,
+  },
 
   mission: {
     active: false,

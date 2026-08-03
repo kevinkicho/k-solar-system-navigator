@@ -1,7 +1,8 @@
 /**
- * Floating action button + chat panel for HELIOS assistant (Ollama Cloud).
- * Calls local /api/chat proxy — API key never leaves the server.
- * Default model: gemma4:31b-cloud
+ * Floating action button + chat panel — AI at the core of HELIOS.
+ * Model selection via GET /api/models (Ollama Cloud tags); chat via POST /api/chat.
+ * API key never leaves the local Node server (.env OLLAMA_API_KEY).
+ * Docs: https://docs.ollama.com/cloud · https://docs.ollama.com/api/tags · https://docs.ollama.com/api/usage
  */
 
 import { startOnboardAgent, snapshotState, executeCommand } from '../agent/onboard.js';
@@ -15,18 +16,25 @@ import {
   AGENT_SYSTEM_WITH_TOOLS,
   runToolAgentLoop,
 } from '../agent/tools.js';
+import {
+  loadModelCatalog,
+  getSelectedModel,
+  setStoredModel,
+  formatUsageMetrics,
+  FALLBACK_DEFAULT_MODEL,
+} from '../agent/models.js';
+import { state } from '../state.js';
 
-const DEFAULT_MODEL = 'gemma4:31b-cloud';
-const SYSTEM_PROMPT = `You are HELIOS Assistant — co-pilot for the HELIOS Mission Design workstation (browser launch-planning analysis).
+const SYSTEM_PROMPT = `You are HELIOS Assistant — core co-pilot for the HELIOS Mission Design workstation (browser launch-planning analysis).
 
 Scope and honesty:
 - Live planning pipeline workstation (DE440s sample table + optional live Horizons inject). NOT flight-certified, NOT range safety, NOT operational SPICE OD, NOT SpaceX-certified performance.
 - Physics: sample-DE / L3 DE440s-baked table for planning (product), L1 Approximate Positions for scene animation only, Lambert transfers, Need/Capability/Margin vehicle triad, READY/NO-GO Plan Dossier (analysis completeness).
-- Mock abstract vehicles and legacy-demo stacks are hidden from the UI. Prefer unrefueled Starship or Falcon 9 C₃ table.
+- Prefer unrefueled Starship or Falcon 9 C₃ table for vehicle models.
 - If asked for operational flight design or certification, say clearly that HELIOS is preliminary analysis only.
 
-You can explain routes, Δv, porkchops, vehicles (Falcon 9 / Starship arches), fidelity badges, and plan quality gates.
-When the user wants the UI changed (set Earth→Mars, compute route), enable **Tools** in settings or use the CLI agent.
+You can explain routes, Δv, porkchops, vehicles, fidelity badges, and plan quality gates.
+When the user wants the UI changed (set Earth→Mars, compute route), enable Tools or use the CLI agent.
 
 Keep answers concise, technical when needed, and label uncertainties.`;
 
@@ -152,6 +160,26 @@ function injectStyles() {
 }
 #helios-chat-send:disabled { opacity: 0.45; cursor: not-allowed; }
 #helios-chat-send:not(:disabled):hover { background: rgba(0,120,160,0.45); }
+.hc-model-row {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(0,60,90,0.35), transparent);
+}
+.hc-model-row label {
+  font-family: var(--font-display, Orbitron, monospace);
+  font-size: 9px; letter-spacing: 1px; color: var(--amber, #ff9800);
+}
+#helios-model-select {
+  width: 100%; background: rgba(0,0,0,0.45); border: 1px solid var(--border-bright, rgba(0,200,255,0.45));
+  color: var(--cyan, #00d4ff); font-family: var(--font-mono, monospace); font-size: 11px;
+  padding: 6px 8px; border-radius: 4px; outline: none; cursor: pointer;
+}
+#helios-model-select:focus { border-color: var(--cyan); }
+.hc-model-meta { font-size: 9px; color: var(--text-dim); line-height: 1.3; }
+.hc-usage {
+  font-size: 9px; color: var(--text-dim); opacity: 0.9; margin-top: 4px;
+  font-family: var(--font-mono, monospace);
+}
 @media (max-width: 768px) {
   #helios-fab { right: 12px; bottom: calc(56px + 52px); width: 50px; height: 50px; }
   #helios-chat-panel {
@@ -189,7 +217,7 @@ export function wireAgentChat() {
   const input = el('textarea', {
     id: 'helios-chat-input',
     rows: '2',
-    placeholder: 'Ask about transfers, Δv, vehicles…',
+    placeholder: 'Ask AI to plan, explain Δv, pick windows…',
     'aria-label': 'Chat message',
   });
   const sendBtn = el('button', {
@@ -198,6 +226,20 @@ export function wireAgentChat() {
     text: 'SEND',
   });
   const form = el('form', { id: 'helios-chat-form' }, [input, sendBtn]);
+
+  // ── Model selection (core AI control) ─────────────────────────────
+  const modelSelect = el('select', {
+    id: 'helios-model-select',
+    'aria-label': 'AI model',
+    title: 'Ollama Cloud model (from /api/models → ollama.com/api/tags)',
+  });
+  modelSelect.appendChild(el('option', { value: FALLBACK_DEFAULT_MODEL, text: FALLBACK_DEFAULT_MODEL }));
+  const modelMeta = el('div', { className: 'hc-model-meta', text: 'Loading models from Ollama Cloud…' });
+  const modelRow = el('div', { className: 'hc-model-row' }, [
+    el('label', { text: 'AI MODEL · OLLAMA CLOUD' }),
+    modelSelect,
+    modelMeta,
+  ]);
 
   const tokenInput = el('input', {
     type: 'password',
@@ -210,6 +252,7 @@ export function wireAgentChat() {
   const persistCb = el('input', { type: 'checkbox', id: 'helios-token-persist' });
   const toolsCb = el('input', { type: 'checkbox', id: 'helios-tools-enabled' });
   toolsCb.title = 'Allow model to set route / compute via onboard tools (in-process)';
+  toolsCb.checked = !!state.ai?.toolsEnabled;
   const saveTok = el('button', {
     type: 'button',
     className: 'hc-close',
@@ -232,29 +275,37 @@ export function wireAgentChat() {
       appendMsg('system', 'Token cleared.');
     },
   });
+  const refreshModelsBtn = el('button', {
+    type: 'button',
+    className: 'hc-close',
+    text: 'REFRESH MODELS',
+    onClick: () => refreshModels({ force: true }),
+  });
   const settings = el('div', {
     style: 'display:flex;flex-direction:column;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:9px;color:var(--text-dim)',
   }, [
-    el('div', { text: 'Settings · optional API token (T1 shared lab). XSS can read it — prefer unset on solo loopback.' }),
-    el('div', { style: 'display:flex;gap:4px;align-items:center' }, [
+    el('div', { text: 'AI core · pick a cloud model above. Tools drive the live planner. Optional API token for shared lab.' }),
+    el('div', { style: 'display:flex;gap:4px;align-items:center;flex-wrap:wrap' }, [
       tokenInput,
       saveTok,
       clearTok,
+      refreshModelsBtn,
     ]),
     el('label', { style: 'display:flex;gap:4px;align-items:center;cursor:pointer' }, [
       persistCb,
-      el('span', { text: 'Persist on this machine (localStorage)' }),
+      el('span', { text: 'Persist token on this machine (localStorage)' }),
     ]),
     el('label', { style: 'display:flex;gap:4px;align-items:center;cursor:pointer' }, [
       toolsCb,
-      el('span', { text: 'Tools — allow AI to drive planner (set route, compute…)' }),
+      el('span', { text: 'Tools — AI can set route, compute, change vehicle…' }),
     ]),
   ]);
 
+  const headSub = el('div', { className: 'hc-sub', text: `model ${getSelectedModel()} · AI core` });
   const head = el('div', { className: 'hc-head' }, [
     el('div', {}, [
-      el('div', { className: 'hc-title', text: 'HELIOS // ASSISTANT' }),
-      el('div', { className: 'hc-sub', text: `model ${DEFAULT_MODEL} · mission design` }),
+      el('div', { className: 'hc-title', text: 'HELIOS // AI CORE' }),
+      headSub,
     ]),
     el('button', {
       type: 'button',
@@ -265,6 +316,7 @@ export function wireAgentChat() {
   ]);
 
   panel.appendChild(head);
+  panel.appendChild(modelRow);
   panel.appendChild(settings);
   panel.appendChild(messagesEl);
   panel.appendChild(form);
@@ -282,6 +334,7 @@ export function wireAgentChat() {
     fab.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) {
       input.focus();
+      refreshModels();
     }
   }
 
@@ -295,22 +348,80 @@ export function wireAgentChat() {
     return m;
   }
 
+  function appendUsageNote(parentEl, usage, modelName) {
+    const line = formatUsageMetrics(usage);
+    if (!line && !modelName) return;
+    const u = el('div', {
+      className: 'hc-usage',
+      text: [modelName, line].filter(Boolean).join(' · '),
+    });
+    parentEl.appendChild(u);
+  }
+
+  function syncHeadModel() {
+    const m = getSelectedModel();
+    headSub.textContent = `model ${m} · AI core`;
+    fab.title = `HELIOS AI (${m})`;
+  }
+
+  async function refreshModels() {
+    modelMeta.textContent = 'Loading Ollama Cloud models…';
+    const cat = await loadModelCatalog();
+    const selected = getSelectedModel();
+    modelSelect.innerHTML = '';
+    const names = new Set();
+    for (const m of cat.models) {
+      if (!m.name || names.has(m.name)) continue;
+      names.add(m.name);
+      const opt = el('option', { value: m.name, text: m.name });
+      if (m.source && m.source !== 'ollama-cloud-tags') {
+        opt.textContent = `${m.name} (${m.source})`;
+      }
+      modelSelect.appendChild(opt);
+    }
+    if (!names.has(selected)) {
+      modelSelect.appendChild(el('option', { value: selected, text: selected }));
+    }
+    modelSelect.value = selected;
+    const live = cat.live ? 'live tags' : 'fallback catalog';
+    const err = cat.error ? ` · ${cat.error}` : '';
+    modelMeta.textContent = `${cat.models.length} models · ${live} · default ${cat.defaultModel}${err}`;
+    syncHeadModel();
+  }
+
+  modelSelect.addEventListener('change', () => {
+    const v = modelSelect.value;
+    setStoredModel(v);
+    if (state.ai) state.ai.toolsEnabled = !!toolsCb.checked;
+    syncHeadModel();
+    appendMsg('system', `Model → ${v}`);
+  });
+  toolsCb.addEventListener('change', () => {
+    if (!state.ai) state.ai = {};
+    state.ai.toolsEnabled = !!toolsCb.checked;
+  });
+
   appendMsg(
     'system',
-    'Concept-grade co-pilot. API key stays on the server. Enable Tools to drive the planner; CLI C2 also works when this tab is open.',
+    'AI is core to HELIOS. Choose a cloud model, then ask or enable Tools to drive the planner. Key stays on the server (npm start + .env).',
   );
+  refreshModels();
 
   fab.addEventListener('click', () => setOpen(!open));
 
-  /** Non-streaming chat (tools + agent loop). */
+  function activeModel() {
+    return modelSelect.value || getSelectedModel() || FALLBACK_DEFAULT_MODEL;
+  }
+
+  /** Non-streaming chat (tools + agent loop). Returns full Ollama JSON. */
   async function chatApi(body) {
     const res = await heliosFetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: DEFAULT_MODEL,
-        stream: false,
         ...body,
+        model: activeModel(),
+        stream: false,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -322,16 +433,17 @@ export function wireAgentChat() {
    * Stream NDJSON chat from /api/chat (Ollama cloud via proxy).
    * @param {object} body
    * @param {(full: string, delta: string) => void} onDelta
-   * @returns {Promise<string>} full assistant text
+   * @returns {Promise<{ text: string, usage: object|null, model: string }>}
    */
   async function chatApiStream(body, onDelta) {
+    const model = activeModel();
     const res = await heliosFetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: DEFAULT_MODEL,
-        stream: true,
         ...body,
+        model,
+        stream: true,
         tools: undefined, // force no tools on stream path
       }),
     });
@@ -340,17 +452,27 @@ export function wireAgentChat() {
       throw new Error(data.error || `Chat failed (${res.status})`);
     }
     if (!res.body || !res.body.getReader) {
-      // Fallback if proxy returned JSON somehow
       const data = await res.json().catch(() => ({}));
       const text = data?.message?.content || data?.response || '';
       onDelta?.(text, text);
-      return text;
+      return {
+        text,
+        usage: data?.helios?.usage || {
+          total_duration: data.total_duration,
+          eval_count: data.eval_count,
+          prompt_eval_count: data.prompt_eval_count,
+          eval_duration: data.eval_duration,
+        },
+        model: data.model || model,
+      };
     }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
     let full = '';
+    let lastUsage = null;
+    let lastModel = model;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -367,6 +489,18 @@ export function wireAgentChat() {
           continue;
         }
         if (j.error) throw new Error(j.error);
+        if (j.model) lastModel = j.model;
+        // Final chunk includes usage (docs.ollama.com/api/usage)
+        if (j.done) {
+          lastUsage = {
+            total_duration: j.total_duration,
+            load_duration: j.load_duration,
+            prompt_eval_count: j.prompt_eval_count,
+            prompt_eval_duration: j.prompt_eval_duration,
+            eval_count: j.eval_count,
+            eval_duration: j.eval_duration,
+          };
+        }
         const delta = j.message?.content || j.response || '';
         if (delta) {
           full += delta;
@@ -374,10 +508,19 @@ export function wireAgentChat() {
         }
       }
     }
-    // trailing buffer
     if (buf.trim()) {
       try {
         const j = JSON.parse(buf.trim());
+        if (j.done) {
+          lastUsage = {
+            total_duration: j.total_duration,
+            load_duration: j.load_duration,
+            prompt_eval_count: j.prompt_eval_count,
+            prompt_eval_duration: j.prompt_eval_duration,
+            eval_count: j.eval_count,
+            eval_duration: j.eval_duration,
+          };
+        }
         const delta = j.message?.content || '';
         if (delta) {
           full += delta;
@@ -387,7 +530,11 @@ export function wireAgentChat() {
         /* ignore */
       }
     }
-    return full || '(empty model response)';
+    return {
+      text: full || '(empty model response)',
+      usage: lastUsage,
+      model: lastModel,
+    };
   }
 
   form.addEventListener('submit', async (e) => {
@@ -419,9 +566,13 @@ export function wireAgentChat() {
           { role: 'system', content: AGENT_SYSTEM_WITH_TOOLS + contextNote },
           ...history.slice(-12),
         ];
+        let lastData = null;
         reply = await runToolAgentLoop({
           messages,
-          chatFn: chatApi,
+          chatFn: async (b) => {
+            lastData = await chatApi(b);
+            return lastData;
+          },
           executeFn: async (name, args) => executeCommand({ action: name, args }),
           maxRounds: 6,
           onTool: (name, args) => {
@@ -429,17 +580,24 @@ export function wireAgentChat() {
           },
         });
         thinking.textContent = reply;
+        appendUsageNote(
+          thinking,
+          lastData?.helios?.usage || lastData,
+          lastData?.model || activeModel(),
+        );
       } else {
         const messages = [
           { role: 'system', content: SYSTEM_PROMPT + contextNote },
           ...history.slice(-16),
         ];
         thinking.textContent = '';
-        reply = await chatApiStream({ messages }, (full) => {
+        const streamed = await chatApiStream({ messages }, (full) => {
           thinking.textContent = full || '…';
           messagesEl.scrollTop = messagesEl.scrollHeight;
         });
+        reply = streamed.text;
         if (!thinking.textContent) thinking.textContent = reply;
+        appendUsageNote(thinking, streamed.usage, streamed.model);
       }
 
       history.push({ role: 'assistant', content: reply });
