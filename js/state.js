@@ -1,4 +1,19 @@
 // Mutable shared application state.
+
+/** Product default path geometry (ship ≡ dashed path ≡ Need). */
+export const PRODUCT_PATH_GEOMETRY = 'physical';
+
+/**
+ * Resolve path geometry with industrial default physical (never silent visual).
+ * @param {string|null|undefined} [override]
+ * @returns {'visual'|'physical'|'both'}
+ */
+export function effectivePathGeometry(override) {
+  const g = override != null && override !== '' ? override : state.pathGeometry;
+  if (g === 'visual' || g === 'physical' || g === 'both') return g;
+  return PRODUCT_PATH_GEOMETRY;
+}
+
 export const state = {
   selectedBody: null,
   routeOrigin: null,

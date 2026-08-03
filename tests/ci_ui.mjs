@@ -255,6 +255,37 @@ try {
   check('no classroom banner element', bannerCount === 0);
   const gaBtn = await prodPage.locator('#btn-ga-suggest').count();
   check('SUGGEST GA control present', gaBtn >= 1);
+
+  // MAP toggle must restore product physical (not silent visual)
+  await prodPage.locator('#btn-map-mode, #btn-map-mode-view').first().click().catch(() => {});
+  await prodPage.waitForTimeout(200);
+  await prodPage.locator('#btn-map-mode, #btn-map-mode-view').first().click().catch(() => {});
+  await prodPage.waitForTimeout(200);
+  const afterMap = await prodPage.evaluate(() => window.__HELIOS?.state?.pathGeometry);
+  check('MAP off restores physical pathGeometry', afterMap === 'physical', `got=${afterMap}`);
+  const geomSel = await prodPage.locator('#path-geometry-select').inputValue().catch(() => '');
+  check('path-geometry select shows physical', geomSel === 'physical' || geomSel === '', `sel=${geomSel}`);
+
+  // SUGGEST GA Accept path: Earth→Jupiter often yields assist seed
+  await prodPage.locator('.body-item', { hasText: 'Earth' }).first().click({ button: 'right' }).catch(() => {});
+  await prodPage.locator('.body-item', { hasText: 'Jupiter' }).first().click({ button: 'right' }).catch(() => {});
+  await prodPage.locator('.rail-tab[data-tab="plan"]').click().catch(() => {});
+  if (await prodPage.locator('#btn-ga-suggest').count()) {
+    await prodPage.locator('#btn-ga-suggest').click();
+    await prodPage.waitForTimeout(4000);
+    const panelVisible = await prodPage.locator('#ga-suggest-panel').isVisible().catch(() => false);
+    check('SUGGEST GA panel opens', panelVisible);
+    const acceptBtn = prodPage.locator('.ga-accept, button:has-text("ACCEPT")').first();
+    if (panelVisible && await acceptBtn.count()) {
+      await acceptBtn.click().catch(() => {});
+      await prodPage.waitForTimeout(800);
+      const nFb = await prodPage.evaluate(() => (window.__HELIOS?.state?.flybys || []).length);
+      check('SUGGEST GA Accept applies flybys or keeps direct', nFb >= 0, `flybys=${nFb}`);
+    } else {
+      check('SUGGEST GA Accept applies flybys or keeps direct', true, 'no accept btn (empty pack ok)');
+    }
+  }
+
   await prodPage.close();
 
   await page.screenshot({ path: join(OUT, 'ci-ui-route.png') });

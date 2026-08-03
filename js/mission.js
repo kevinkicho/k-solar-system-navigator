@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, effectivePathGeometry } from './state.js';
 import { getSunBarycentricOffset } from './physics/kepler.js';
 import { getShipPositionOnTransfer } from './physics/routing.js';
 import {
@@ -366,7 +366,7 @@ export function updateMission() {
           ? 'cosine blend (non-Kepler)'
           : (shipInfo?.mode || '—');
       const off = shipInfo?.offsetPolicy || td.pathOffsetPolicy || 'time_varying';
-      const geom = state.pathGeometry || 'visual';
+      const geom = effectivePathGeometry();
       const flight = state.flightPathMode || 'static';
       modeEl.textContent = `${base} · ${geom}/${off} · flight=${flight} · v=helio2body`;
     }

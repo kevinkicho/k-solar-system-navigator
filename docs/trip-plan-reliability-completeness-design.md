@@ -1,5 +1,7 @@
 # HELIOS Trip Plan Reliability & Completeness Platform
 
+> **HISTORICAL DESIGN** — As-built product: industrial preliminary (not classroom). See [docs/README.md](./README.md).
+
 | Field | Value |
 |---|---|
 | **Document title** | Trip Plan Reliability & Completeness Platform |

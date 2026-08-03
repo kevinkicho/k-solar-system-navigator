@@ -1,5 +1,7 @@
 # HELIOS Post-Landing Hardening Platform
 
+> **HISTORICAL DESIGN** — As-built product: industrial preliminary (not classroom). See [docs/README.md](./README.md).
+
 | Field | Value |
 |---|---|
 | **Document title** | Post-Landing Hardening Platform |

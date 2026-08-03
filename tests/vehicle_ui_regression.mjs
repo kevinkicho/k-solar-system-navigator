@@ -69,8 +69,17 @@ check('OPS deep-link ops=1', /ops.*===.*['"]1['"]|get\(['"]ops['"]\)/.test(
   readFileSync(resolve(ROOT, 'js/ui/flight-ops-ui.js'), 'utf8')));
 check('Window campaigns delete/compare UI', /wcp-compare|deleteWindowCampaign/.test(
   readFileSync(resolve(ROOT, 'js/ui/firebase-ui.js'), 'utf8')));
-check('route-display GO/NO-GO board', /missionReviewBoardHtml|mission-review-board/.test(
+check('route-display analysis READY board', /missionReviewBoardHtml|mission-review-board|READY \(analysis\)/.test(
   readFileSync(resolve(ROOT, 'js/ui/route-display.js'), 'utf8')));
+check('effectivePathGeometry helper', /export function effectivePathGeometry/.test(stateJs));
+check('path geometry HTML default physical', /path-geometry-select[\s\S]*value=["']physical["'][^>]*selected|value=["']physical["'] selected/.test(indexHtml));
+check('MAP restores product physical', /PRODUCT_PATH_GEOMETRY|_pathGeomBeforeMap/.test(
+  readFileSync(resolve(ROOT, 'js/ui/map-mode.js'), 'utf8')));
+check('planning backend resolve sample-de', /PRODUCT_PLANNING_BACKEND|resolvePlanningBackend/.test(
+  readFileSync(resolve(ROOT, 'js/physics/planning-defaults.js'), 'utf8')));
+check('Vehicle Lab model provenance', /MODEL PROVENANCE|model provenance/i.test(
+  readFileSync(resolve(ROOT, 'js/ui/vehicle-lab.js'), 'utf8')));
+check('Launch site not edu-labeled', !/Launch site \(edu/.test(indexHtml));
 check('product-chrome module', existsSync(resolve(ROOT, 'js/ui/product-chrome.js')));
 check('Ship pathGeometry honesty in routing', /pathGeometry.*physical|geometry === 'physical'/.test(
   readFileSync(resolve(ROOT, 'js/physics/routing.js'), 'utf8')));

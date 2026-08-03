@@ -67,8 +67,9 @@ bindRouteSetters({ origin: setRouteOrigin, destination: setRouteDestination });
 wireMissionStudyBar();
 
 // Industrial product defaults: unrefueled SS arch + L2/L3-plan sample-DE.
-// Classroom / teaching mode removed — use ?firebase=0 for offline hermetic only.
+// Use ?firebase=0 for offline hermetic / CI only.
 applyProductVehicleDefaults();
+syncFidelityChip({ pending: true });
 import('./physics/ephemeris-sample.js').then(async (m) => {
   await m.ensureSampleTableLoaded();
   const ephSel = document.getElementById('ephemeris-backend');
@@ -78,7 +79,10 @@ import('./physics/ephemeris-sample.js').then(async (m) => {
   }
   syncFidelityChip();
   syncProductClassFooters();
-}).catch(() => {});
+}).catch(() => {
+  syncFidelityChip();
+  syncProductClassFooters();
+});
 // Warm Firebase + dense SPICE from Storage CDN after SPA paints
 queueMicrotask(() => {
   import('./firebase/app.js').then(async ({ initFirebase, isFirebaseEnabled }) => {

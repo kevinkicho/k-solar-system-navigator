@@ -119,8 +119,8 @@ export async function findMultiLegWindowAsync(
           flybyHints: hintPayload,
           depHint,
           routeOpts: {
-            ephemerisBackend: routeOpts.ephemerisBackend || routeOpts.backend || 'approx',
-            backend: routeOpts.backend || routeOpts.ephemerisBackend || 'approx'}});
+            ephemerisBackend: routeOpts.ephemerisBackend || routeOpts.backend || 'sample-de',
+            backend: routeOpts.backend || routeOpts.ephemerisBackend || 'sample-de'}});
       });
     } catch (e) {
       if (e?.code !== 'WORKER_DEAD') {

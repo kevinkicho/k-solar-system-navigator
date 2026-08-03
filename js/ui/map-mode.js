@@ -1,14 +1,17 @@
 /**
  * Map mode — schematic frames + dual path overlay for honest trajectory mapping.
- * Cinematic stays the default “wow” view; map mode is one click for teaching/map truth.
+ * Cinematic stays the default presentation; map mode is one click for dual-path truth.
  */
 import * as THREE from 'three';
-import { state } from '../state.js';
+import { state, PRODUCT_PATH_GEOMETRY, effectivePathGeometry } from '../state.js';
 import { setDisplayMode, isSchematic } from '../display-scale.js';
 import { BODIES } from '../data/bodies.js';
 import { generateOrbitPoints } from '../physics/kepler.js';
 import { orbitLines } from '../scene/planets.js';
 import { updateViewBadge } from './share.js';
+
+/** Geometry in force before MAP dual-overlay (restore on exit). */
+let _pathGeomBeforeMap = null;
 
 /**
  * Apply or clear map mode.
@@ -21,12 +24,18 @@ export function setMapMode(on, opts = {}) {
 
   if (want) {
     setDisplayMode('schematic');
+    // Remember pre-MAP geometry so exit restores product physical (not silent visual).
+    if (state.pathGeometry !== 'both') {
+      _pathGeomBeforeMap = effectivePathGeometry();
+    }
     // Dual overlay: bright cinematic-capable line + faint physical (real-I) line
     state.pathGeometry = 'both';
   } else {
-    // Return to cinematic wow; keep pathGeometry visual unless user set otherwise
     if (state.display?.mode === 'schematic') setDisplayMode('cinematic');
-    if (state.pathGeometry === 'both') state.pathGeometry = 'visual';
+    if (state.pathGeometry === 'both') {
+      state.pathGeometry = _pathGeomBeforeMap || PRODUCT_PATH_GEOMETRY;
+      _pathGeomBeforeMap = null;
+    }
   }
 
   rebuildOrbitLines();
@@ -76,7 +85,7 @@ export function syncMapModeUi() {
     btn.title = title;
   }
   const geom = document.getElementById('path-geometry-select');
-  if (geom) geom.value = state.pathGeometry || 'visual';
+  if (geom) geom.value = effectivePathGeometry();
   const disp = document.getElementById('display-mode-select');
   if (disp) disp.value = state.display?.mode || 'cinematic';
 }

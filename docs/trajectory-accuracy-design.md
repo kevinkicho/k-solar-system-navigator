@@ -1,5 +1,7 @@
 # HELIOS Trajectory Rendering Accuracy — Full Multi-Phase Design
 
+> **HISTORICAL DESIGN** � As-built product: industrial preliminary (not classroom). See [docs/README.md](./README.md).
+
 | Field | Value |
 |---|---|
 | **Document title** | HELIOS Trajectory Rendering Accuracy (Phases 1–4) |

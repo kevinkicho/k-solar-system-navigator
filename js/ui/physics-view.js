@@ -5,7 +5,7 @@
  * Accuracy comes from js/physics (Lambert, Kepler, ephemeris). This mode only aligns the
  * *scene* with physical frames (no inclination ×8, physical path, dual overlay).
  */
-import { state } from '../state.js';
+import { state, effectivePathGeometry } from '../state.js';
 import { setDisplayMode } from '../display-scale.js';
 import { rebuildOrbitLines, syncMapModeUi } from './map-mode.js';
 import { updateViewBadge } from './share.js';
@@ -113,7 +113,7 @@ export function syncPhysicsViewUi() {
   const disp = document.getElementById('display-mode-select');
   if (disp) disp.value = state.display?.mode || 'cinematic';
   const geom = document.getElementById('path-geometry-select');
-  if (geom) geom.value = state.pathGeometry || 'visual';
+  if (geom) geom.value = effectivePathGeometry();
 }
 
 export function wirePhysicsView() {

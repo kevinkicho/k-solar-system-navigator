@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { DAY, J2000 } from '../constants.js';
 import { BODIES } from '../data/bodies.js';
-import { state } from '../state.js';
+import { state, effectivePathGeometry } from '../state.js';
 import { setDisplayMode } from '../display-scale.js';
 import { generateOrbitPoints, hohmannTransfer } from '../physics/kepler.js';
 import { camera3D, controls } from '../scene/setup.js';
@@ -336,7 +336,7 @@ export function wireControls() {
   const flagLtNeed = document.getElementById('flag-lt-need');
 
   function syncPathAccuracyUI() {
-    if (pathGeomSel) pathGeomSel.value = state.pathGeometry || 'visual';
+    if (pathGeomSel) pathGeomSel.value = effectivePathGeometry();
     if (flightModeSel) flightModeSel.value = state.flightPathMode || 'static';
     if (flagAdaptive) flagAdaptive.checked = !!state.pathAccuracy?.adaptiveSampling;
     if (flagMultiRev) flagMultiRev.checked = !!state.pathAccuracy?.multiRevLambert;

@@ -18,7 +18,7 @@ import {
   resolvePlanetRelativeCentral,
   planetRelativePeriapsisOk,
   planetRelativeEndpointStates} from './planet-relative.js';
-import { state } from '../state.js';
+import { state, effectivePathGeometry } from '../state.js';
 
 /**
  * Analytic coplanar Hohmann when Lambert is singular (~180° transfer).
@@ -167,7 +167,7 @@ function tryBuildVisualOrbit(r1v, r2v, tof, mu, vBody1, vBody2, preferredLongWay
 /** Planning opts: backend 'approx'|'sample-de'. Visual path always Kepler. */
 function planOpts(tData) {
   return {
-    backend: tData?.ephemerisBackend || tData?.backend || 'approx',
+    backend: tData?.ephemerisBackend || tData?.backend || 'sample-de',
   };
 }
 
@@ -175,7 +175,7 @@ function planOpts(tData) {
 function multiLegPlanOpts(waypoints, routeOpts = {}) {
   const w0 = waypoints?.[0] || {};
   return {
-    backend: routeOpts.ephemerisBackend || routeOpts.backend || w0.ephemerisBackend || w0.backend || 'approx',
+    backend: routeOpts.ephemerisBackend || routeOpts.backend || w0.ephemerisBackend || w0.backend || 'sample-de',
     maxRevolutions: Math.max(0, Math.min(2, Math.floor(
       routeOpts.maxRevolutions ?? w0.maxRevolutions ?? 0,
     )))};
@@ -698,8 +698,9 @@ export function getShipPositionOnTransfer(departureSimTime, tData, currentSimTim
     tData = { ...tData, departureSimTime };
   }
   // Match dashed path geometry (industrial honesty): physical when pathGeometry is physical.
-  const pg = tData.pathGeometry || state.pathGeometry || 'visual';
-  const geometry = pg === 'physical' ? 'physical' : 'visual';
+  const pg = effectivePathGeometry(tData.pathGeometry || state.pathGeometry);
+  // Ship always rides the Need-matching branch; visual is display-only twin.
+  const geometry = (pg === 'physical' || pg === 'both') ? 'physical' : 'visual';
   return sampleTransferPathAtTime(tData, currentSimTime, {
     offsetPolicy: tData.pathOffsetPolicy || state.pathOffsetPolicy || 'time_varying',
     geometry});

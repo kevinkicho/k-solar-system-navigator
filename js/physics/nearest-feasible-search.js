@@ -59,7 +59,7 @@ export function buildNearestFeasibleGrid(body1, body2, depHint, tofHint, opts = 
     tofMin,
     tofMax,
     pOpts: {
-      backend: opts.backend || 'approx'},
+      backend: opts.backend || 'sample-de'},
     mu: G_CONST * SUN_DATA.mass};
 }
 

@@ -1,6 +1,6 @@
 /**
  * Plan quality gates (pure) — reliability design K1–K6, K11.
- * Educational completeness confidence, not navigation OD.
+ * Analysis-completeness confidence for preliminary design — not navigation OD.
  */
 
 import { AU } from '../constants.js';

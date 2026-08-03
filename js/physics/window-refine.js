@@ -143,7 +143,7 @@ export function refineShortlistNeighborhood(shortlist, body1, body2, gridSpec, o
           c3_m2_s2: cell.c3,
           vinf_arr_m_s: cell.vinf,
           revolutions: cell.revolutions ?? 0,
-          backend: planOpts.backend || 'approx',
+          backend: planOpts.backend || 'sample-de',
           refined: di !== 0 || dj !== 0,
           seed_dv_m_s: seed.dv_m_s,
         };

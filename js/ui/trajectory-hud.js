@@ -1,7 +1,7 @@
 /**
  * On-screen trajectory / scale HUD — AU distances, path residual, mode honesty.
  */
-import { state } from '../state.js';
+import { state, effectivePathGeometry } from '../state.js';
 import { isSchematic } from '../display-scale.js';
 import {
   buildTransferPathSamples, sampleTransferPathAtTime} from '../physics/transfer-path.js';
@@ -98,7 +98,7 @@ function ephLabel() {
 
 function pathLabel(td) {
   if (!td) return 'idle';
-  const g = state.pathGeometry || 'visual';
+  const g = effectivePathGeometry();
   const mode = state.display?.mode || 'cinematic';
   const ribbon = state.showTransferRibbon ? '+ribbon' : '';
   return `Kepler conic · ${g}${ribbon} · ${mode}`;

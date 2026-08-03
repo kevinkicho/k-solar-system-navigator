@@ -33,8 +33,15 @@ export function wireVehicleLab() {
     ];
     let html = `
       <p style="font-size:10px;color:var(--amber);margin-bottom:8px">
-        Concept-grade sample vehicles — not SpaceX-certified. Lab does <strong>not</strong> prove a mission is feasible without a computed plan.
-      </p>`;
+        Illustrative vehicle models — not SpaceX-certified. Lab does <strong>not</strong> prove a mission is feasible without a computed plan.
+      </p>
+      <div class="vehicle-provenance" style="font-size:9px;opacity:0.9;margin-bottom:10px;padding:8px;border:1px solid var(--border);border-radius:2px">
+        <div class="result-subtitle" style="margin-bottom:4px">MODEL PROVENANCE</div>
+        <div class="info-row"><span class="key">Class</span><span class="val">Preliminary industrial · not User’s Guide</span></div>
+        <div class="info-row"><span class="key">Falcon 9</span><span class="val">Illustrative C₃–payload knots (public order-of-magnitude)</span></div>
+        <div class="info-row"><span class="key">Starship</span><span class="val">Rocket-equation arches: unrefueled / tanker-n / legacy-demo</span></div>
+        <div class="info-row"><span class="key">Review</span><span class="val">2026-08 · not performance warranty</span></div>
+      </div>`;
 
     // Design-for-Need paper study (uses current transfer Need when available)
     const design = designFromCurrentPlan();
@@ -47,7 +54,7 @@ export function wireVehicleLab() {
     }
     const est = estimateAscentLossForVehicle(state.vehicleId);
     html += `
-      <div class="result-subtitle">ASCENT LOSS CLASS (EDU)</div>
+      <div class="result-subtitle">ASCENT LOSS CLASS (illustrative)</div>
       <div class="info-row"><span class="key">Active vehicle class</span><span class="val">${est.label}</span></div>
       <div class="info-row"><span class="key">Estimate total</span><span class="val amber">${est.total_m_s} m/s</span></div>
       <div class="info-row"><span class="key">Breakdown</span><span class="val" style="font-size:9px">g ${est.breakdown.gravity_m_s} · drag ${est.breakdown.drag_m_s} · steer ${est.breakdown.steering_m_s}</span></div>
@@ -77,7 +84,7 @@ export function wireVehicleLab() {
             sel.value = opt.value;
           }
         }
-        notify(`ASCENT BUDGET SET TO ${state.ascentLossBudget_m_s} m/s (EDU)`);
+        notify(`ASCENT BUDGET SET TO ${state.ascentLossBudget_m_s} m/s (illustrative)`);
       };
     }
 

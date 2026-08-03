@@ -37,7 +37,7 @@ export function buildPlanDossier(td, opts = {}) {
   let vInfDepVec = null;
   if (!td.isMultiLeg && td.lambertOk && td.v1_lambert && td.body1) {
     const pOpts = {
-      backend: td.ephemerisBackend || state.ephemerisBackend || 'approx'};
+      backend: td.ephemerisBackend || state.ephemerisBackend || 'sample-de'};
     let vPlanet;
     try {
       vPlanet = getPlanningVelocity3D(td.body1, td.departureSimTime, pOpts);
@@ -158,8 +158,8 @@ export function buildPlanDossier(td, opts = {}) {
       dla_max_deg: site.dla_max_deg,
       disclaimer: site.disclaimer},
     fidelity: {
-      fidelityLevel: state.fidelityLevel || 'L1',
-      ephemerisBackend: (state.ephemerisBackend || 'approx'),
+      fidelityLevel: state.fidelityLevel || 'L2-plan',
+      ephemerisBackend: (state.ephemerisBackend || 'sample-de'),
       flightOpsMode: !!state.flightOpsMode,
       sample_source: sampleMeta?.source || null,
       sample_bake_source: sampleMeta?.bake_source || null,
@@ -284,8 +284,8 @@ export function planStatusBannerHtml(dossier) {
   if (!dossier) return '';
   const st = dossier.status;
   const color = st === 'pass' ? 'green' : st === 'pass_with_warnings' ? 'amber' : 'red-val';
-  const title = st === 'pass' ? 'GO'
-    : st === 'pass_with_warnings' ? 'GO · WARNINGS'
+  const title = st === 'pass' ? 'READY (analysis)'
+    : st === 'pass_with_warnings' ? 'READY · WARNINGS'
       : 'NO-GO';
 
   const gateLines = (dossier.gates || [])

@@ -1,5 +1,8 @@
 # HELIOS Solar System Navigator — Evolutionary Redesign to Category-Defining Trip Planner
 
+> **HISTORICAL DESIGN** — Product is industrial preliminary mission design (classroom mode removed).
+> Authoritative as-built: [`docs/README.md`](./README.md).
+
 | Field | Value |
 |---|---|
 | **Document title** | HELIOS Trip Planner Product & Architecture Redesign |

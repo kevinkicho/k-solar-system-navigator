@@ -1,5 +1,8 @@
 # HELIOS on Firebase App Hosting
 
+> **HISTORICAL DESIGN NOTES** may mention classroom offline modes. As-built: no classroom mode;
+> use `?firebase=0` for hermetic offline. Authoritative: [`docs/README.md`](./README.md), [`DEPLOY.md`](./DEPLOY.md).
+
 | Field | Value |
 |-------|--------|
 | **Backend id** | `helios` |

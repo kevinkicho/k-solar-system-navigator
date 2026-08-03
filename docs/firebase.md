@@ -1,5 +1,7 @@
 # Firebase migration (as-built)
 
+> **HISTORICAL DESIGN** — As-built product: industrial preliminary (not classroom). See [docs/README.md](./README.md).
+
 HELIOS uses **client-side Firebase** with Security Rules. No secrets in the browser; Admin SDK JSON stays local/gitignored.
 
 ## Products

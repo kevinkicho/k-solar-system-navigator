@@ -46,7 +46,7 @@ export function effectiveBackend(body, timeSec, requested, ctx = {}) {
  * Planning position (heliocentric AU, physics/scene axes — exaggerate false).
  */
 export function getPlanningPosition3D(body, timeSec, opts = {}) {
-  const requested = opts.backend || 'approx';
+  const requested = opts.backend || opts.ephemerisBackend || 'sample-de';
   const { backend } = effectiveBackend(body, timeSec, requested, {
     allowHorizonsInject: opts.allowHorizonsInject,
   });
@@ -65,7 +65,7 @@ export function getPlanningPosition3D(body, timeSec, opts = {}) {
  * Planning velocity (m/s, HELIOS scene axes matching kepler velocity).
  */
 export function getPlanningVelocity3D(body, timeSec, opts = {}) {
-  const requested = opts.backend || 'approx';
+  const requested = opts.backend || opts.ephemerisBackend || 'sample-de';
   const { backend } = effectiveBackend(body, timeSec, requested, {
     allowHorizonsInject: opts.allowHorizonsInject,
   });

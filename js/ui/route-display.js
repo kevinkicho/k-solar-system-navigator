@@ -117,12 +117,12 @@ function missionReviewBoardHtml({
 }) {
   const boardCls = go ? 'go' : (status === 'pass_with_warnings' ? 'warn' : 'nogo');
   const statusWord = go
-    ? (status === 'pass_with_warnings' ? 'GO · WARN' : 'GO')
+    ? (status === 'pass_with_warnings' ? 'READY · WARN' : 'READY (analysis)')
     : 'NO-GO';
   const statusCls = go
     ? (status === 'pass_with_warnings' ? 'warn' : 'go')
     : 'nogo';
-  const sub = 'Industrial preliminary design · not flight-certified';
+  const sub = 'Analysis completeness only · not flight-certified · Fly study = animation';
   return `
     <div class="mission-review-board ${boardCls}" id="results-hero" data-go="${go ? '1' : '0'}">
       <div class="mrb-header">
@@ -256,6 +256,7 @@ function trustStripHtml(td, dossier) {
     eph += ` · ${td.endpointBackendSummary}`;
   }
   if (td?.revolutions > 0) eph += ` · multi-rev N=${td.revolutions}`;
+  else if (state.pathAccuracy?.multiRevLambert) eph += ' · multi-rev flag ON';
   // Dense SPICE pack honesty (parent-relative / helio sample packs)
   let denseTxt = '';
   try {
@@ -306,13 +307,13 @@ function trustStripHtml(td, dossier) {
   } catch { /* */ }
   return `
     <div class="path-trust-strip" id="path-trust-strip" role="status"
-      title="Need/Δv from physical Lambert + planning ephemeris. Dense packs = pre-baked SPICE samples, not live .bsp. Not certified OD.">
+      title="Need/Δv from physical Lambert + planning ephemeris. Scene animation always L1 Kepler; Need uses L2/L3. Dense packs = pre-baked SPICE samples, not live .bsp. Not certified OD.">
       <span class="pts-item"><em>Eph</em> ${eph}</span>
       <span class="pts-item" id="path-trust-dense"><em>Dense</em> ${denseTxt || '—'}</span>
       <span class="pts-item"><em>Path</em> ${geomNote}</span>
-      <span class="pts-item"><em>Scene</em> ${scene}</span>
+      <span class="pts-item"><em>Scene</em> ${scene} · anim L1</span>
       <span class="pts-item"><em>Res</em> ${resTxt}</span>
-      <span class="pts-item pts-note">Preliminary industrial · not low-thrust · not live SPICE · not certified OD${nbody}${gaCompare}</span>
+      <span class="pts-item pts-note">Preliminary industrial · analysis completeness only · not low-thrust · not live SPICE · not certified OD${nbody}${gaCompare}</span>
     </div>`;
 }
 

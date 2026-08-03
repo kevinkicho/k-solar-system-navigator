@@ -12,6 +12,7 @@ import { hohmannTransfer } from './kepler.js';
 import { solveTransferOrbit } from './routing.js';
 import { findMultiLegWindow } from './multi-leg-window-search.js';
 import { findNearestFeasibleTransfer } from './nearest-feasible-search.js';
+import { resolvePlanningBackend } from './planning-defaults.js';
 
 /** Coarse grid for interactive suggestions (keep UI responsive). */
 export const GA_SUGGEST_N_DEP = 14;
@@ -80,7 +81,7 @@ export function evaluateDirectBaseline(origin, dest, depHint, routeOpts = {}) {
     departureSimTime: depHint,
     transferTime: null,
     arrivalSimTime: null,
-    ephemerisBackend: routeOpts.ephemerisBackend || routeOpts.backend || 'approx',
+    ephemerisBackend: resolvePlanningBackend(routeOpts),
   };
   try {
     const h = hohmannTransfer(origin, dest, depHint);
@@ -92,7 +93,7 @@ export function evaluateDirectBaseline(origin, dest, depHint, routeOpts = {}) {
   }
   if (!td.lambertOk) {
     const fix = findNearestFeasibleTransfer(origin, dest, depHint, td.transferTime || 200 * DAY, {
-      backend: routeOpts.ephemerisBackend || routeOpts.backend || 'approx',
+      backend: resolvePlanningBackend(routeOpts),
       nDep: 16,
       nTof: 12,
     });
@@ -103,7 +104,7 @@ export function evaluateDirectBaseline(origin, dest, depHint, routeOpts = {}) {
       departureSimTime: fix.departureSimTime,
       transferTime: fix.transferTime,
       arrivalSimTime: fix.arrivalSimTime,
-      ephemerisBackend: routeOpts.ephemerisBackend || routeOpts.backend || 'approx',
+      ephemerisBackend: resolvePlanningBackend(routeOpts),
     };
     solveTransferOrbit(td);
     if (!td.lambertOk) return null;
@@ -169,7 +170,7 @@ export function evaluateAssistCandidate(origin, dest, flybyBody, depHint, routeO
   const g = gridOpts(opts);
   const hints = [{ body: flybyBody, simTime: depHint + 120 * DAY }];
   const best = findMultiLegWindow(origin, dest, hints, depHint, {
-    ephemerisBackend: routeOpts.ephemerisBackend || routeOpts.backend || 'approx',
+    ephemerisBackend: resolvePlanningBackend(routeOpts),
     maxRevolutions: routeOpts.maxRevolutions ?? 0,
   }, {
     nDep: g.nDep,
@@ -211,7 +212,7 @@ export function evaluateDualAssistCandidate(origin, dest, flybyBodies, depHint, 
     simTime: depHint + (90 + i * 150) * DAY,
   }));
   const best = findMultiLegWindow(origin, dest, hints, depHint, {
-    ephemerisBackend: routeOpts.ephemerisBackend || routeOpts.backend || 'approx',
+    ephemerisBackend: resolvePlanningBackend(routeOpts),
     maxRevolutions: routeOpts.maxRevolutions ?? 0,
   }, {
     nDep: Math.max(8, Math.floor(g.nDep * 0.7)),

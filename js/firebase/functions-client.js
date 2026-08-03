@@ -1,6 +1,6 @@
 /**
  * Cloud Functions client (optional). Falls back gracefully when Functions
- * are not deployed or user is offline/classroom.
+ * are not deployed or user is offline / firebase=0.
  */
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
 import { initFirebase, isFirebaseEnabled, getFirebaseApp } from './app.js';

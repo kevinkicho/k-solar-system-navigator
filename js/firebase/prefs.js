@@ -5,7 +5,7 @@
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { getFirebaseDb, isFirebaseEnabled } from './app.js';
 import { currentUser } from './auth.js';
-import { state } from '../state.js';
+import { state, effectivePathGeometry, PRODUCT_PATH_GEOMETRY } from '../state.js';
 
 function prefsRef(uid) {
   const db = getFirebaseDb();
@@ -22,9 +22,9 @@ export function prefsFromState() {
     costBasis: state.costBasis || 'helio',
     display_mode: state.display?.mode || 'cinematic',
     map_mode: !!state.mapMode,
-    path_geometry: state.pathGeometry || 'visual',
-    ephemeris_backend: state.ephemerisBackend || 'approx',
-    fidelity_level: state.fidelityLevel || 'L1',
+    path_geometry: effectivePathGeometry() || PRODUCT_PATH_GEOMETRY,
+    ephemeris_backend: state.ephemerisBackend || 'sample-de',
+    fidelity_level: state.fidelityLevel || 'L2-plan',
     starshipArch: state.starshipArch || 'unrefueled',
     cargoMass_kg: state.cargoMass_kg ?? 0,
     quality_tier: state.qualityTier || 'auto',

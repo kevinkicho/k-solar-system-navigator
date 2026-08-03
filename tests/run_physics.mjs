@@ -51,6 +51,8 @@ const SUITE = [
   'tests/ship_velocity.mjs',
   'tests/path_frame_consistency.mjs',
   'tests/lambert_multirev.mjs',
+  'tests/path_geometry_default.mjs',
+  'tests/planning_backend_default.mjs',
   'tests/adaptive_path.mjs',
   'tests/nbody_cowell_smoke.mjs',
   'tests/firebase_plan_summary.mjs',

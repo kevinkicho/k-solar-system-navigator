@@ -3,13 +3,19 @@
  */
 import { state } from '../state.js';
 
-export function syncFidelityChip() {
+export function syncFidelityChip(opts = {}) {
   const el = document.getElementById('fidelity-chip');
   if (!el) return;
+  if (opts.pending) {
+    el.textContent = '…';
+    el.className = 'fidelity-chip fidelity-pending';
+    el.title = 'Loading planning ephemeris table…';
+    return;
+  }
   const f = state.fidelityLevel || 'L2-plan';
   el.textContent = f;
   el.className = `fidelity-chip fidelity-${f}`;
-  el.title = `Planning ephemeris: ${f}${state.flightOpsMode ? ' · OPS review' : ''}`;
+  el.title = `Planning ephemeris: ${f} · scene animation always L1 Kepler${state.flightOpsMode ? ' · OPS review' : ''}`;
 }
 
 export function syncProductClassFooters() {

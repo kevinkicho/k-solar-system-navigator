@@ -9,6 +9,24 @@ import { DAY } from '../constants.js';
 export const AUTO_MULTI_REV_TOF_SEC = 400 * DAY;
 
 /**
+ * Product default planning ephemeris backend when callers omit a stamp.
+ * Prefer sample-de (L2/L3) over silent L1 approx regression.
+ */
+export const PRODUCT_PLANNING_BACKEND = 'sample-de';
+
+/**
+ * Resolve planning ephemeris backend from opts / route record.
+ * @param {object} [opts]
+ * @returns {'sample-de'|'approx'|string}
+ */
+export function resolvePlanningBackend(opts = {}) {
+  const b = opts.ephemerisBackend || opts.backend || opts.ephemeris_backend;
+  if (b === 'approx' || b === 'sample-de' || b === 'horizons-inject') return b;
+  if (typeof b === 'string' && b.length) return b;
+  return PRODUCT_PLANNING_BACKEND;
+}
+
+/**
  * Resolve Lambert max revolutions for a transfer time of flight.
  *
  * Priority:

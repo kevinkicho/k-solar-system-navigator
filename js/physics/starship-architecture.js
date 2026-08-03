@@ -1,5 +1,5 @@
 // Starship + Super Heavy architecture modes (cargo design K5/K21).
-// Educational / concept-grade — not SpaceX performance.
+// Illustrative / preliminary — not SpaceX performance.
 
 import { VEHICLE_SPECS, starshipDeltaV } from './vehicles.js';
 

@@ -79,7 +79,7 @@ const encEph = codec.encodePlanRequestObject({
 const backEph = codec.parsePlanRequest(encEph);
 check('eph sample round-trip', backEph?.ephemerisBackend === 'sample-de');
 const bareEph = codec.parsePlanRequest('#v=1&o=earth&d=mars&dep=2026-11-21&tof=258&veh=abstract');
-check('omit eph => approx', bareEph?.ephemerisBackend === 'approx');
+check('omit eph => sample-de product default', bareEph?.ephemerisBackend === 'sample-de');
 
 // Geographic sites (PR-G1)
 const siteEnc = codec.encodeSiteParam({

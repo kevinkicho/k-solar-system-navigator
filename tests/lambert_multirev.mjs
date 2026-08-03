@@ -8,6 +8,9 @@ import {
 } from '../js/physics/lambert.js';
 import { buildTransferOrbit, propagateOrbit } from '../js/physics/helio.js';
 import { v3mag, v3sub } from '../js/physics/vec3.js';
+import {
+  resolveMaxRevolutionsForTof, AUTO_MULTI_REV_TOF_SEC,
+} from '../js/physics/planning-defaults.js';
 
 const mu = G_CONST * SUN_DATA.mass;
 let failed = 0;
@@ -50,6 +53,30 @@ if (best1) {
 // Direct N=1 attempt (may fail for this geometry — soft)
 const s1 = solveLambertProblem(r1, r2, tofLong, mu, false, 1);
 console.log(`  · N=1 short attempt: ${s1 ? 'solved' : 'no solution (ok)'}`);
+
+// Golden: long Earth–Mars-class TOF with Nmax=1 must close and stay in Δv band
+const rEarth = [1.0 * AU, 0, 0];
+const rMars = [0.2 * AU, 1.52 * AU, 0];
+const tofGold = 700 * DAY;
+const gold = solveLambertBestBranch(rEarth, rMars, tofGold, mu, null, null, { maxRevolutions: 1 });
+check('golden long-TOF branch solves', !!gold);
+if (gold) {
+  const hitG = propagateOrbit(gold.orb, tofGold);
+  const missG = v3mag(v3sub(hitG, rMars));
+  check('golden long-TOF miss < 1000 km', missG < 1e6, `miss=${(missG / 1000).toFixed(1)} km N=${gold.revolutions}`);
+  const dv1 = gold.v1 ? v3mag(gold.v1) : null;
+  // Heliocentric |v1| class for inner-system multi-rev: ~15–45 km/s
+  if (dv1 != null) {
+    check('golden |v1| in 15–45 km/s class', dv1 > 15000 && dv1 < 45000, `v1=${(dv1 / 1000).toFixed(2)} km/s`);
+  }
+  check('golden revolutions 0 or 1', gold.revolutions === 0 || gold.revolutions === 1, `N=${gold.revolutions}`);
+}
+
+// Policy helper: long TOF auto multi-rev
+check('auto multi-rev TOF threshold ~400d', AUTO_MULTI_REV_TOF_SEC > 300 * DAY);
+check('long TOF policy → 1', resolveMaxRevolutionsForTof(500 * DAY, {}) === 1);
+check('short TOF policy → 0', resolveMaxRevolutionsForTof(100 * DAY, {}) === 0);
+check('flag forces multi-rev', resolveMaxRevolutionsForTof(100 * DAY, { multiRevLambert: true, multiRevMax: 1 }) === 1);
 
 if (failed) {
   console.error(`\n${failed} multi-rev check(s) failed`);

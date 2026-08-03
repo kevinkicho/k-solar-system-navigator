@@ -8,7 +8,7 @@ import {
   savePlanToCloud, listCloudPlans, deleteCloudPlan} from '../firebase/plans.js';
 import { loadUserPrefs, applyPrefsToState, saveUserPrefs } from '../firebase/prefs.js';
 import { loadLastRoute, listWindowCampaigns, deleteWindowCampaign } from '../firebase/rtdb.js';
-import { state } from '../state.js';
+import { state, effectivePathGeometry } from '../state.js';
 import { notify } from './format.js';
 import { activateRailTab } from './rail-ui.js';
 
@@ -316,7 +316,7 @@ async function applyCloudPrefsOnSignIn() {
   const disp = document.getElementById('display-mode-select');
   if (disp) disp.value = state.display?.mode || 'cinematic';
   const geom = document.getElementById('path-geometry-select');
-  if (geom) geom.value = state.pathGeometry || 'visual';
+  if (geom) geom.value = effectivePathGeometry();
   const eph = document.getElementById('ephemeris-backend');
   if (eph && state.ephemerisBackend) eph.value = state.ephemerisBackend;
 

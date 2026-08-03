@@ -1,5 +1,7 @@
 # Dense SPICE storage budget (HELIOS)
 
+> **HISTORICAL DESIGN** � As-built product: industrial preliminary (not classroom). See [docs/README.md](./README.md).
+
 All table sizes assume **Float32 LE** parent-relative or heliocentric **xyz** (3 floats/sample).
 JSON text is ~2–3× larger than binary; prefer `.bin` for dense packs.
 

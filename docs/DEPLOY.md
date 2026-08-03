@@ -33,10 +33,25 @@ npm run deploy:apphosting
 Primary: `https://helios--k-solar-system-navigator.us-central1.hosted.app`  
 Fallback: `https://k-solar-system-navigator.web.app`
 
+### Both surfaces (preferred release)
+
+```bash
+npm run deploy:all
+# or: npm run deploy:hosting && npm run deploy:apphosting
+```
+
+Ensure both URLs show the same commit in build identity / `helios-build.json` after App Hosting prepare.
+
 ### After deploy
 
 ```bash
 npm run smoke:live
+```
+
+### Hosting ignore hygiene
+
+```bash
+npm run check:hosting-ignore
 ```
 
 Checks App Hosting (primary) then classic Hosting + Functions dense catalog.

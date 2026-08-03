@@ -95,7 +95,7 @@ export async function findNearestFeasibleTransferAsync(
 ) {
   const id1 = bodyId(body1);
   const id2 = bodyId(body2);
-  const backend = opts.backend || 'approx';
+  const backend = opts.backend || 'sample-de';
   const allowPast = !!opts.allowPast;
   const onProgress = opts.onProgress;
   const shouldCancel = opts.shouldCancel;

@@ -206,7 +206,7 @@ export function parentRelativeState(body, central, timeSec, opts = {}) {
     }
 
     const pOpts = {
-      backend: opts.backend || opts.ephemerisBackend || 'approx'};
+      backend: opts.backend || opts.ephemerisBackend || 'sample-de'};
     const pB = getPlanningPosition3D(body, timeSec, pOpts);
     const pC = getPlanningPosition3D(central, timeSec, pOpts);
     const vB = getPlanningVelocity3D(body, timeSec, pOpts);

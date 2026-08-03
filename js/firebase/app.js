@@ -1,6 +1,6 @@
 /**
  * Firebase app bootstrap for HELIOS.
- * Graceful offline: returns null services when disabled / classroom / init fails.
+ * Graceful offline: returns null services when disabled / firebase=0 / init fails.
  *
  * Services: Auth · Firestore (plans + prefs) · RTDB (last-route) · Storage (mission JSON).
  */

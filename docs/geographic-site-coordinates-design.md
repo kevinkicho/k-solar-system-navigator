@@ -1,5 +1,7 @@
 # HELIOS Geographic Site Coordinates & Body-Fixed Endpoints
 
+> **HISTORICAL DESIGN** — As-built product: industrial preliminary (not classroom). See [docs/README.md](./README.md).
+
 | Field | Value |
 |---|---|
 | **Document title** | Geographic Site Coordinates & Body-Fixed Endpoints |

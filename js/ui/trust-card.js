@@ -9,7 +9,7 @@
  */
 export function trustCardHtml(dossier, fidelity = {}) {
   const fid = fidelity.fidelityLevel || dossier?.fidelity?.fidelityLevel || 'L1';
-  const be = fidelity.ephemerisBackend || dossier?.fidelity?.ephemerisBackend || 'approx';
+  const be = fidelity.ephemerisBackend || dossier?.fidelity?.ephemerisBackend || 'sample-de';
   const conf = dossier?.confidence_0_100;
   const ready = dossier?.mission_ready;
   const status = dossier?.status || '—';

@@ -1248,8 +1248,8 @@ input[type="range"]::-webkit-slider-thumb {
             </select>
           </div>
           <div class="route-field-row" id="launch-site-row">
-            <label>Launch site (edu DLA band)</label>
-            <select id="launch-site" title="Educational |DLA| vs site latitude band — not range safety">
+            <label>Launch site (DLA band)</label>
+            <select id="launch-site" title="Illustrative |DLA| vs site latitude band — not range safety">
               <option value="any">No site constraint</option>
               <option value="cape">Cape-class (~28.5°N)</option>
               <option value="vandenberg">Vandenberg-class (~34.7°N)</option>
@@ -1269,9 +1269,9 @@ input[type="range"]::-webkit-slider-thumb {
           </div>
           <div class="route-field-row">
             <label>Path geometry</label>
-            <select id="path-geometry-select" title="Scene (visual) vs physical inclination path">
+            <select id="path-geometry-select" title="Product default: physical (matches Need). Visual is cinematic twin only.">
               <option value="visual">Scene (visual / cinematic twin)</option>
-              <option value="physical">Physical (real inclination)</option>
+              <option value="physical" selected>Physical (real inclination · product default)</option>
               <option value="both">Both (overlay)</option>
             </select>
           </div>

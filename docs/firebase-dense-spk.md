@@ -1,5 +1,7 @@
 # Firebase backend for dense SPICE packs
 
+> **HISTORICAL DESIGN** — As-built product: industrial preliminary (not classroom). See [docs/README.md](./README.md).
+
 HELIOS can serve dense ephemeris packs through the full Firebase stack while
 keeping offline Hosting fallback for classroom / `?firebase=0`.
 

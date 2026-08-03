@@ -1,5 +1,8 @@
 # HELIOS Ephemeris Fidelity & Measurement Trust Platform
 
+> **HISTORICAL DESIGN** — As-built product defaults are **L2-plan / L3-plan sample-DE**, not L1 classroom.
+> Authoritative index: [`docs/README.md`](./README.md). Runtime: `js/state.js`, `js/main.js`.
+
 | Field | Value |
 |---|---|
 | **Document title** | HELIOS Ephemeris Fidelity & Measurement Trust Platform |

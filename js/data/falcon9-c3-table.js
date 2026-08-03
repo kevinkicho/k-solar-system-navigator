@@ -1,10 +1,10 @@
-// Illustrative Falcon 9 payload vs C3 table (concept-grade, not SpaceX certified).
+// Illustrative Falcon 9 payload vs C3 table (preliminary industrial model, not SpaceX certified).
 // C3 in km²/s²; payload in kg. Interplanetary path uses C3 ≥ 0 only (K20).
-// Source note: educational knots shaped after public order-of-magnitude performance
-// discussions — not a User's Guide extract and not a performance guarantee.
+// Source note: order-of-magnitude knots shaped after public performance discussions —
+// not a User's Guide extract and not a performance guarantee.
 
 export const F9_DISCLAIMER =
-  'Illustrative Falcon 9 payload-vs-C3 model for education only — not SpaceX performance data or warranty.';
+  'Illustrative Falcon 9 payload-vs-C3 model — preliminary analysis only · not SpaceX performance data or warranty.';
 
 /** ASDS / recovery derate on max payload (K4). */
 export const F9_ASDS_DERATE = 0.65;

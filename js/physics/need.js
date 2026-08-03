@@ -49,7 +49,7 @@ function getSOIParent(body) {
 /** Planning-velocity opts from transferData (L2-plan consistent). */
 function planningOpts(td) {
   return {
-    backend: td?.ephemerisBackend || 'approx'};
+    backend: td?.ephemerisBackend || 'sample-de'};
 }
 
 /** C3 = |V∞_dep|² in m²/s² from Lambert solution (same vectors as mission-budget). */

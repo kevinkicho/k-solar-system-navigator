@@ -8,7 +8,7 @@
  */
 import * as THREE from 'three';
 import { AU, DAY, LEG_COLORS } from '../constants.js';
-import { state, bumpPathRefineRequestId } from '../state.js';
+import { state, bumpPathRefineRequestId, effectivePathGeometry } from '../state.js';
 import { getBodyPosition3D, getSunBarycentricOffset } from '../physics/kepler.js';
 import {
   buildTransferPathSamples, buildLegPathSamples, sampleTransferPathAtTime,
@@ -106,7 +106,7 @@ export function updateTransferOrbitVisual() {
   // Physics-accurate / map mode → dual path (visual + physical)
   const geomMode = (state.physicsAccurate || state.mapMode)
     ? 'both'
-    : (state.pathGeometry || 'visual');
+    : effectivePathGeometry();
   const depT = td.departureSimTime;
   const arrT = td.arrivalSimTime;
   const dep = td.dep3D || getBodyPosition3D(td.body1, depT);

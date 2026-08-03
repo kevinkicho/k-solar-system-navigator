@@ -158,7 +158,7 @@ export function parsePlanRequest(hash) {
   let f9v = params.get('f9v') || 'expendable';
   if (f9v !== 'asds' && f9v !== 'expendable') f9v = 'expendable';
 
-  let eph = params.get('eph') || 'approx';
+  let eph = params.get('eph') || 'sample-de';
   if (eph === 'sample-de' || eph === 'sample') eph = 'sample-de';
   else eph = 'approx';
 

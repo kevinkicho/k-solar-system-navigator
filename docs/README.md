@@ -2,7 +2,7 @@
 
 Living index of product/architecture designs. Each design file keeps historical technical content. **Header status + this index are authoritative for “is this landed?”**
 
-**Last docs sweep:** 2026-08-02 · industrial honesty roadmap · GA suggest v2 · physical path default · deploy checklist.
+**Last docs sweep:** 2026-08-02 · honesty hardening · pathGeometry restore · sample-de planner defaults · READY (analysis) language.
 
 ## As-built product snapshot
 

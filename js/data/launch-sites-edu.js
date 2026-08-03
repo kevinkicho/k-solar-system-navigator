@@ -1,5 +1,5 @@
 /**
- * Educational launch-site latitude / DLA capability bands (not range safety).
+ * Illustrative launch-site latitude / DLA capability bands (not range safety).
  */
 
 export const LAUNCH_SITES_EDU = [
@@ -15,21 +15,21 @@ export const LAUNCH_SITES_EDU = [
     name: 'Cape-class (≈28.5°N)',
     lat_deg: 28.5,
     dla_max_deg: 28.5,
-    disclaimer: 'Educational band: |DLA| ≲ site latitude class — not range safety.',
+    disclaimer: 'Illustrative band: |DLA| ≲ site latitude class — not range safety.',
   },
   {
     id: 'vandenberg',
     name: 'Vandenberg-class (≈34.7°N)',
     lat_deg: 34.7,
     dla_max_deg: 34.7,
-    disclaimer: 'Educational band — not range safety.',
+    disclaimer: 'Illustrative latitude band — not range safety.',
   },
   {
     id: 'kourou',
     name: 'Kourou-class (≈5.2°N)',
     lat_deg: 5.2,
     dla_max_deg: 5.2,
-    disclaimer: 'Near-equatorial educational band — not range safety.',
+    disclaimer: 'Near-equatorial illustrative band — not range safety.',
   },
 ];
 

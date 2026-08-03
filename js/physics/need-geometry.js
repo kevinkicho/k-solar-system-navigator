@@ -21,7 +21,7 @@ function isEarthBody(b) {
 export function computeTransferAsymptote(td) {
   if (!td || td.isMultiLeg || !td.lambertOk || !td.v1_lambert || !td.body1) return null;
   const pOpts = {
-    backend: td.ephemerisBackend || 'approx'};
+    backend: td.ephemerisBackend || 'sample-de'};
   let vPlanet;
   try {
     vPlanet = getPlanningVelocity3D(td.body1, td.departureSimTime, pOpts);
@@ -38,7 +38,7 @@ export function computeTransferAsymptote(td) {
 export function computeArrivalVinf_m_s(td) {
   if (!td || td.isMultiLeg || !td.lambertOk || !td.v2_lambert || !td.body2) return null;
   const pOpts = {
-    backend: td.ephemerisBackend || 'approx'};
+    backend: td.ephemerisBackend || 'sample-de'};
   let vP;
   try {
     vP = getPlanningVelocity3D(td.body2, td.arrivalSimTime, pOpts);

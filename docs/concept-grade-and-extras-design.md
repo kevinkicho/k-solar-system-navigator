@@ -1,5 +1,8 @@
 # HELIOS Concept-Grade Boundaries & Extras Roadmap
 
+> **HISTORICAL DESIGN** — Product framing is now **industrial preliminary** (still not flight-certified).
+> Authoritative index: [`docs/README.md`](./README.md).
+
 | Field | Value |
 |---|---|
 | **Document title** | Concept-Grade Boundaries & Extras Roadmap |
