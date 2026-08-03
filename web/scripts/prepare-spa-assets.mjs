@@ -68,11 +68,20 @@ for (const name of ['js', 'css', 'assets']) {
   console.log(`  copied ${name}/ → public/${name}/  [${n}]`);
 }
 
+// Never ship SPICE kernels in the static SPA surface (bake scripts only).
+const kernelsDest = join(PUBLIC, 'assets', 'kernels');
+if (existsSync(kernelsDest)) {
+  rmSync(kernelsDest, { recursive: true, force: true });
+  console.log('  stripped public/assets/kernels/ (not served)');
+}
+
 const indexPath = join(SPA_ROOT, 'index.html');
 if (existsSync(indexPath)) {
   const html = readFileSync(indexPath, 'utf8');
   writeFileSync(join(PUBLIC, 'spa.html'), html, 'utf8');
-  console.log('  wrote public/spa.html');
+  // Classic Hosting serves web/public as document root — needs index.html
+  writeFileSync(join(PUBLIC, 'index.html'), html, 'utf8');
+  console.log('  wrote public/spa.html + public/index.html');
 
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   if (bodyMatch) {
@@ -102,6 +111,7 @@ writeFileSync(join(PUBLIC, 'favicon.ico'), faviconPng);
 const required = [
   'js/main.js',
   'css/app.css',
+  'index.html',
   'helios-base.css',
   'helios-body.html',
   'assets/ephemeris-samples-v1.json',

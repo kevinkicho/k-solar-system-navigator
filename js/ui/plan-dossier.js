@@ -19,6 +19,7 @@ import {
   COORD_SYSTEM_ID, geographicEndpointPackage} from '../physics/surface-point.js';
 import { buildFlightOpsGates } from '../physics/flight-ops.js';
 import { getSampleMeta } from '../physics/ephemeris-sample.js';
+import { resolvePlanningBackend } from '../physics/planning-defaults.js';
 
 /**
  * Build full dossier and attach to td.dossier.
@@ -37,7 +38,9 @@ export function buildPlanDossier(td, opts = {}) {
   let vInfDepVec = null;
   if (!td.isMultiLeg && td.lambertOk && td.v1_lambert && td.body1) {
     const pOpts = {
-      backend: td.ephemerisBackend || state.ephemerisBackend || 'sample-de'};
+      backend: resolvePlanningBackend({
+        ephemerisBackend: td.ephemerisBackend || state.ephemerisBackend,
+      })};
     let vPlanet;
     try {
       vPlanet = getPlanningVelocity3D(td.body1, td.departureSimTime, pOpts);
@@ -159,7 +162,7 @@ export function buildPlanDossier(td, opts = {}) {
       disclaimer: site.disclaimer},
     fidelity: {
       fidelityLevel: state.fidelityLevel || 'L2-plan',
-      ephemerisBackend: (state.ephemerisBackend || 'sample-de'),
+      ephemerisBackend: resolvePlanningBackend({ ephemerisBackend: state.ephemerisBackend }),
       flightOpsMode: !!state.flightOpsMode,
       sample_source: sampleMeta?.source || null,
       sample_bake_source: sampleMeta?.bake_source || null,

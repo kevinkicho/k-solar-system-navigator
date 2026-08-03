@@ -7,6 +7,7 @@ import { bodyId } from '../data/catalog.js';
 import {
   findMultiLegWindow,
   findMultiLegWindowChunked} from '../physics/multi-leg-window-search.js';
+import { resolvePlanningBackend } from '../physics/planning-defaults.js';
 
 let worker = null;
 let workerReady = false;
@@ -119,8 +120,8 @@ export async function findMultiLegWindowAsync(
           flybyHints: hintPayload,
           depHint,
           routeOpts: {
-            ephemerisBackend: routeOpts.ephemerisBackend || routeOpts.backend || 'sample-de',
-            backend: routeOpts.backend || routeOpts.ephemerisBackend || 'sample-de'}});
+            ephemerisBackend: resolvePlanningBackend(routeOpts),
+            backend: resolvePlanningBackend(routeOpts)}});
       });
     } catch (e) {
       if (e?.code !== 'WORKER_DEAD') {

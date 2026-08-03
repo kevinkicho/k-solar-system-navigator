@@ -7,7 +7,7 @@ import { SUN_DATA } from '../data/bodies.js';
 import {
   getPlanningPosition3D, getPlanningVelocity3D} from './ephemeris-provider.js';
 import { solveLambertBestBranch } from './lambert.js';
-import { resolveMaxRevolutionsForTof } from './planning-defaults.js';
+import { resolveMaxRevolutionsForTof, resolvePlanningBackend } from './planning-defaults.js';
 import { v3dot, v3mag, v3sub } from './vec3.js';
 
 export function synodicPeriod(b1, b2) {
@@ -40,9 +40,7 @@ export function defaultGridSpec(body1, body2, departStart, nx = 65, ny = 52) {
  */
 export function evaluateCell(body1, body2, dep, tof, planOpts = {}) {
   const mu = G_CONST * SUN_DATA.mass;
-  const pOpts = {
-    backend: planOpts.backend || planOpts.ephemerisBackend || 'sample-de',
-  };
+  const pOpts = { backend: resolvePlanningBackend(planOpts) };
   const d = getPlanningPosition3D(body1, dep, pOpts);
   const a = getPlanningPosition3D(body2, dep + tof, pOpts);
   const r1v = [d.x * AU, d.y * AU, d.z * AU];

@@ -64,7 +64,7 @@ export function buildWindowShortlist(data, gridSpec, body1, body2, opts = {}) {
       c3_m2_s2: c3,
       vinf_arr_m_s: vinf,
       revolutions,
-      backend: planOpts.backend || 'sample-de',
+      backend: planOpts.backend || planOpts.ephemerisBackend || 'sample-de',
     });
   }
   out.sort((a, b) => a.dv_m_s - b.dv_m_s);

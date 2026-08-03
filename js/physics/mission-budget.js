@@ -175,7 +175,7 @@ export function computeMissionBudget(td) {
 
   // V∞ relative to each SOI parent — use planning velocity (same as Lambert under L2-plan).
   const pOpts = {
-    backend: td.ephemerisBackend || 'sample-de'};
+    backend: (td.ephemerisBackend || td.backend || 'sample-de')};
   const vDepParent = getPlanningVelocity3D(originSOIParent, td.departureSimTime, pOpts);
   const vArrParent = getPlanningVelocity3D(destSOIParent, td.arrivalSimTime, pOpts);
   const vInfDep_vec = v3sub(td.v1_lambert, vDepParent);

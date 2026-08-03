@@ -36,6 +36,7 @@ run('1. Full CI mirror (precommit)', 'npm', ['run', 'precommit']);
 
 if (wantLive) {
   run('2. Production live smoke', 'npm', ['run', 'smoke:live']);
+  run('3. Dual-surface build-sha smoke', 'npm', ['run', 'smoke:build-sha']);
 } else {
   console.log('\n··· skip live smoke (use --live or RELEASE_LIVE=1) ···');
 }

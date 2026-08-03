@@ -9,6 +9,7 @@ import { BODIES } from '../data/bodies.js';
 import { lightTimeAlternateSketch } from './flight-ops.js';
 import { planeChangeNeedAddon_m_s, planeChangeSketchForSite } from './launch-site-plane.js';
 import { doglegNeedAddon_m_s, launchAzimuthDoglegSketch } from './launch-azimuth.js';
+import { resolvePlanningBackend } from './planning-defaults.js';
 
 const AERO_MIN = 0;
 const AERO_MAX = 0.9;
@@ -22,7 +23,7 @@ const AERO_MAX = 0.9;
  */
 export function autoPhase(opts = {}) {
   const vehicleId = opts.vehicleId ?? state.vehicleId;
-  const arch = opts.starshipArch ?? state.starshipArch ?? 'legacy-demo';
+  const arch = opts.starshipArch ?? state.starshipArch ?? 'unrefueled';
   const costBasis = opts.costBasis ?? state.costBasis ?? 'helio';
   const isMulti = !!opts.isMultiLeg;
 
@@ -48,8 +49,7 @@ function getSOIParent(body) {
 
 /** Planning-velocity opts from transferData (L2-plan consistent). */
 function planningOpts(td) {
-  return {
-    backend: td?.ephemerisBackend || 'sample-de'};
+  return { backend: resolvePlanningBackend(td || {}) };
 }
 
 /** C3 = |V∞_dep|² in m²/s² from Lambert solution (same vectors as mission-budget). */

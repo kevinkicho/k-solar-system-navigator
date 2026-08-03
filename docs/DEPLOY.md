@@ -18,10 +18,12 @@ npm run release:check
 
 ```bash
 npm run deploy:hosting
+# runs web:prepare then deploys only web/public
 ```
 
-- Serves monorepo root with an ignore list (`firebase.json` → `hosting`).
-- Never commit Admin SDK JSON (`*firebase-adminsdk*.json` is gitignored + hosting-ignored).
+- **Serves prepared SPA only:** `firebase.json` → `hosting.public: "web/public"`.
+- Kernels are stripped during prepare (never public).
+- Never commit Admin SDK JSON.
 
 ### App Hosting (primary URL)
 
@@ -46,11 +48,13 @@ Ensure both URLs show the same commit in build identity / `helios-build.json` af
 
 ```bash
 npm run smoke:live
+npm run smoke:build-sha   # dual-surface git_sha / main hash when available
 ```
 
 ### Hosting ignore hygiene
 
 ```bash
+npm run web:prepare
 npm run check:hosting-ignore
 ```
 
@@ -60,8 +64,8 @@ Checks App Hosting (primary) then classic Hosting + Functions dense catalog.
 
 | Surface | Source of truth |
 |---------|-----------------|
-| Classic Hosting | Live `js/`, `css/`, `assets/`, `index.html` at repo root |
-| App Hosting | Copy via `web/scripts/prepare-spa-assets.mjs` → `web/public` |
+| Classic Hosting | **Prepared SPA only** — `npm run web:prepare` → `web/public` (no monorepo root) |
+| App Hosting | Same prepare + Next shell (`web/`) |
 
 If only Hosting is updated, App Hosting can lag. Prefer **both** when SPA/physics change; always App Hosting when `web/` API routes change.
 

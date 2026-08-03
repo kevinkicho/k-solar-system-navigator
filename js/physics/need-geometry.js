@@ -6,6 +6,7 @@ import { getPlanningVelocity3D } from './ephemeris-provider.js';
 import { getBodyVelocity3D } from './kepler.js';
 import {
   departureVinfVec, arrivalVinfVec, vinfMagnitude, fullAsymptotePackage} from './departure-asymptote.js';
+import { resolvePlanningBackend } from './planning-defaults.js';
 
 function isEarthBody(b) {
   if (!b) return false;
@@ -20,8 +21,7 @@ function isEarthBody(b) {
  */
 export function computeTransferAsymptote(td) {
   if (!td || td.isMultiLeg || !td.lambertOk || !td.v1_lambert || !td.body1) return null;
-  const pOpts = {
-    backend: td.ephemerisBackend || 'sample-de'};
+  const pOpts = { backend: resolvePlanningBackend(td) };
   let vPlanet;
   try {
     vPlanet = getPlanningVelocity3D(td.body1, td.departureSimTime, pOpts);
@@ -37,8 +37,7 @@ export function computeTransferAsymptote(td) {
  */
 export function computeArrivalVinf_m_s(td) {
   if (!td || td.isMultiLeg || !td.lambertOk || !td.v2_lambert || !td.body2) return null;
-  const pOpts = {
-    backend: td.ephemerisBackend || 'sample-de'};
+  const pOpts = { backend: resolvePlanningBackend(td) };
   let vP;
   try {
     vP = getPlanningVelocity3D(td.body2, td.arrivalSimTime, pOpts);

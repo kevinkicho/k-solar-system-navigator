@@ -19,6 +19,7 @@ import {
   planetRelativePeriapsisOk,
   planetRelativeEndpointStates} from './planet-relative.js';
 import { state, effectivePathGeometry } from '../state.js';
+import { resolvePlanningBackend } from './planning-defaults.js';
 
 /**
  * Analytic coplanar Hohmann when Lambert is singular (~180° transfer).
@@ -166,16 +167,19 @@ function tryBuildVisualOrbit(r1v, r2v, tof, mu, vBody1, vBody2, preferredLongWay
 
 /** Planning opts: backend 'approx'|'sample-de'. Visual path always Kepler. */
 function planOpts(tData) {
-  return {
-    backend: tData?.ephemerisBackend || tData?.backend || 'sample-de',
-  };
+  return { backend: resolvePlanningBackend(tData || {}) };
 }
 
 /** Merge multi-leg plan opts from first waypoint or explicit route opts. */
 function multiLegPlanOpts(waypoints, routeOpts = {}) {
   const w0 = waypoints?.[0] || {};
   return {
-    backend: routeOpts.ephemerisBackend || routeOpts.backend || w0.ephemerisBackend || w0.backend || 'sample-de',
+    backend: resolvePlanningBackend({
+      ...w0,
+      ...routeOpts,
+      ephemerisBackend: routeOpts.ephemerisBackend || routeOpts.backend
+        || w0.ephemerisBackend || w0.backend,
+    }),
     maxRevolutions: Math.max(0, Math.min(2, Math.floor(
       routeOpts.maxRevolutions ?? w0.maxRevolutions ?? 0,
     )))};

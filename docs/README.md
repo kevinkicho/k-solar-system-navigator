@@ -47,8 +47,9 @@ Historical sections may still mention classroom mode or “educational product.�
 | Global multi-leg tour optimizer | **Non-goal** for browser SPA |
 | Live `.bsp` in browser | **Non-goal** |
 | Multi-rev goldens / soak | Flag ON; deeper goldens optional |
-| Hosting serve `web/public` only | Preferred long-term vs monorepo root |
-| Expanded Playwright campaign matrix | Smoke + GA subset growing |
+| Hosting serve `web/public` only | **Landed** — `hosting.public: web/public` + prepare |
+| Expanded Playwright multi-leg | **Landed** — `test:ui:multileg` in precommit |
+| Dual-URL build-sha smoke | `npm run smoke:build-sha` after deploy |
 
 ## Branch policy
 

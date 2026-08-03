@@ -59,12 +59,20 @@ async function main() {
     }
   }
 
-  // Classic Hosting (static fallback)
+  // Classic Hosting (static fallback — web/public prepared SPA only)
   {
-    console.log('\nClassic Hosting (fallback)');
+    console.log('\nClassic Hosting (fallback · prepared SPA)');
     const home = await get(HOSTING + '/');
     ok('home 200', home.res.status === 200);
     ok('home mentions HELIOS/mission', /helios|mission|solar/i.test(home.text));
+    const build = await get(HOSTING + '/helios-build.json');
+    ok('helios-build.json 200', build.res.status === 200);
+    try {
+      const j = JSON.parse(build.text);
+      ok('build has git_sha', !!j.git_sha, `sha=${j.git_sha}`);
+    } catch {
+      ok('build JSON', false);
+    }
     const mainJs = await get(HOSTING + '/js/main.js');
     ok('main.js 200', mainJs.res.status === 200 && mainJs.bytes > 500);
     ok('no classroom mode activation', !/mode === 'classroom'|mode===\"classroom\"/.test(mainJs.text)
