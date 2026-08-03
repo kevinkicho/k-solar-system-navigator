@@ -89,14 +89,24 @@ export const HELIOS_AGENT_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'get_mission_brief_context',
+      description:
+        'Read rich mission context: Need/Capability/Margin, dossier gates, fidelity, GA pack, rule-based next actions. Prefer this over bare get_mission_state for analysis.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
 ];
 
-export const AGENT_SYSTEM_WITH_TOOLS = `You are HELIOS Assistant with optional planner tools.
+export const AGENT_SYSTEM_WITH_TOOLS = `You are HELIOS AI core co-pilot with planner tools.
 
 Rules:
 - HELIOS is an industrial preliminary mission-design workstation — not flight-certified, not range safety, not operational OD.
-- Prefer get_mission_state before major changes.
-- For route requests: set_route → set_departure (if given) → set_vehicle (if given) → compute_route → report state.
+- Prefer get_mission_brief_context (or get_mission_state) before major changes.
+- For route requests: set_route → set_departure (if given) → set_vehicle (if given) → compute_route → report state with triad + gates.
+- Propose SUGGEST GA when direct Need is high or user asks for assists (tell user to click SUGGEST GA if no tool).
 - Keep answers concise; label uncertainties; never claim certified performance or global optima for local seeds.
 - If a tool fails, explain and stop or retry once.`;
 

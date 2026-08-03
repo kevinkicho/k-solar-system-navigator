@@ -802,6 +802,61 @@ option[hidden] {
   display: none !important;
 }
 
+/* ── AI core chrome ─────────────────────────────────────────────── */
+.ai-model-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px; letter-spacing: 0.3px;
+  padding: 3px 8px; border-radius: 2px;
+  border: 1px solid rgba(0, 212, 255, 0.45);
+  background: linear-gradient(145deg, rgba(0, 50, 80, 0.9), rgba(0, 20, 40, 0.95));
+  color: var(--cyan, #00d4ff);
+  cursor: pointer; max-width: 200px;
+}
+.ai-model-chip:hover {
+  border-color: var(--amber, #ff9800);
+  color: var(--amber, #ff9800);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.25);
+}
+.ai-model-chip .ai-chip-label {
+  font-family: var(--font-display, Orbitron, monospace);
+  font-weight: 700; font-size: 9px; letter-spacing: 1px;
+}
+.ai-model-chip .ai-chip-model {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  opacity: 0.95; max-width: 140px;
+}
+.ai-model-chip.ai-online { border-color: rgba(0, 230, 118, 0.45); }
+.ai-model-chip.ai-offline { border-color: rgba(255, 152, 0, 0.4); opacity: 0.9; }
+
+.ai-next-actions {
+  margin: 10px 0 12px; padding: 10px 12px;
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  border-radius: 2px;
+  background: rgba(0, 30, 50, 0.45);
+}
+.ai-next-title {
+  font-family: var(--font-display, Orbitron, monospace);
+  font-size: 9px; letter-spacing: 1.5px; color: var(--amber, #ff9800);
+  margin-bottom: 8px;
+}
+.ai-next-list {
+  list-style: none; margin: 0 0 8px; padding: 0;
+}
+.ai-next-list li {
+  padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 11px; color: var(--text);
+}
+.ai-next-list li strong { color: var(--cyan); font-weight: 600; display: block; }
+.ai-next-why { font-size: 9px; color: var(--text-dim); opacity: 0.9; }
+.ai-next-actions-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.ai-brief-out {
+  margin-top: 8px; padding: 8px; font-size: 11px; line-height: 1.45;
+  white-space: pre-wrap; color: var(--text);
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 2px;
+  max-height: 280px; overflow-y: auto; user-select: text;
+}
+
 /* legacy classroom selectors removed — keep empty block for CSS parse safety if needed */
 .helios-removed-classroom-chip-placeholder,
 .helios-removed-classroom-cloud-placeholder {

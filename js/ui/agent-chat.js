@@ -23,6 +23,8 @@ import {
   formatUsageMetrics,
   FALLBACK_DEFAULT_MODEL,
 } from '../agent/models.js';
+import { getMissionAiBundle, selectModel as coreSelectModel } from '../agent/ai-core.js';
+import { syncAiModelChip } from './ai-chrome.js';
 import { state } from '../state.js';
 
 const SYSTEM_PROMPT = `You are HELIOS Assistant — core co-pilot for the HELIOS Mission Design workstation (browser launch-planning analysis).
@@ -391,9 +393,11 @@ export function wireAgentChat() {
 
   modelSelect.addEventListener('change', () => {
     const v = modelSelect.value;
+    coreSelectModel(v);
     setStoredModel(v);
     if (state.ai) state.ai.toolsEnabled = !!toolsCb.checked;
     syncHeadModel();
+    try { syncAiModelChip(); } catch { /* */ }
     appendMsg('system', `Model → ${v}`);
   });
   toolsCb.addEventListener('change', () => {
@@ -552,10 +556,17 @@ export function wireAgentChat() {
     try {
       let contextNote = '';
       try {
-        const snap = snapshotState();
-        contextNote = `\n\n[Live planner snapshot: ${JSON.stringify(snap)}]`;
+        const bundle = getMissionAiBundle();
+        contextNote = bundle.promptContext
+          || `\n\n[Live planner snapshot: ${JSON.stringify(snapshotState())}]`;
+        // Surface top next-actions in system context for the model
+        if (bundle.next?.length) {
+          contextNote += `\n[Rule-based next actions: ${bundle.next.map((a) => a.label).join(' | ')}]`;
+        }
       } catch {
-        /* ignore */
+        try {
+          contextNote = `\n\n[Live planner snapshot: ${JSON.stringify(snapshotState())}]`;
+        } catch { /* ignore */ }
       }
 
       const useTools = !!toolsCb.checked;

@@ -45,6 +45,7 @@ export const C2_ALIASES = { get_state: 'get_mission_state' };
 export const C2_ACTIONS = new Set([
   'get_mission_state',
   'get_state',
+  'get_mission_brief_context',
   'list_bodies',
   'set_route',
   'compute_route',
@@ -910,6 +911,15 @@ export const AGENT_TOOL_DEFS = [
       name: 'get_mission_state',
       description:
         'Read current HELIOS planner state (origin, destination, vehicle, transfer summary). Requires browser onboard agent.',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_mission_brief_context',
+      description:
+        'Rich mission context: Need/Capability/Margin, dossier gates, fidelity, next actions. Prefer for analysis.',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
     },
   },

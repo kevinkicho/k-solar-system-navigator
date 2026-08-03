@@ -106,18 +106,33 @@ Classic **Firebase Hosting** (`npm run deploy:hosting`) remains available for th
 
 Config: `web/apphosting.yaml`, `firebase.json` → `apphosting.backendId: helios`, `rootDir: web`.
 
-## AI core (Ollama Cloud)
+## AI core (Ollama Cloud) — product center
 
-AI is a first-class co-pilot for mission design: **model selection**, streaming chat, optional tool-driven planner control, and CLI agent. Physics stays pure JS; the model never replaces Lambert/Need.
+HELIOS is **AI-centered mission design**: the model is the co-pilot; Lambert/Need remain the source of truth for numbers.
 
-1. Copy `.env.example` → `.env` and set `OLLAMA_API_KEY` from [ollama.com/settings/keys](https://ollama.com/settings/keys).
-2. Default model: **`gemma4:31b-cloud`** (override with `OLLAMA_MODEL`). Catalog from live **`GET /api/models`** → Ollama Cloud [`/api/tags`](https://docs.ollama.com/api/tags).
-3. Start: `npm start` → **`http://127.0.0.1:8080`** (loopback only by default).
-4. Open the **AI** FAB → pick a **cloud model** → chat (streams; usage metrics when available — [usage](https://docs.ollama.com/api/usage)). Enable **Tools** to set route / compute.
+| Surface | Role |
+|---------|------|
+| **Top-bar AI chip** | Always shows active model · opens assistant |
+| **FAB AI CORE** | Model picker (live `/api/models`), streaming chat, Tools |
+| **Results AI strip** | Rule-based next actions · **Mission brief** · **Ask AI** |
+| **CLI agent** | `npm run agent` with same tools / C2 bus |
+| **App Hosting** | Production `/api/models` + `/api/chat` proxy (set secret `OLLAMA_API_KEY`) |
 
-**Security:** Key stays in local `.env` / Node proxy — never in the browser bundle. Do not expose `npm start` beyond loopback without `HELIOS_API_TOKEN`.
+1. Local: copy `.env.example` → `.env`, set `OLLAMA_API_KEY`, `npm start` → `http://127.0.0.1:8080`.
+2. Production: Firebase App Hosting secret `OLLAMA_API_KEY` (see `web/apphosting.yaml` comments).
+3. Default model: **`gemma4:31b-cloud`** (`OLLAMA_MODEL`). Catalog: [tags](https://docs.ollama.com/api/tags). Chat: [chat](https://docs.ollama.com/api/chat). Usage metrics: [usage](https://docs.ollama.com/api/usage).
 
-API docs: [Ollama Cloud](https://docs.ollama.com/cloud) · [chat](https://docs.ollama.com/api/chat) · [tags](https://docs.ollama.com/api/tags).
+**Security:** Key never ships to the browser. Loopback by default for `npm start`.
+
+### Ambitious AI roadmap (product direction)
+
+| Horizon | Capability |
+|---------|------------|
+| **Now** | Model select · mission-aware chat · next-actions · brief · App Hosting proxy |
+| **Next** | Natural-language campaign (“Mars 2028 2t cargo”) → full plan package; AI porkchop narrative; gate auto-recovery scripts |
+| **Stretch** | Multi-agent critique (physics vs vehicle vs ops); persistent mission memory; collaborative shared-lab sessions |
+
+Physics remains deterministic JS. AI **never** invents Δv or silences NO-GO gates.
 
 ### Agentic CLI
 

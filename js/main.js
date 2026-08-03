@@ -42,6 +42,7 @@ import { timeState } from './ui/time-system.js';
 import { buildMeasurementCard } from './ui/measurement-card.js';
 import { wireVehicleLab } from './ui/vehicle-lab.js';
 import { wireAgentChat } from './ui/agent-chat.js';
+import { wireAiChrome } from './ui/ai-chrome.js';
 import { wireRailUi } from './ui/rail-ui.js';
 import { wireBodyPicker } from './ui/body-picker.js';
 import { wireBodyDossier } from './ui/body-dossier-modal.js';
@@ -118,6 +119,7 @@ wireBodyPicker();
 wireBodyDossier();
 wireSurfacePointUi();
 try {
+  wireAiChrome(); // top-bar AI chip (core product surface)
   wireAgentChat(); // FAB chat + onboard agent C2 — never block app boot
 } catch (err) {
   console.error('[HELIOS] agent chat failed to wire', err);

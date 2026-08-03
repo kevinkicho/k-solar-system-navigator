@@ -39,7 +39,17 @@ export async function GET() {
       ssr_shell: true,
       dense_spk_api: true,
       window_shortlist_api: true,
-      note: 'Planning physics runs in the browser; App Hosting provides SSR shell, dense-SPK API, and plan jobs. Not flight-certified.',
+      ai_chat: true,
+      ai_models: true,
+      note: 'Planning physics runs in the browser; App Hosting provides SSR shell, dense-SPK API, AI chat proxy, and plan jobs. Not flight-certified.',
+    },
+    ollamaConfigured: Boolean(process.env.OLLAMA_API_KEY),
+    ai: {
+      core: true,
+      ollamaConfigured: Boolean(process.env.OLLAMA_API_KEY),
+      defaultModel: process.env.OLLAMA_MODEL || 'gemma4:31b-cloud',
+      modelsEndpoint: '/api/models',
+      chatEndpoint: '/api/chat',
     },
   });
 }

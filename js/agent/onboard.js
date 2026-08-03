@@ -76,6 +76,16 @@ async function executeCommand(cmd) {
     case 'get_state':
       return snapshotState();
 
+    case 'get_mission_brief_context': {
+      const { getMissionAiBundle } = await import('./ai-core.js');
+      const bundle = getMissionAiBundle();
+      return {
+        context: bundle.ctx,
+        next_actions: bundle.next,
+        snapshot: snapshotState(),
+      };
+    }
+
     case 'list_bodies':
       return { bodies: listBodyNames() };
 
