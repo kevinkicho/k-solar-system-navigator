@@ -139,6 +139,11 @@ export const state = {
   },
   /** Reliability: Launch requires vehicle margin feasible (K6). */
   planStrictVehicle: true,
+  /**
+   * Latest gravity-assist suggestion pack from SUGGEST GA (or null).
+   * User Accept applies a path; Keep clears without changing the route.
+   */
+  gaSuggestions: null,
   /** Optional ascent loss class budget (m/s), not mixed into Lambert Need. */
   ascentLossBudget_m_s: 0,
   /** Launch-site band for DLA gate (default any = no constraint). */

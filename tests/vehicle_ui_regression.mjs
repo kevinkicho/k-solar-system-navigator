@@ -77,6 +77,10 @@ check('Ship pathGeometry honesty in routing', /pathGeometry.*physical|geometry =
 check('Adaptive sampling default ON', /adaptiveSampling:\s*true/.test(stateJs));
 check('Endpoint markers match_path_end default', /endpointMarkerPolicy:\s*['"]match_path_end['"]/.test(stateJs));
 check('Label layout module', existsSync(resolve(ROOT, 'js/scene/label-layout.js')));
+check('GA suggest module', existsSync(resolve(ROOT, 'js/physics/ga-suggest.js')));
+check('GA suggest UI module', existsSync(resolve(ROOT, 'js/ui/ga-suggest-ui.js')));
+check('SUGGEST GA button in HTML', /id=["']btn-ga-suggest["']/.test(indexHtml));
+check('Manual +FLYBY still present', /id=["']btn-add-flyby["']/.test(indexHtml));
 check('Animation wires label de-overlap', /resolveLabelOverlaps/.test(mainJs)
   || /resolveLabelOverlaps/.test(readFileSync(resolve(ROOT, 'js/animation.js'), 'utf8')));
 

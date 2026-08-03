@@ -131,6 +131,9 @@ try {
   wirePhysicsView();
   wireFlightOpsUi();
   applyBodyScales();
+  try {
+    import('./ui/ga-suggest-ui.js').then((m) => m.wireGaSuggestUi?.()).catch(() => {});
+  } catch { /* */ }
 } catch (err) {
   console.error('[HELIOS] viz/map-mode wiring failed', err);
 }

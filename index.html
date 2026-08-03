@@ -415,6 +415,46 @@ body.theme-classic #top-bar a.logo:hover {
 }
 .flyby-remove:hover { background: rgba(255,45,85,0.2); color: #ff6b8a; }
 
+/* Gravity-assist suggestions */
+.ga-suggest-panel {
+  margin-top: 8px; padding: 10px;
+  border: 1px solid rgba(90,120,150,0.35);
+  border-radius: 4px;
+  background: rgba(6,12,20,0.95);
+  max-height: 42vh; overflow: auto;
+}
+.ga-suggest-panel[hidden] { display: none !important; }
+.ga-suggest-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px; font-size: 11px; letter-spacing: 0.5px;
+}
+.ga-suggest-note {
+  font-size: 9px; color: var(--text-dim); margin: 0 0 8px; line-height: 1.35;
+}
+.ga-suggest-list { display: flex; flex-direction: column; gap: 8px; }
+.ga-suggest-empty { font-size: 10px; color: var(--text-dim); padding: 8px 0; }
+.ga-suggest-card {
+  border: 1px solid rgba(90,120,150,0.28);
+  border-radius: 3px; padding: 8px;
+  background: rgba(0,0,0,0.25);
+}
+.ga-suggest-card.is-rec {
+  border-color: rgba(0,230,118,0.45);
+  box-shadow: 0 0 0 1px rgba(0,230,118,0.12);
+}
+.ga-card-top { display: flex; gap: 6px; margin-bottom: 4px; flex-wrap: wrap; }
+.ga-badge {
+  font-size: 8px; letter-spacing: 1px; padding: 1px 6px;
+  border: 1px solid var(--border); border-radius: 2px; color: var(--text-dim);
+}
+.ga-badge.rec { color: var(--green); border-color: rgba(0,230,118,0.45); }
+.ga-badge.kind { color: var(--cyan); border-color: rgba(0,212,255,0.35); }
+.ga-card-title { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.ga-card-meta { font-size: 10px; color: var(--text-dim); margin-bottom: 2px; }
+.ga-card-note { font-size: 9px; color: var(--text-dim); opacity: 0.9; margin: 4px 0 8px; line-height: 1.3; }
+.ga-suggest-actions { margin-top: 8px; display: flex; justify-content: flex-end; gap: 6px; }
+.ga-accept { border-color: rgba(0,230,118,0.4) !important; color: var(--green) !important; }
+
 /* MISSION STATUS */
 .mission-status {
   margin-top: 12px; padding: 12px;
@@ -1124,12 +1164,14 @@ input[type="range"]::-webkit-slider-thumb {
       </div>
       <div class="flyby-section">
         <div class="flyby-header">
-          <span class="slot-label">Flyby waypoints</span>
-          <span style="display:flex;gap:4px;">
+          <span class="slot-label">Gravity assist / flybys</span>
+          <span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;">
+            <button class="btn-tiny" id="btn-ga-suggest" title="Suggest gravity-assist paths (coarse local seed). Accept or keep current.">SUGGEST GA</button>
             <button class="btn-tiny" id="btn-snap-flybys" title="Optimize flyby dates ±30 days for minimum Δv">SNAP</button>
-            <button class="btn-tiny" id="btn-add-flyby" title="Add a gravity-assist flyby between origin and destination">+ FLYBY</button>
+            <button class="btn-tiny" id="btn-add-flyby" title="Manually add a gravity-assist flyby body between origin and destination">+ FLYBY</button>
           </span>
         </div>
+        <p class="surface-hint" style="margin:4px 0 6px">Prefer <strong>SUGGEST GA</strong> for recommended assist paths (Accept / Keep). <strong>+ FLYBY</strong> still lets you pick the body and dates yourself.</p>
         <div id="flyby-list"></div>
       </div>
       <div class="route-field-row">
@@ -1455,6 +1497,7 @@ input[type="range"]::-webkit-slider-thumb {
     </table>
 
     <h3>Gravity assist (patched-conic)</h3>
+    <p><strong>SUGGEST GA</strong> ranks direct vs single-planet assist seeds (coarse local multi-leg window). Accept applies flybys + dates; Keep leaves your plan unchanged. Manual <strong>+ FLYBY</strong> still lets you choose the body. Not a global tour optimizer; not flight-certified.</p>
     <p>At each flyby the spacecraft's V<sub>∞</sub> turning angle is checked against the maximum achievable at minimum-safe periapsis (planet radius × 1.1):</p>
     <p><code>e = 1 + r_p · V∞² / μ_planet</code> &nbsp; · &nbsp; <code>δ_max = 2·asin(1/e_min)</code></p>
     <p>Infeasible swingbys are flagged <span class="pill amber">TOO SHARP</span> with the required-vs-minimum periapsis shown.</p>

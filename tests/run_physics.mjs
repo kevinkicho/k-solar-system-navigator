@@ -63,6 +63,7 @@ const SUITE = [
   'tests/mission_package.mjs',
   'tests/demo_links.mjs',
   'tests/label_layout.mjs',
+  'tests/ga_suggest.mjs',
   'tests/core_planning_realism.mjs',
   'tests/launch_site_plane.mjs',
   'tests/need_geometry.mjs',
