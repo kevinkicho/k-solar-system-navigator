@@ -8,6 +8,7 @@ import {
   evaluateDirectBaseline,
   evaluateAssistCandidate,
   suggestAssistPaths,
+  dualFlybyTemplates,
 } from '../js/physics/ga-suggest.js';
 // Ensure multi-leg solver is bound
 import '../js/physics/routing.js';
@@ -47,11 +48,15 @@ const pack = suggestAssistPaths(earth, jupiter, dep, { ephemerisBackend: 'approx
   nDep: 8,
   nFb: 6,
   maxSuggestions: 5,
+  includeDual: false,
 });
 assert(pack.suggestions.length >= 1, 'at least direct or assist');
 assert(pack.product_class === 'preliminary-not-flight-certified', 'product class');
+assert(/not a global/i.test(pack.note || ''), 'seed honesty note');
 const rec = pack.suggestions.filter((s) => s.recommended);
 assert(rec.length === 1, 'exactly one recommended');
+const duals = dualFlybyTemplates(earth, jupiter);
+assert(Array.isArray(duals), 'dual templates array');
 
 // Same SOI / inner: still returns structure
 const packInner = suggestAssistPaths(earth, mars, dep, { ephemerisBackend: 'approx' }, {

@@ -111,13 +111,19 @@ const sl = buildWindowShortlist(sw2.data, grid2, earth, mars, {
 check('shortlist non-empty', sl.length >= 1, `n=${sl.length}`);
 check('shortlist ranked', sl[0].rank === 1 && sl[0].dv_m_s <= (sl[sl.length - 1]?.dv_m_s ?? Infinity));
 
-// LT compare sketch on Need
+// LT compare sketch on Need (helio_leg path so sketch attaches)
 state.lightTimeNeedCompare = true;
+const prevVeh = state.vehicleId;
+const prevArch = state.starshipArch;
+state.vehicleId = 'abstract';
+state.starshipArch = 'legacy-demo';
 td.dep3D = { x: 1, y: 0, z: 0 };
 td.arr3D = { x: 1.5, y: 0, z: 0 };
-const needLt = computeNeed(td);
+const needLt = computeNeed(td, { vehicleId: 'abstract', costBasis: 'helio' });
 check('LT compare attaches', !!needLt.light_time_compare?.lt_arr_s);
 state.lightTimeNeedCompare = false;
+state.vehicleId = prevVeh;
+state.starshipArch = prevArch;
 
 if (failed) {
   console.error(`\ncore_planning_realism: ${failed} failed`);

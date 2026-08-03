@@ -5,11 +5,11 @@
   "source": "spice-dense-mars-moons",
   "bake_source": "spice-dense-pack",
   "mode": "relative",
-  "frame": "parent-relative AU, HELIOS scene (ECLIPJ2000 Y\u2194Z)",
+  "frame": "parent-relative AU, HELIOS scene (ECLIPJ2000 Y↔Z)",
   "t0_iso": "2025-01-01T12:00:00Z",
   "t1_iso": "2035-01-01T12:00:00Z",
-  "t0_sim": 789004800.0,
-  "step_sec": 600.0,
+  "t0_sim": 789004800,
+  "step_sec": 600,
   "step_min": 10,
   "n": 525889,
   "dtype": "float32_le",
@@ -44,5 +44,5 @@
   "flight_ops_certified": false,
   "size_bytes": 12621336,
   "size_miB": 12.037,
-  "source_note": "Educational dense SPICE-baked sample pack \u2014 NOT flight-certified OD, NOT range safety. Geometric NONE states, ECLIPJ2000 \u2192 HELIOS scene."
+  "source_note": "Preliminary dense SPICE-baked sample pack — NOT flight-certified OD, NOT range safety. Geometric NONE states, ECLIPJ2000 → HELIOS scene."
 }

@@ -56,8 +56,10 @@ check(
   `v0=${ship0.v_km_s?.toFixed(2)} v90=${shipOut.v_km_s?.toFixed(2)} r0=${ship0.r_AU?.toFixed(3)} r90=${shipOut.r_AU?.toFixed(3)}`,
 );
 
-// Vis-viva identity on visual orbit
-const a = td.orbit.a;
+// Vis-viva identity on the orbit the ship actually follows.
+// Product default pathGeometry is physical (industrial honesty: ship ≡ dashed path).
+const shipOrb = td.orbitPhysical || td.orbit;
+const a = shipOrb.a;
 const rMid = shipMid.r_AU * AU;
 const vVis = Math.sqrt(mu * (2 / rMid - 1 / a));
 const err = Math.abs(vVis - shipMid.v_km_s * 1000) / vVis;

@@ -48,3 +48,20 @@ jobs:
           path: tests/screenshots/
           if-no-files-found: ignore
 
+  apphosting-build:
+    name: App Hosting Next build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install root dependencies
+        run: npm ci || npm install
+      - name: Install web dependencies
+        run: npm --prefix web ci || npm --prefix web install
+      - name: Prepare SPA assets + Next build
+        run: npm run web:build
+

@@ -27,28 +27,25 @@ export const state = {
   userTofDays: null,
   moonMissionSuggestDone: false,
 
-  // Cargo-aware platform (K2, K25: default arch legacy until Card enables unrefueled)
+  // Cargo-aware platform — product default unrefueled SS injection
   cargoMass_kg: 0,
-  starshipArch: 'legacy-demo', // 'legacy-demo' | 'unrefueled' | 'tanker-n'
+  starshipArch: 'unrefueled', // 'legacy-demo' | 'unrefueled' | 'tanker-n'
   tankerCount: 0,
   falcon9Variant: 'expendable', // 'expendable' | 'asds'
   aeroassistFactor: 0, // 0–0.9
   measurementPhase: null, // null → autoPhase
   // K1: 'L1' | 'L2-compare' | 'L2-plan' | 'L2-horizons' | 'L3-plan'
-  // Product default L2/L3 from offline sample table — classroom forces L1.
-  // L3-plan = sample table baked from DE440s SPICE (browser still uses JSON, not live .bsp).
+  // Product default L2/L3 from offline sample table (promotes L3-plan when DE440s bake present).
   fidelityLevel: 'L2-plan',
-  // K5: planning geometry backend — animation always approx Kepler
-  // Product default sample-de when table loaded; falls back to approx OOR.
+  // Planning geometry backend — animation always approx Kepler; falls back to approx OOR.
   ephemerisBackend: 'sample-de', // 'approx' | 'sample-de'
   /**
    * Opt-in live Horizons endpoint inject for Lambert Need (network).
-   * Classroom always false. Populates inject cache before compute.
-   * NOT SPICE / NOT default offline path.
+   * Populates inject cache before compute. NOT SPICE / NOT default offline path.
    */
   horizonsEndpointInject: false,
   /**
-   * Educational flight-ops workflow mode (NOT certified, NOT range safety).
+   * Flight-ops analysis workflow (NOT certified, NOT range safety).
    * Surfaces light-time, ops gates, OEM-like export; prefers L3-plan table when available.
    */
   flightOpsMode: false,
@@ -60,7 +57,7 @@ export const state = {
   /** Last porkchop multi-candidate shortlist (client). */
   windowShortlist: null,
   /**
-   * When true (default), educational plane-change Δv sketch may add to Need
+   * When true (default), plane-change Δv sketch may add to Need
    * for Earth departures with launch-site DLA band exceeded.
    */
   planeChangeNeedAddon: true,
@@ -92,15 +89,20 @@ export const state = {
   pathSampleMode: 'equal_time',
   /** Ghost markers align with path ends (ship–line honesty). */
   endpointMarkerPolicy: 'match_path_end',
-  /** 'visual' | 'physical' | 'both' — dual overlay when both */
-  pathGeometry: 'visual',
+  /**
+   * 'visual' | 'physical' | 'both'
+   * Product default physical so the dashed path matches Need geometry;
+   * cinematic visual tilt remains available via MAP / display controls.
+   */
+  pathGeometry: 'physical',
   /** 'static' | 'rebuild' | 'trail_only' during mission */
   flightPathMode: 'static',
   pathAccuracy: {
     forceVisualLongWay: true,
     sharedPathBuilder: true,
     adaptiveSampling: true, // densify high-e / long arcs via path refine
-    multiRevLambert: false,
+    /** Allow multi-rev Lambert when TOF / flag policy enables it */
+    multiRevLambert: true,
     multiRevMax: 1,
     preferSampleDeOuter: true, // banner only, no silent switch
     nbodyOverlay: false,

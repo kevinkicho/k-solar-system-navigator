@@ -8,8 +8,8 @@
   "frame": "Neptune-centered parent-relative AU, HELIOS scene",
   "t0_iso": "2025-01-01T12:00:00Z",
   "t1_iso": "2035-01-01T12:00:00Z",
-  "t0_sim": 789004800.0,
-  "step_sec": 3600.0,
+  "t0_sim": 789004800,
+  "step_sec": 3600,
   "step_min": 60,
   "n": 87649,
   "dtype": "float32_le",
@@ -40,5 +40,5 @@
   "lazy": true,
   "size_bytes": 1051788,
   "size_miB": 1.003,
-  "source_note": "Educational dense SPICE-baked sample pack \u2014 NOT flight-certified OD, NOT range safety. Geometric NONE states, ECLIPJ2000 \u2192 HELIOS scene."
+  "source_note": "Preliminary dense SPICE-baked sample pack — NOT flight-certified OD, NOT range safety. Geometric NONE states, ECLIPJ2000 → HELIOS scene."
 }

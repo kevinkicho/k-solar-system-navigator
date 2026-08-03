@@ -55,9 +55,16 @@ check('need opts carry DLA', opts.dla_eq_deg != null && Number.isFinite(opts.dla
 check('need opts carry asymptote', !!opts.asymptote);
 
 // Geometric Need split (no plane addon when site any or within band)
+// Force abstract + helio so product unrefueled injection arch does not change phase.
 const prevAddon = state.planeChangeNeedAddon;
+const prevVeh = state.vehicleId;
+const prevArch = state.starshipArch;
 state.planeChangeNeedAddon = true;
-const needAny = computeNeed(td, needOptsFromTransfer(td, { launchSiteId: 'any', costBasis: 'helio' }));
+state.vehicleId = 'abstract';
+state.starshipArch = 'legacy-demo';
+const needAny = computeNeed(td, needOptsFromTransfer(td, {
+  launchSiteId: 'any', costBasis: 'helio', vehicleId: 'abstract',
+}));
 check('geometric_need present', needAny.geometric_need_dv_m_s != null
   && Math.abs(needAny.geometric_need_dv_m_s - td.dvTotal_lambert) < 1e-3);
 check('any-site plane addon ~0', (needAny.plane_change_addon_m_s || 0) === 0);
@@ -67,7 +74,7 @@ check('fidelity_note present', !!needAny.fidelity_note);
 
 // Forced high DLA → plane addon when Cape
 const needCape = computeNeed(td, {
-  ...needOptsFromTransfer(td, { launchSiteId: 'cape', costBasis: 'helio' }),
+  ...needOptsFromTransfer(td, { launchSiteId: 'cape', costBasis: 'helio', vehicleId: 'abstract' }),
   dla_eq_deg: 50, // exceeds Cape band
 });
 check('Cape + high DLA plane addon > 0', (needCape.plane_change_addon_m_s || 0) > 100,
@@ -75,6 +82,8 @@ check('Cape + high DLA plane addon > 0', (needCape.plane_change_addon_m_s || 0) 
 check('total Need = geometric + addon',
   Math.abs(needCape.need_dv_m_s - (needCape.geometric_need_dv_m_s + needCape.plane_change_addon_m_s)) < 1e-3);
 state.planeChangeNeedAddon = prevAddon;
+state.vehicleId = prevVeh;
+state.starshipArch = prevArch;
 
 // Multi-rev policy
 check('long TOF auto multi-rev without classroom gate', resolveMaxRevolutionsForTof(500 * DAY, {}) === 1);

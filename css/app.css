@@ -187,15 +187,6 @@
   #porkchop-overlay .pc-info {
     grid-template-columns: repeat(2, 1fr);
   }
-  #classroom-banner {
-    top: auto;
-    bottom: 52px;
-    left: 8px;
-    right: 8px;
-    transform: none;
-    max-width: none;
-    font-size: 10px;
-  }
   #porkchop-canvas {
     max-width: 100%;
     height: auto;
@@ -804,8 +795,9 @@
   color: var(--red, #ff6b6b);
   border-color: var(--red, #ff6b6b);
 }
-.classroom-mode .firebase-auth-chip,
-.classroom-mode #cloud-plans-row {
+/* legacy classroom selectors removed — keep empty block for CSS parse safety if needed */
+.helios-removed-classroom-chip-placeholder,
+.helios-removed-classroom-cloud-placeholder {
   display: none !important;
 }
 

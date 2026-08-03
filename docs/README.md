@@ -1,74 +1,54 @@
 # HELIOS design documents
 
-Living index of product/architecture designs. Each design file keeps its original technical content (for history and rationale). **Status in the header table is authoritative for “is this landed?”**
+Living index of product/architecture designs. Each design file keeps historical technical content. **Header status + this index are authoritative for “is this landed?”**
 
-**Last docs sweep:** 2026-07-29 · branch `main` @ dense SPK + L3-plan bake + Firebase delivery + release-grade classroom pack.
+**Last docs sweep:** 2026-08-02 · industrial honesty roadmap · GA suggest v2 · physical path default · deploy checklist.
 
 ## As-built product snapshot
 
-HELIOS on `main` is an **industrial preliminary mission-design workstation** (not flight-certified, not live SPICE `.bsp`, not SpaceX performance warranty). Landed capabilities include:
+HELIOS on `main` is an **industrial preliminary mission-design workstation** (not flight-certified, not live SPICE `.bsp`, not SpaceX performance warranty).
 
 | Area | State |
 |---|---|
-| **Physics** | JPL Approximate Positions L1; dual-branch Lambert; multi-leg GA; porkchop; mission parking; Need/Capability/Margin |
-| **Fidelity** | Classroom **L1**; product **L2-plan** sample table (promotes **L3-plan** when DE440s/SPICE-baked); optional Horizons L2-compare/inject; **dense SPK** Float32 packs (Hosting / Storage / App Hosting) — not live `.bsp` |
-| **Reliability** | Plan Dossier + quality gates; Launch blocked unless `launch_enabled` / `mission_ready` |
-| **Vehicles** | Product default unrefueled SH+SS; F9 C₃ table; abstract budgets; Vehicle Lab |
-| **Geographic sites** | Planetocentric lat/lon/*h*; 1-bar giants; oblate *R*(φ); ICRF pole + *W(t)* (+ Moon/Mercury libration); share `os`/`ds`; multi-leg terminals |
-| **Cloud** | Auth; Firestore plans; RTDB last-route + window campaigns; Storage dense packs; Functions shortlist/catalog; App Hosting SSR shell |
-| **Server / agent** | Loopback static + Ollama proxy; FAB chat stream; CLI + C2 claim/lease; optional API token |
-| **UI** | Inspect/Plan/Results rail; campaign steps; OPS review; mission package export; map-first mobile chips |
-| **Tests** | `npm run precommit` = full CI mirror; `npm run release:check` (+ `--live` smoke); `npm test` alone skips UI |
+| **Physics** | Dual-branch Lambert; multi-leg patched-conic GA; porkchop; Need/Capability/Margin; asymptote/DLA/dogleg |
+| **Fidelity** | Product **L2-plan** sample-DE → **L3-plan** when DE440s bake present; Horizons inject opt-in; dense SPK packs |
+| **Path honesty** | Shared `transfer-path`; default `pathGeometry: physical`; adaptive densify ON; ghosts `match_path_end` |
+| **GA** | Manual +FLYBY; **SUGGEST GA** Accept/Keep; coarse/thorough local seeds; named dual templates |
+| **Reliability** | Plan Dossier gates; Launch / Fly study blocked without `mission_ready` |
+| **Cloud** | Auth; Firestore plans; RTDB campaigns; Storage dense packs; App Hosting + Functions |
+| **Tests** | `npm run precommit` = physics + server + agent + Playwright; `release:check` optional live smoke |
+| **Classroom mode** | **Removed** (2026-07-30). `?firebase=0` remains for hermetic offline/CI only |
 
 ## Document catalog
 
 | Document | Status | Topic |
 |---|---|---|
-| [trip-planner-design.md](./trip-planner-design.md) | **Implemented** (evolutionary product redesign) | Catalog, share, vehicles, display modes, foundation |
-| [cargo-vehicle-platform-design.md](./cargo-vehicle-platform-design.md) | **Implemented** | Need/Capability/Margin, F9/SS cargo arches |
-| [ephemeris-fidelity-platform-design.md](./ephemeris-fidelity-platform-design.md) | **Implemented** (+ L3-plan bake + dense SPK as follow-on) | L1 / L2-compare / L2-plan / L3-plan badges + provider |
-| [firebase-dense-spk.md](./firebase-dense-spk.md) | **Implemented** | Dense SPK Storage / RTDB / Functions / App Hosting delivery |
-| [dense-spice-storage-budget.md](./dense-spice-storage-budget.md) | **Implemented** | Pack size tiers A/B |
-| [trip-plan-reliability-completeness-design.md](./trip-plan-reliability-completeness-design.md) | **Implemented** | Plan Dossier, gates, recovery |
-| [concept-grade-and-extras-design.md](./concept-grade-and-extras-design.md) | **Implemented** (X0–X8 extras) | Trust Card, DLA eq, Vehicle Lab, scenario audit, ascent |
-| [post-landing-hardening-design.md](./post-landing-hardening-design.md) | **Implemented** | Server security, C2 honesty, workers, dual audit, streaming FAB |
-| [geographic-site-coordinates-design.md](./geographic-site-coordinates-design.md) | **Implemented** (full residual stack) | Body-fixed geographic sites, spin, share, multi-leg terminals |
-| [trajectory-accuracy-design.md](./trajectory-accuracy-design.md) | **Implemented (PR1–PR11 + physical pathGeometry honesty)** | Shared transfer-path pipeline; ship ≡ line; physical geometry mode |
+| [DEPLOY.md](./DEPLOY.md) | **Current** | Precommit + dual-hosting deploy checklist |
+| [trip-planner-design.md](./trip-planner-design.md) | **Implemented** (historical PR narrative) | Catalog, share, vehicles, foundation |
+| [cargo-vehicle-platform-design.md](./cargo-vehicle-platform-design.md) | **Implemented** | Need/Capability/Margin, F9/SS |
+| [ephemeris-fidelity-platform-design.md](./ephemeris-fidelity-platform-design.md) | **Implemented** (+ L3-plan + dense SPK) | Fidelity badges + provider |
+| [firebase-dense-spk.md](./firebase-dense-spk.md) | **Implemented** | Dense SPK delivery |
+| [dense-spice-storage-budget.md](./dense-spice-storage-budget.md) | **Implemented** | Pack size tiers |
+| [trip-plan-reliability-completeness-design.md](./trip-plan-reliability-completeness-design.md) | **Implemented** | Plan Dossier gates |
+| [concept-grade-and-extras-design.md](./concept-grade-and-extras-design.md) | **Implemented** | Trust Card, asymptote, Vehicle Lab |
+| [post-landing-hardening-design.md](./post-landing-hardening-design.md) | **Implemented** | Server security, C2, workers |
+| [geographic-site-coordinates-design.md](./geographic-site-coordinates-design.md) | **Implemented** | Body-fixed sites |
+| [trajectory-accuracy-design.md](./trajectory-accuracy-design.md) | **Implemented** (PR1–PR11 + residuals) | Ship–path pipeline |
+| [firebase-app-hosting.md](./firebase-app-hosting.md) | **Implemented** | Next.js shell |
+| [firebase.md](./firebase.md) | **Implemented** | Auth/plans offline flags |
 
-## Remaining items (honest backlog)
+Historical sections may still mention classroom mode or “educational product.” Treat those as **design history**. Runtime product is industrial preliminary.
 
-**v1 residuals:** adaptive sampling default-on soak; multi-rev product flag; tighter ghost endpoint gates (≤1e-4 AU). Classroom / teaching mode **removed** (2026-07-30 industrial pivot).
+## Remaining backlog (honest)
 
-### Concept-grade incorporation of former non-goals
-
-| Former non-goal | How HELIOS incorporates it (honestly) |
+| Item | Note |
 |---|---|
-| SPICE / DE as live browser kernels | **Not live `.bsp`.** **L3-plan** = offline DE440s-baked sample JSON; **dense SPK** = pre-baked Float32 tables (CDN/Hosting) |
-| Certified OD / covariance | Still out of scope — Trust Card completeness confidence only |
-| Full lunar *W(t)* | Leading Archinal-class libration (Moon/Mercury) — not 100+ terms |
-| Planetographic default | Optional **input mode** on oblate bodies; math stays planetocentric |
-| Intermediate flyby sites | **Done** — GEO toggle per flyby row |
-| Global multi-leg optimum | **Thorough local seed** (denser grid) still not global opt; labeled in UI/About |
-| Flight-certified vehicles / range safety | Illustrative vehicles + edu DLA site bands — never certified / never range safety |
-| TypeScript rewrite | Still non-goal (vanilla ESM) |
-
-### Still true ops out-of-scope
-
-| Item | Why |
-|---|---|
-| Live ship SPICE `.bsp` / formal covariance OD | Ops-scale; browser loads JSON/Float32 only |
-| Range-safety products | Not flight ops |
-| Global multi-leg optimal design | Research-grade; not a browser product mode |
-
-## Reading order for newcomers
-
-1. This index  
-2. `trip-planner-design.md` (product shape)  
-3. `cargo-vehicle-platform-design.md` + `ephemeris-fidelity-platform-design.md`  
-4. `trip-plan-reliability-completeness-design.md` + `concept-grade-and-extras-design.md`  
-5. `post-landing-hardening-design.md`  
-6. `geographic-site-coordinates-design.md`  
+| Global multi-leg tour optimizer | **Non-goal** for browser SPA |
+| Live `.bsp` in browser | **Non-goal** |
+| Multi-rev goldens / soak | Flag ON; deeper goldens optional |
+| Hosting serve `web/public` only | Preferred long-term vs monorepo root |
+| Expanded Playwright campaign matrix | Smoke + GA subset growing |
 
 ## Branch policy
 
-**`main` only** — sequential green commits; secrets never committed (`.env` gitignored).
+**`main` only** — sequential green commits; secrets never committed.

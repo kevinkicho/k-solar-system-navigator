@@ -48,7 +48,15 @@
       "firebase-debug.log",
       "firebase-debug.*.log",
       "*firebase-adminsdk*.json",
-      "skills-lock.json"
+      "**/firebase-adminsdk*.json",
+      "*.pem",
+      "*.p12",
+      ".env",
+      ".env.*",
+      "skills-lock.json",
+      "assets/kernels/**",
+      "hyg_v42.csv",
+      "screenshots/**"
     ],
     "rewrites": [
       {

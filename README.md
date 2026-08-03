@@ -39,7 +39,7 @@ Five deep-space probes rendered as labelled tetrahedron markers with velocity-di
 - **Theme** — industrial mission console by default; `?theme=classic` restores the neon navigator look.
 - **Geographic sites** — optional origin/dest **lat / lon / altitude** (planetocentric east-lon; height above reference). Gas/ice giants use a **1-bar cloud-deck** sphere with high default parking; oblate bodies use local ellipsoid *R*(φ) and dual planetographic readout; body-fixed orientation uses IAU-class *W(t)* (+ leading Moon/Mercury libration) and ICRF pole α₀/δ₀ → ecliptic. Sites round-trip in share hash (`os`/`ds`) and mission JSON; multi-leg applies sites on **terminals only**.
 - **Porkchop-plot launch-window finder** — sweep a grid of (departure date × transit duration) and heat-map Δv or SS injection-class cargo (workerized). Click a cell or use the auto-selected minimum to drive dates.
-- **Gravity-assist / multi-leg routing** — patched-conic flybys; infeasible swingbys flagged **TOO SHARP**. Multi-leg / nearest-feasible window search is a **coarse local seed** (workerized), not a global mission-design optimum.
+- **Gravity-assist / multi-leg routing** — patched-conic flybys; **SUGGEST GA** ranks direct vs assist seeds (Accept/Keep); manual **+ FLYBY** remains. Infeasible swingbys flagged **TOO SHARP**. Local seeds only — not a global tour optimizer.
 - **Planet-relative routes** — same-SOI pairs (e.g. Europa→Io, Earth→Moon) use **parent-centered Lambert** (Jupiter/Earth μ), not a dishonest heliocentric half-orbit. Patched-conic preliminary; not CR3BP.
 
 ### Simulation & chrome
@@ -140,12 +140,12 @@ Keep a browser tab on HELIOS so the **onboard agent** can execute C2 commands (`
 | Planet positions (animation / L1) | JPL "Approximate Positions of Major Planets" 1800–2050: linear element rates per Julian century + great-inequality corrections. Newton–Raphson for eccentric anomaly. Always used for scene animation. |
 | Planning ephemeris (L2/L3) | Offline sample table (`assets/ephemeris-samples-v1.json`) with **Catmull–Rom cubic** interp + velocity from positions. Prefer bake from **NAIF de440s.bsp** via spiceypy. **Porkchop / nearest-feasible / multi-leg** all use the same planning backend as Need (product sample-de / L3-plan). |
 | Path / residual | Shared `transfer-path.js` ship↔line identity; optional **Cowell n-body arrival miss** (analysis only — never feeds Need). Multi-rev Lambert when Advanced flag on (single + multi-leg). |
-| Optional Horizons inject | Opt-in live VECTORS endpoints for Lambert Need (`js/physics/ephemeris-horizons-inject.js`). Network, educational. **Not a closed-loop OD system.** CI uses mocked fetch. |
-| Flight-ops mode | Educational light-time, ops gates, OEM-like export (`js/physics/flight-ops.js`). **Not certified.** |
+| Optional Horizons inject | Opt-in live VECTORS endpoints for Lambert Need (`js/physics/ephemeris-horizons-inject.js`). Network analysis only. **Not a closed-loop OD system.** CI uses mocked fetch. |
+| Flight-ops mode | Analysis light-time, ops gates, OEM-like export (`js/physics/flight-ops.js`). **Not certified.** |
 | Transfer orbit | Lambert's problem via universal-variable formulation, bracketed-bisection solver |
 | Trajectory propagation | Kepler in perifocal frame (p̂, q̂, ŵ) |
 | Δv | Vector difference `|v_transfer − v_point|` (body center or geographic site with spin) |
-| Geographic sites | Planetocentric lat/lon + *h*; ellipsoid *R*(φ); IAU-class *W(t)* / ICRF pole (concept-grade) |
+| Geographic sites | Planetocentric lat/lon + *h*; ellipsoid *R*(φ); IAU-class *W(t)* / ICRF pole (not full SPICE PCK) |
 | Gravity assist | Patched-conic: `e = 1 + r_p·V∞² / μ`, turning angle `δ = 2·asin(1/e)` |
 | Launch windows | Lambert sweep over departure time × transit time, min Δv at each cell (workers) |
 
@@ -171,7 +171,7 @@ node tests/ephemeris_check.mjs
 node tests/horizons_mock.mjs          # Horizons adapter (mocked fetch only)
 ```
 
-Design docs (index): **`docs/README.md`** — trip-planner, cargo, fidelity, reliability, concept-grade, post-landing-hardening, geographic-site-coordinates.
+Design docs (index): **`docs/README.md`** · deploy checklist: **`docs/DEPLOY.md`**.
 
 ## Performance baselines
 
@@ -259,7 +259,7 @@ Industrial work packages (recompute geometry on open — never trust stored Δv)
 ## Data sources
 
 - **Planetary orbits** — JPL "Approximate Positions of Major Planets" (1800–2050 valid range): J2000 elements + per-century rates + great-inequality corrections for Jupiter through Neptune (authoritative for HELIOS planning)
-- **Optional educational Horizons fetch** — public [Horizons API](https://ssd.jpl.nasa.gov/horizons/) VECTOR tables only when the user clicks **Compare Horizons** in the About panel; never on the planning path. Not SPICE.
+- **Optional Horizons fetch** — public [Horizons API](https://ssd.jpl.nasa.gov/horizons/) VECTOR tables when the user enables inject / Compare Horizons. Not SPICE OD.
 - **Star data** — [HYG Database v4.2](https://github.com/astronexus/HYG-Database) (~119,600 stars)
 - **Moon data** — NASA/JPL planetary satellite ephemerides
 - **Planet surface textures** — [threex.planets](https://github.com/jeromeetienne/threex.planets) (NASA public-domain maps)

@@ -279,7 +279,10 @@ function trustStripHtml(td, dossier) {
     : (state.mapMode
       ? 'MAP dual-path'
       : (isSchematic() ? 'schematic' : 'cinematic×incl'));
-  const geom = state.physicsAccurate ? 'physical+dual' : (state.pathGeometry || 'visual');
+  const geom = state.physicsAccurate ? 'physical+dual' : (state.pathGeometry || 'physical');
+  const geomNote = (geom === 'physical' || geom === 'physical+dual')
+    ? 'physical (matches Need)'
+    : (geom === 'both' ? 'dual phys+vis' : 'visual display (Need still physical)');
   let resTxt = '—';
   try {
     if (td && !td.isMultiLeg) {
@@ -287,18 +290,29 @@ function trustStripHtml(td, dossier) {
       if (r.maxAU != null) resTxt = `${r.maxAU.toExponential(1)} AU`;
     }
   } catch { /* */ }
-  const nbody = state.pathAccuracy?.nbodyOverlay 
+  const nbody = state.pathAccuracy?.nbodyOverlay
     ? ' · n-body residual ON (Need unchanged)'
     : '';
+  let gaCompare = '';
+  try {
+    const pack = state.gaSuggestions;
+    const dir = pack?.direct?.dvTotal_m_s;
+    if (td?.isMultiLeg && dir != null && td.dvTotalMultiLeg != null) {
+      const d = (td.dvTotalMultiLeg - dir) / 1000;
+      gaCompare = d < 0
+        ? ` · GA vs direct seed ${d.toFixed(2)} km/s`
+        : ` · GA vs direct seed +${d.toFixed(2)} km/s`;
+    }
+  } catch { /* */ }
   return `
     <div class="path-trust-strip" id="path-trust-strip" role="status"
-      title="Concept-grade: Need/Δv from physical Lambert + planning ephemeris. Dense packs = pre-baked SPICE samples, not live .bsp. Not certified OD.">
+      title="Need/Δv from physical Lambert + planning ephemeris. Dense packs = pre-baked SPICE samples, not live .bsp. Not certified OD.">
       <span class="pts-item"><em>Eph</em> ${eph}</span>
       <span class="pts-item" id="path-trust-dense"><em>Dense</em> ${denseTxt || '—'}</span>
-      <span class="pts-item"><em>Path</em> Kepler conic · ${geom}</span>
+      <span class="pts-item"><em>Path</em> ${geomNote}</span>
       <span class="pts-item"><em>Scene</em> ${scene}</span>
       <span class="pts-item"><em>Res</em> ${resTxt}</span>
-      <span class="pts-item pts-note">Chemical Lambert · not low-thrust · baked SPICE samples not live kernels · not certified OD${nbody}</span>
+      <span class="pts-item pts-note">Preliminary industrial · not low-thrust · not live SPICE · not certified OD${nbody}${gaCompare}</span>
     </div>`;
 }
 

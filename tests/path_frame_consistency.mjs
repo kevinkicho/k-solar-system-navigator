@@ -34,6 +34,8 @@ clearSunOffsetCache();
 setDisplayMode('cinematic');
 state.pathOffsetPolicy = 'time_varying';
 state.pathSampleMode = 'equal_time';
+// C1–C2 fixtures use visual geometry (cinematic); product default is physical.
+state.pathGeometry = 'visual';
 
 const earth = BODIES.find((b) => b.name === 'Earth');
 const mars = BODIES.find((b) => b.name === 'Mars');

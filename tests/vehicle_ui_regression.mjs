@@ -76,6 +76,14 @@ check('Ship pathGeometry honesty in routing', /pathGeometry.*physical|geometry =
   readFileSync(resolve(ROOT, 'js/physics/routing.js'), 'utf8')));
 check('Adaptive sampling default ON', /adaptiveSampling:\s*true/.test(stateJs));
 check('Endpoint markers match_path_end default', /endpointMarkerPolicy:\s*['"]match_path_end['"]/.test(stateJs));
+check('Product pathGeometry physical', /pathGeometry:\s*['"]physical['"]/.test(stateJs));
+check('Product starshipArch unrefueled', /starshipArch:\s*['"]unrefueled['"]/.test(stateJs));
+check('Multi-rev Lambert default ON', /multiRevLambert:\s*true/.test(stateJs));
+check('Agent industrial not classroom educational', /preliminary mission-design|not flight-certified/i.test(
+  readFileSync(resolve(ROOT, 'js/agent/tools.js'), 'utf8'))
+  && !/Concept-grade educational planner only/i.test(
+    readFileSync(resolve(ROOT, 'js/agent/tools.js'), 'utf8')));
+check('Deploy checklist doc', existsSync(resolve(ROOT, 'docs/DEPLOY.md')));
 check('Label layout module', existsSync(resolve(ROOT, 'js/scene/label-layout.js')));
 check('GA suggest module', existsSync(resolve(ROOT, 'js/physics/ga-suggest.js')));
 check('GA suggest UI module', existsSync(resolve(ROOT, 'js/ui/ga-suggest-ui.js')));

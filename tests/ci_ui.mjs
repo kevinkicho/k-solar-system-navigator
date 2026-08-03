@@ -88,7 +88,7 @@ try {
   check('WebGL canvas present', canvas >= 1);
 
   section('1b. DENSE SPK OFFLINE (firebase=0)');
-  // Hosting static packs must work without Firebase Storage (classroom / CI hermetic).
+  // Hosting static packs must work without Firebase Storage (CI hermetic / offline).
   const denseOffline = await page.evaluate(async () => {
     try {
       const r = await fetch('/assets/dense-spk/registry.json');
@@ -152,7 +152,7 @@ try {
   const cardCount = await page.locator('#measurement-card, .measurement-card').count();
   check('Measurement Card root after compute', cardCount >= 1);
   check('Card shows NEED/CAPABILITY/MARGIN', /NEED|CAPABILITY|MARGIN/i.test(resultsText));
-  // Product default L2-plan (sample-DE); promotes to L3-plan when SPICE-baked table loads; classroom still L1
+  // Product default L2-plan (sample-DE); promotes to L3-plan when SPICE-baked table loads
   const fid = await page.evaluate(() => window.__HELIOS?.state?.fidelityLevel);
   check('fidelity product L2/L3-plan or badge present',
     fid === 'L3-plan' || fid === 'L2-plan' || fid === 'L1' || /L1|L2|L3|fidelity/i.test(resultsText));
@@ -236,6 +236,8 @@ try {
     arch: window.__HELIOS.state.starshipArch,
     eph: window.__HELIOS.state.ephemerisBackend,
     fidelity: window.__HELIOS.state.fidelityLevel,
+    pathGeom: window.__HELIOS.state.pathGeometry,
+    multiRev: window.__HELIOS.state.pathAccuracy?.multiRevLambert,
   }));
   check('classroomMode false (removed)', prodState.classroom === false);
   check('product vehicle sh-starship', prodState.veh === 'sh-starship');
@@ -247,8 +249,12 @@ try {
       || prodState.fidelity === 'L3-plan',
     `eph=${prodState.eph} fid=${prodState.fidelity}`,
   );
+  check('product pathGeometry physical', prodState.pathGeom === 'physical');
+  check('multiRevLambert product flag on', prodState.multiRev === true);
   const bannerCount = await prodPage.locator('#classroom-banner').count();
   check('no classroom banner element', bannerCount === 0);
+  const gaBtn = await prodPage.locator('#btn-ga-suggest').count();
+  check('SUGGEST GA control present', gaBtn >= 1);
   await prodPage.close();
 
   await page.screenshot({ path: join(OUT, 'ci-ui-route.png') });
