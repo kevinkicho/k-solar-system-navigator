@@ -1,9 +1,12 @@
 # HELIOS // Mission Design · Launch Planning
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 An **industrial-grade preliminary mission-design workstation** in the browser: real-time 3D solar system, Lambert trajectories, launch-window search, vehicle Need/Capability/Margin, GO/NO-GO Plan Dossier, DE440s-class offline ephemeris, and dense SPICE Float32 packs — for realistic interplanetary launch campaign analysis.
 
 **Not flight-certified software. Not range safety. Not SpaceX performance warranty. Not a GMAT/STK/SPICE-OD replacement.**
 
+**License:** [MIT](./LICENSE)  
 **Primary production URL (App Hosting):** https://helios--k-solar-system-navigator.us-central1.hosted.app  
 **Static fallback (classic Hosting):** https://k-solar-system-navigator.web.app
 
@@ -330,3 +333,26 @@ docs/README.md — design-doc index + as-built snapshot + honest backlog
 docs/trip-planner-design.md — product redesign (as-built)
 docs/geographic-site-coordinates-design.md — body-fixed geographic sites (full stack)
 ```
+
+## License
+
+This project is released under the **[MIT License](./LICENSE)**.
+
+```
+MIT License — Copyright (c) 2026 HELIOS Solar System Navigator contributors
+```
+
+You may use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the software, subject to the terms in [`LICENSE`](./LICENSE).
+
+## Development & code authorship
+
+Substantial portions of this codebase were written and revised with assistance from large language models under human direction (architecture, review, tests, and product decisions remain human-owned). Models that co-authored code for HELIOS include:
+
+| Model | Role |
+|-------|------|
+| **DeepSeek-V4-Flash** | Implementation assistance |
+| **GLM-5.2** | Implementation assistance |
+| **Grok** (xAI) | Implementation assistance |
+| **Claude Opus 4.6** (Anthropic) | Implementation assistance |
+
+Physics correctness, industrial honesty (preliminary · not flight-certified), and final merges are validated by humans and CI (`npm run precommit`). AI output is not a warranty of correctness, fitness for flight, or SpaceX / OEM performance.
