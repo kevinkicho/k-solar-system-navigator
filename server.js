@@ -77,6 +77,7 @@ export const C2_ACTIONS = new Set([
   'get_path_truth',
   'apply_window_family',
   'apply_architecture_row',
+  'get_campaign_snapshot',
   'list_bodies',
   'set_route',
   'compute_route',

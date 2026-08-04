@@ -74,6 +74,8 @@ export function wireMissionStudyBar() {
       import('./ui/route-orbit-visual.js').then(({ maybeRebuildPathOnScrub }) => {
         maybeRebuildPathOnScrub?.();
       }).catch(() => {});
+      // Path truth scrub residual (ARR epoch vs live dest)
+      import('./ui/path-truth-hud.js').then((m) => m.refreshPathTruthHud?.()).catch(() => {});
     });
   }
   if (depBtn) {

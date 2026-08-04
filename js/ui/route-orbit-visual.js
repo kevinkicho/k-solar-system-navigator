@@ -21,6 +21,7 @@ import {
   setArrivalGhost, setDepartureGhost, setTransferLine, setPhysicalTransferLine,
   transferMarkers,
 } from '../scene/transfer-visual.js';
+import { setEpochDestinationBody, hideEpochDestinationBody } from '../scene/epoch-body.js';
 import { clearTransferRibbon, setTransferRibbon } from '../scene/transfer-ribbon.js';
 import { clearDvArrows, setDvArrows } from '../scene/transfer-dv-arrows.js';
 import { clearPathBead } from '../scene/path-bead.js';
@@ -90,6 +91,7 @@ export function updateTransferOrbitVisual() {
   hideDepartureGhost();
   if (!state.showTransferOrbit || !state.transferData) {
     clearPathBead();
+    hideEpochDestinationBody();
     return;
   }
 
@@ -242,6 +244,18 @@ function placeEndpointMarkers(td, dep, arr, depT, arrT, drawPts) {
     color: parseInt(String(td.body2.color || '#ff9800').replace('#', ''), 16),
     label: arrLabel,
   });
+  // Embodied ARR-epoch body (path end) — not the live destination mesh
+  try {
+    const col = parseInt(String(td.body2.color || '#ff9800').replace('#', ''), 16);
+    setEpochDestinationBody({
+      x: arrMark.x, y: arrMark.y, z: arrMark.z,
+      radius: (td.body2.displayRadius || 0.03) * 1.15,
+      color: col,
+      label: arrLabel,
+    });
+  } catch {
+    hideEpochDestinationBody();
+  }
 }
 
 /** Ghost = body at path epoch, not the live mesh. */

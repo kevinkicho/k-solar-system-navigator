@@ -91,6 +91,19 @@ After compute, Results mounts:
 | Schematic | honors `pathGeometry` (default physical) | physical |
 | ACCURATE / MAP | **physical** | physical |
 
+## Pass 4 (2026-08) — Campaign object · embodied path · operator CI
+
+| Feature | Module |
+|---------|--------|
+| Campaign schema + timeline | `js/agent/campaign-object.js` |
+| Timeline UI · RUN / UNDO / REDO | `js/ui/campaign-timeline-ui.js` |
+| ARR-epoch dest body mesh | `js/scene/epoch-body.js` |
+| Scrub-linked path truth | `path-truth-hud` + mission study scrub |
+| Pareto shortlist | `js/physics/pareto-shortlist.js` · Studio |
+| Tool goldens (no LLM) | `tests/tool_goldens.mjs` |
+| Playwright Studio soft checks | `tests/ci_ui.mjs` section 4b |
+| `get_campaign_snapshot` tool | C2 + FAB |
+
 ## Still deferred (honest backlog)
 
 - Full DAG visual editor / multi-user org ACLs with share tokens  
@@ -98,5 +111,6 @@ After compute, Results mounts:
 - True free-return corridor / multi-rev free-return OD  
 - DSM re-optimized multi-leg Lambert  
 - Native mobile app (companion mode is browser shell only)  
-- Playwright Studio smoke (matrix apply · package)  
+- Hard Playwright matrix-apply assertion (soft checks landed)  
+
 

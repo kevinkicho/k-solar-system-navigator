@@ -399,6 +399,18 @@ async function executeCommand(cmd) {
       return applyArchitectureRow(row);
     }
 
+    case 'get_campaign_snapshot': {
+      const { snapshotCampaign, listCampaignSteps, getCampaign } = await import('./campaign-object.js');
+      return {
+        snapshot: snapshotCampaign(state),
+        timeline: listCampaignSteps().map((s) => ({
+          id: s.id, kind: s.kind, label: s.label, mission_ready: s.mission_ready,
+        })),
+        campaign_id: getCampaign()?.id || null,
+        cursor: getCampaign()?.cursor ?? -1,
+      };
+    }
+
     case 'list_bodies':
       return { bodies: listBodyNames() };
 

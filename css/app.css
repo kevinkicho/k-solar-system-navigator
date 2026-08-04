@@ -970,6 +970,38 @@ option[hidden] {
 }
 .path-truth-list li { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
 .path-truth-note { font-size: 9px; color: var(--text-dim); margin: 6px 0 0; opacity: 0.9; }
+.path-truth-scrub {
+  margin-top: 6px; font-size: 10px; color: var(--amber, #ff9800);
+  font-family: var(--font-mono, monospace);
+}
+
+/* Campaign timeline */
+.campaign-timeline {
+  margin: 8px 0 12px; padding: 10px 12px;
+  border: 1px solid rgba(0, 230, 118, 0.28);
+  border-radius: 2px;
+  background: rgba(0, 30, 20, 0.35);
+  font-size: 11px;
+}
+.campaign-timeline .ct-head {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 8px;
+}
+.campaign-timeline .ct-title {
+  font-family: var(--font-display, Orbitron, monospace);
+  font-size: 9px; letter-spacing: 1.2px; color: #00e676;
+}
+.campaign-timeline .ct-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.campaign-timeline .ct-steps {
+  margin: 0; padding-left: 18px; font-size: 10px; color: var(--text);
+  max-height: 140px; overflow-y: auto;
+}
+.campaign-timeline .ct-steps li { margin: 3px 0; }
+.campaign-timeline .ct-steps li.is-cur { color: var(--cyan); font-weight: 600; }
+.campaign-timeline .ct-empty { list-style: none; margin-left: -18px; color: var(--text-dim); }
+.campaign-timeline .ct-note { font-size: 9px; color: var(--text-dim); margin: 6px 0 0; }
+
+.epoch-body-label { opacity: 0.95; }
 
 /* Campaign board columns */
 .campaign-board {

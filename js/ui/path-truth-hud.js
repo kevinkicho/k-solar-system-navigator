@@ -44,6 +44,19 @@ export function renderPathTruthHud(host) {
     <p class="path-truth-note">${escapeHtml(truth.note || '')}</p>
   `;
 
+  // Live residual vs scrub time
+  if (truth.ok && simT != null && td.arrivalSimTime != null) {
+    const frac = Math.max(0, Math.min(1,
+      (simT - (td.departureSimTime || 0))
+      / Math.max(1e-9, td.arrivalSimTime - (td.departureSimTime || 0))));
+    const liveLine = document.createElement('div');
+    liveLine.className = 'path-truth-scrub';
+    liveLine.textContent = `Scrub ${(frac * 100).toFixed(0)}% · path-end vs live ${truth.destName || 'dest'}: ${
+      truth.pathEndVsLive_AU != null ? truth.pathEndVsLive_AU.toExponential(2) + ' AU' : '—'
+    } (grows as you leave ARR epoch — expected)`;
+    el.appendChild(liveLine);
+  }
+
   // First-compute coach (once per session)
   if (!_coachShown && truth.ok && scenePathGeometry() === 'visual') {
     _coachShown = true;
@@ -53,6 +66,13 @@ export function renderPathTruthHud(host) {
       }).catch(() => {});
     } catch { /* */ }
   }
+}
+
+/** Refresh path truth when fly-study scrub moves (cheap). */
+export function refreshPathTruthHud() {
+  const host = document.getElementById('transfer-results')
+    || document.getElementById('path-truth-hud')?.parentElement;
+  if (host) renderPathTruthHud(host);
 }
 
 function escapeHtml(s) {

@@ -73,6 +73,7 @@ export function renderStudioPanel(host) {
       <div class="cb-col">
         <div class="cb-col-title">Windows</div>
         <button type="button" class="btn-tiny" data-act="families">Cluster families</button>
+        <button type="button" class="btn-tiny" data-act="pareto">Pareto shortlist</button>
         <button type="button" class="btn-tiny" data-act="apply-family" ${fam?.families?.[0] ? '' : 'disabled'}>Apply recommended family</button>
       </div>
       <div class="cb-col">
@@ -635,6 +636,29 @@ async function handleAct(act, el, host) {
         const { renderPathTruthHud } = await import('./path-truth-hud.js');
         renderPathTruthHud(hostRes);
       }
+      return;
+    }
+    if (act === 'pareto') {
+      if (!state.windowShortlist?.length) {
+        notify('RUN PORKCHOP FIRST');
+        return;
+      }
+      const { paretoWindowShortlist } = await import('../physics/pareto-shortlist.js');
+      const pack = paretoWindowShortlist(state.windowShortlist);
+      state.paretoShortlist = pack;
+      if (out) {
+        out.hidden = false;
+        out.textContent = [
+          `Pareto n=${pack.n_pareto}/${pack.n_total}`,
+          ...pack.pareto.slice(0, 8).map((c) =>
+            `#${c.pareto_rank} Need ${(c.dv_m_s / 1000).toFixed(2)} km/s · TOF ${c.tof_days.toFixed(0)}d · ${String(c.dep_iso || '').slice(0, 10)}`),
+          '',
+          pack.note,
+          '',
+          'Tip: Apply via window family after clustering, or use shortlist UI.',
+        ].join('\n');
+      }
+      notify(`PARETO · ${pack.n_pareto} non-dominated`);
       return;
     }
   } catch (e) {

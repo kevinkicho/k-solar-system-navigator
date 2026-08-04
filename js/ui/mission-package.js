@@ -354,6 +354,23 @@ export async function exportStakeholderPackage(td) {
     }
   } catch { /* */ }
 
+  try {
+    const { snapshotCampaign, formatCampaignTimeline, getCampaign } = await import('../agent/campaign-object.js');
+    const snap = snapshotCampaign(state);
+    lines.push(``, `## Campaign object v${snap.schema_version}`);
+    lines.push(`- Label: ${snap.label}`);
+    if (snap.plan_request) {
+      lines.push(`- plan_request: \`${JSON.stringify(snap.plan_request)}\``);
+    }
+    lines.push(`- Path: ${snap.path_truth_line || '—'}`);
+    const camp = getCampaign();
+    if (camp?.steps?.length) {
+      lines.push(``, `### Timeline`);
+      for (const l of formatCampaignTimeline(camp)) lines.push(`- ${l}`);
+    }
+    lines.push(`- ${snap.note}`);
+  } catch { /* */ }
+
   lines.push(
     ``,
     `## Disclaimers`,

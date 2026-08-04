@@ -70,6 +70,7 @@ const SUITE = [
   'tests/studio_depth.mjs',
   'tests/studio_depth2.mjs',
   'tests/contracts_path_campaign.mjs',
+  'tests/tool_goldens.mjs',
   'tests/core_planning_realism.mjs',
   'tests/launch_site_plane.mjs',
   'tests/need_geometry.mjs',

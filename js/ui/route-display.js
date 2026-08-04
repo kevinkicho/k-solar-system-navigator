@@ -442,8 +442,23 @@ export function renderRouteUI() {
       || document.getElementById('results-hero')?.parentElement;
     if (host) {
       import('./path-truth-hud.js').then((m) => m.renderPathTruthHud?.(host)).catch(() => {});
+      import('./campaign-timeline-ui.js').then((m) => m.renderCampaignTimeline?.(host)).catch(() => {});
       import('./ai-chrome.js').then((m) => m.renderNextActionsStrip?.(host)).catch(() => {});
       import('./studio-panel.js').then((m) => m.renderStudioPanel?.(host)).catch(() => {});
+      // Campaign log step on successful compute
+      try {
+        if (state.transferData?.dossier || state.transferData?.lambertOk) {
+          import('../agent/campaign-object.js').then(({ pushCampaignStep, getCampaign }) => {
+            if (!getCampaign()?.steps?.length) {
+              pushCampaignStep({
+                kind: 'compute',
+                label: 'Initial compute',
+                source: 'route-display',
+              });
+            }
+          }).catch(() => {});
+        }
+      } catch { /* */ }
     }
   } catch { /* */ }
 }

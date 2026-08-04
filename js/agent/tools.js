@@ -431,6 +431,14 @@ export const HELIOS_AGENT_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_campaign_snapshot',
+      description: 'Current campaign object: plan_request, triad, path truth line, timeline steps.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'list_bodies',
       description: 'List available body names for routing.',
       parameters: { type: 'object', properties: {} },

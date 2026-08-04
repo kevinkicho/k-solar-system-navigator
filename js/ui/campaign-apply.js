@@ -56,6 +56,15 @@ export async function applyWindowFamily(family, member = null) {
 
   notify(`APPLIED WINDOW · ${String(cell.dep_iso || '').slice(0, 10)} · TOF ${tofDays != null ? Math.round(tofDays) : '—'}d`);
   computeRoute();
+  try {
+    const { pushCampaignStep } = await import('../agent/campaign-object.js');
+    pushCampaignStep({
+      kind: 'apply_window',
+      label: `Window ${family?.label || cell.dep_iso || ''}`.trim(),
+      detail: `TOF ${tofDays != null ? Math.round(tofDays) : '—'}d`,
+      source: 'apply',
+    });
+  } catch { /* */ }
   return {
     ok: true,
     dep_iso: cell.dep_iso,
@@ -118,6 +127,15 @@ export async function applyArchitectureRow(row) {
   window.dispatchEvent(new CustomEvent('helios:vehicle-changed'));
   notify(`APPLIED ARCH · ${row.label || row.id || row.vehicleId}`);
   if (state.routeOrigin && state.routeDestination) computeRoute();
+  try {
+    const { pushCampaignStep } = await import('../agent/campaign-object.js');
+    pushCampaignStep({
+      kind: 'apply_arch',
+      label: `Arch ${row.label || row.id || row.vehicleId}`,
+      detail: row.feasible ? 'feasible' : 'infeasible seed',
+      source: 'apply',
+    });
+  } catch { /* */ }
   return {
     ok: true,
     applied: {
