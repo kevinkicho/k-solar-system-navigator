@@ -72,6 +72,20 @@ export const GOLDEN_SCENARIOS = [
     expectTools: ['run_playbook', 'list_playbooks'],
     notes: 'Playbook',
   },
+  {
+    id: 'path-truth',
+    text: 'Explain path truth scene vs Need and ARR ghost',
+    expectParse: {},
+    expectTools: ['get_path_truth', 'get_residual_dashboard'],
+    notes: 'Path honesty',
+  },
+  {
+    id: 'apply-studio',
+    text: 'Apply recommended window family and architecture matrix row',
+    expectParse: {},
+    expectTools: ['apply_window_family', 'apply_architecture_row', 'get_window_families'],
+    notes: 'Campaign board apply',
+  },
 ];
 
 /**
@@ -145,6 +159,9 @@ export function recommendToolsForText(text) {
   if (/\bdag\b/.test(t)) tools.push('run_campaign_dag');
   if (/\bplaybook\b/.test(t)) tools.push('run_playbook');
   if (/\b(residual|n-body|launch geometry)\b/.test(t)) tools.push('get_residual_dashboard');
+  if (/\b(path truth|scene path|arr ghost|fly study)\b/.test(t)) tools.push('get_path_truth');
+  if (/\bapply\b.*\b(window|family)\b|\bwindow family\b/.test(t)) tools.push('apply_window_family');
+  if (/\bapply\b.*\barch|\barchitecture row\b/.test(t)) tools.push('apply_architecture_row');
   if (!tools.length) tools.push('get_mission_brief_context');
   return [...new Set(tools)];
 }

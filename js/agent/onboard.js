@@ -359,6 +359,46 @@ async function executeCommand(cmd) {
       return applyCompanionMode(!!(args.on ?? args.enabled ?? args.value));
     }
 
+    case 'get_path_truth': {
+      const { buildPathTruth } = await import('../physics/path-truth.js');
+      return buildPathTruth(state.transferData, state, timeState.simTime);
+    }
+
+    case 'apply_window_family': {
+      const { clusterWindowFamilies } = await import('../physics/window-families.js');
+      let pack = state.windowFamilies;
+      if (!pack?.families?.length && state.windowShortlist?.length) {
+        pack = clusterWindowFamilies(state.windowShortlist);
+        state.windowFamilies = pack;
+      }
+      const idx = args.index != null ? Number(args.index) : 0;
+      const f = pack?.families?.[idx] || pack?.families?.find((x) => x.recommended);
+      if (!f) throw new Error('No window family — open windows / cluster first');
+      const { applyWindowFamily } = await import('../ui/campaign-apply.js');
+      return applyWindowFamily(f);
+    }
+
+    case 'apply_architecture_row': {
+      const { buildArchitectureMatrix } = await import('../physics/architecture-matrix.js');
+      let matrix = state.architectureMatrix;
+      if (!matrix?.rows?.length) {
+        const need = state.transferData?.dossier?.need;
+        if (!need) throw new Error('Compute transfer first');
+        matrix = buildArchitectureMatrix(need, {
+          cargoMass_kg: state.cargoMass_kg,
+          originBody: state.routeOrigin,
+        });
+        state.architectureMatrix = matrix;
+      }
+      const idx = args.index != null ? Number(args.index) : null;
+      const row = idx != null
+        ? matrix.rows[idx]
+        : (matrix.rows.find((r) => r.recommended) || matrix.rows.find((r) => r.feasible));
+      if (!row) throw new Error('No architecture row');
+      const { applyArchitectureRow } = await import('../ui/campaign-apply.js');
+      return applyArchitectureRow(row);
+    }
+
     case 'list_bodies':
       return { bodies: listBodyNames() };
 

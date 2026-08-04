@@ -436,11 +436,12 @@ export function renderRouteUI() {
     syncFidelityChip();
     syncProductClassFooters();
   } catch { /* */ }
-  // AI core: next-actions strip + brief / ask (Results) + Studio depth panel
+  // AI core + path truth + Studio campaign board (Results)
   try {
     const host = document.getElementById('transfer-results')
       || document.getElementById('results-hero')?.parentElement;
     if (host) {
+      import('./path-truth-hud.js').then((m) => m.renderPathTruthHud?.(host)).catch(() => {});
       import('./ai-chrome.js').then((m) => m.renderNextActionsStrip?.(host)).catch(() => {});
       import('./studio-panel.js').then((m) => m.renderStudioPanel?.(host)).catch(() => {});
     }

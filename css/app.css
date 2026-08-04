@@ -951,6 +951,46 @@ option[hidden] {
 .helios-studio .studio-table tr.is-no td:last-child { color: #ff6b6b; }
 .helios-studio .studio-out { max-height: 200px; }
 
+/* Path truth HUD */
+.path-truth-hud {
+  margin: 8px 0 12px; padding: 10px 12px;
+  border: 1px solid rgba(79, 195, 247, 0.4);
+  border-radius: 2px;
+  background: rgba(0, 40, 60, 0.5);
+  font-size: 11px;
+}
+.path-truth-title {
+  font-family: var(--font-display, Orbitron, monospace);
+  font-size: 9px; letter-spacing: 1.2px; color: #4fc3f7;
+  margin-bottom: 6px;
+}
+.path-truth-line { color: var(--text); font-weight: 600; margin-bottom: 6px; }
+.path-truth-list {
+  list-style: none; margin: 0; padding: 0; font-size: 10px; color: var(--text-dim);
+}
+.path-truth-list li { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.path-truth-note { font-size: 9px; color: var(--text-dim); margin: 6px 0 0; opacity: 0.9; }
+
+/* Campaign board columns */
+.campaign-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.campaign-board .cb-col {
+  padding: 8px;
+  border: 1px solid rgba(156, 39, 176, 0.25);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.campaign-board .cb-col-title {
+  font-size: 9px; letter-spacing: 1px; color: #ce93d8;
+  font-family: var(--font-display, Orbitron, monospace);
+}
+.campaign-board .btn-tiny:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* Companion / mobile campaign mode */
 html.helios-companion #scene-container canvas,
 body.helios-companion #scene-container {

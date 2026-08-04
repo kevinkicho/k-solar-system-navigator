@@ -342,6 +342,18 @@ export async function exportStakeholderPackage(td) {
     );
   }
 
+  try {
+    const { buildPathTruth, formatPathTruthLine } = await import('../physics/path-truth.js');
+    const truth = buildPathTruth(td, state);
+    lines.push(``, `## Path truth (scene vs Need)`);
+    if (truth.ok) {
+      lines.push(`- ${formatPathTruthLine(truth)}`);
+      for (const l of truth.lines || []) lines.push(`- ${l}`);
+    } else {
+      lines.push(`- ${truth.note || 'unavailable'}`);
+    }
+  } catch { /* */ }
+
   lines.push(
     ``,
     `## Disclaimers`,

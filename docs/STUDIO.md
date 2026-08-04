@@ -71,6 +71,26 @@ After compute, Results mounts:
 | Horizons residual row | residual dashboard |
 | Local reviews list | Studio · `listLocalReviews` |
 
+## Pass 3 (2026-08) — R1 Trust · R2 Board · R3 Contracts
+
+| Feature | Module |
+|---------|--------|
+| Path truth HUD | `js/physics/path-truth.js` · `js/ui/path-truth-hud.js` · Results strip |
+| ARR/DEP epoch ghost labels | `route-orbit-visual` — path end, not live planet |
+| Campaign board columns | Studio Windows / Arch / Pins / Gates |
+| Apply window family | `js/ui/campaign-apply.js` · `apply_window_family` tool |
+| Apply architecture row | `apply_architecture_row` tool |
+| Contract suite | `tests/contracts_path_campaign.mjs` |
+| Stakeholder path-truth chapter | mission-package stakeholder export |
+
+### Scene path matrix (product)
+
+| View | Scene path (fly study) | Need / Δv |
+|------|------------------------|-----------|
+| Cinematic | **visual** (exaggerated endpoints) | physical |
+| Schematic | honors `pathGeometry` (default physical) | physical |
+| ACCURATE / MAP | **physical** | physical |
+
 ## Still deferred (honest backlog)
 
 - Full DAG visual editor / multi-user org ACLs with share tokens  
@@ -78,3 +98,5 @@ After compute, Results mounts:
 - True free-return corridor / multi-rev free-return OD  
 - DSM re-optimized multi-leg Lambert  
 - Native mobile app (companion mode is browser shell only)  
+- Playwright Studio smoke (matrix apply · package)  
+

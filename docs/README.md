@@ -13,7 +13,7 @@ HELIOS on `main` is an **industrial preliminary mission-design workstation** (no
 | **Physics** | Dual-branch Lambert; multi-leg patched-conic GA; porkchop; Need/Capability/Margin; asymptote/DLA/dogleg |
 | **Fidelity** | Live pipeline: **L2-plan** sample-DE → **L3-plan** DE440s bake; **live Horizons** inject opt-in; dense SPK packs |
 | **UI honesty** | Mock abstract vehicles / legacy-demo / L1 approx / visual-only path **hidden** from product UI |
-| **Path honesty** | Shared `transfer-path`; default `pathGeometry: physical`; adaptive densify ON; ghosts `match_path_end` |
+| **Path honesty** | Shared `transfer-path`; cinematic **scene** path = visual (planet tilts); schematic/ACCURATE = physical Need plane; path-truth HUD; ARR ghost = path end not live dest |
 | **GA** | Manual +FLYBY; **SUGGEST GA** Accept/Keep; coarse/thorough local seeds; named dual templates |
 | **Reliability** | Plan Dossier gates; Launch / Fly study blocked without `mission_ready` |
 | **Cloud** | Auth; Firestore plans; RTDB campaigns; Storage dense packs; App Hosting + Functions |

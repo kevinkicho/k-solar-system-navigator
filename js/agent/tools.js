@@ -401,6 +401,36 @@ export const HELIOS_AGENT_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_path_truth',
+      description: 'Scene vs Need path geometry, ARR residual, fly-study honesty (not live dest).',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_window_family',
+      description: 'Apply a clustered window family seed (dep/TOF) and recompute.',
+      parameters: {
+        type: 'object',
+        properties: { index: { type: 'number' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'apply_architecture_row',
+      description: 'Apply architecture matrix row (vehicle/arch/tankers/cargo) and recompute.',
+      parameters: {
+        type: 'object',
+        properties: { index: { type: 'number' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'list_bodies',
       description: 'List available body names for routing.',
       parameters: { type: 'object', properties: {} },

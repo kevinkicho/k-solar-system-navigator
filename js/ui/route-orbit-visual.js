@@ -228,18 +228,40 @@ function placeEndpointMarkers(td, dep, arr, depT, arrT, drawPts) {
   transferMarkers.depart.visible = true;
   transferMarkers.arrive.position.set(arrMark.x, arrMark.y, arrMark.z);
   transferMarkers.arrive.visible = true;
+  const depLabel = epochGhostLabel(td.body1?.name, depT, 'DEPARTURE');
+  const arrLabel = epochGhostLabel(td.body2?.name, arrT, 'ARRIVAL');
   setDepartureGhost({
     x: depMark.x, y: depMark.y, z: depMark.z,
     radius: (td.body1.displayRadius || 0.02) * 1.6,
     color: parseInt(String(td.body1.color || '#00e676').replace('#', ''), 16),
-    label: 'AT DEPARTURE',
+    label: depLabel,
   });
   setArrivalGhost({
     x: arrMark.x, y: arrMark.y, z: arrMark.z,
     radius: (td.body2.displayRadius || 0.02) * 1.6,
     color: parseInt(String(td.body2.color || '#ff9800').replace('#', ''), 16),
-    label: 'AT ARRIVAL',
+    label: arrLabel,
   });
+}
+
+/** Ghost = body at path epoch, not the live mesh. */
+function epochGhostLabel(bodyName, simT, kind) {
+  let day = '';
+  try {
+    if (simT != null) {
+      const d = new Date(simT * 1000 + Date.UTC(2000, 0, 1, 12));
+      day = d.toISOString().slice(0, 10);
+    }
+  } catch { /* */ }
+  const name = bodyName || 'body';
+  if (kind === 'ARRIVAL') {
+    return day
+      ? `${name} @ ARR ${day} · path end (not live)`
+      : `${name} @ ARRIVAL · path end (not live)`;
+  }
+  return day
+    ? `${name} @ DEP ${day}`
+    : `${name} @ DEPARTURE`;
 }
 
 function placeEndpointGhostsOnly(td) {

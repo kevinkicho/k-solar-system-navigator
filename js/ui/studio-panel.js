@@ -67,8 +67,32 @@ export function renderStudioPanel(host) {
     : null;
 
   el.innerHTML = `
-    <div class="ai-next-title">HELIOS STUDIO · campaign depth</div>
-    <p class="studio-note">Campaign depth studio — families · matrix · pins · waterfall · DoE · launch geometry · itinerary catalog · sample-return · companion. Preliminary only — not flight-certified.</p>
+    <div class="ai-next-title">HELIOS STUDIO · campaign board</div>
+    <p class="studio-note">Campaign board — apply window/arch · pins · path truth · package. Preliminary only — not flight-certified.</p>
+    <div class="campaign-board">
+      <div class="cb-col">
+        <div class="cb-col-title">Windows</div>
+        <button type="button" class="btn-tiny" data-act="families">Cluster families</button>
+        <button type="button" class="btn-tiny" data-act="apply-family" ${fam?.families?.[0] ? '' : 'disabled'}>Apply recommended family</button>
+      </div>
+      <div class="cb-col">
+        <div class="cb-col-title">Architectures</div>
+        <button type="button" class="btn-tiny" data-act="matrix">Build matrix</button>
+        <button type="button" class="btn-tiny" data-act="apply-arch" ${matrix?.rows?.find((r) => r.recommended || r.feasible) ? '' : 'disabled'}>Apply recommended arch</button>
+      </div>
+      <div class="cb-col">
+        <div class="cb-col-title">Pins / package</div>
+        <button type="button" class="btn-tiny" data-act="pin">Pin plan</button>
+        <button type="button" class="btn-tiny" data-act="diff">Diff pins</button>
+        <button type="button" class="btn-tiny" data-act="stakeholder">Stakeholder pkg</button>
+      </div>
+      <div class="cb-col">
+        <div class="cb-col-title">Gates / trust</div>
+        <button type="button" class="btn-tiny" data-act="residual">Residuals</button>
+        <button type="button" class="btn-tiny" data-act="path-truth">Path truth</button>
+        <button type="button" class="btn-tiny" data-act="dag">Campaign DAG</button>
+      </div>
+    </div>
     <div class="studio-actions">
       <button type="button" class="btn-tiny" data-act="families">Window families</button>
       <button type="button" class="btn-tiny" data-act="matrix">Architecture matrix</button>
@@ -128,6 +152,29 @@ export function renderStudioPanel(host) {
       renderStudioPanel(host);
     });
   });
+  el.querySelectorAll('[data-apply-family]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const i = Number(btn.getAttribute('data-apply-family'));
+      const f = state.windowFamilies?.families?.[i]
+        || (state.windowShortlist
+          ? clusterWindowFamilies(state.windowShortlist).families[i]
+          : null);
+      if (!f) return;
+      const { applyWindowFamily } = await import('./campaign-apply.js');
+      await applyWindowFamily(f);
+      renderStudioPanel(host);
+    });
+  });
+  el.querySelectorAll('[data-apply-arch]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const i = Number(btn.getAttribute('data-apply-arch'));
+      const row = state.architectureMatrix?.rows?.[i];
+      if (!row) return;
+      const { applyArchitectureRow } = await import('./campaign-apply.js');
+      await applyArchitectureRow(row);
+      renderStudioPanel(host);
+    });
+  });
 }
 
 function renderPinsHtml(pins) {
@@ -146,9 +193,13 @@ function renderFamiliesHtml(fam) {
   if (!fam?.families?.length) {
     return '<div class="studio-block"><strong>Window families</strong><p class="studio-muted">Run porkchop / open windows, then Window families.</p></div>';
   }
-  const lines = formatFamilyCalendar(fam);
   return `<div class="studio-block"><strong>Window families</strong>
-    <ul class="studio-list">${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
+    <ul class="studio-list">${fam.families.map((f, i) => `
+      <li>
+        <strong>${esc(f.label)}</strong>${f.recommended ? ' ★' : ''}
+        · best ${f.best_dv_m_s != null ? (f.best_dv_m_s / 1000).toFixed(2) : '—'} km/s · n=${f.n}
+        <button type="button" class="btn-tiny" data-apply-family="${i}">Apply</button>
+      </li>`).join('')}</ul>
     <p class="studio-muted">${esc(fam.note)}</p></div>`;
 }
 
@@ -157,13 +208,14 @@ function renderMatrixHtml(matrix) {
     return '<div class="studio-block"><strong>Architecture matrix</strong><p class="studio-muted">Compute a transfer first.</p></div>';
   }
   return `<div class="studio-block"><strong>Architecture matrix</strong>
-    <table class="studio-table"><thead><tr><th>Arch</th><th>Cap</th><th>Margin</th><th>OK?</th></tr></thead>
-    <tbody>${matrix.rows.map((r) => `
+    <table class="studio-table"><thead><tr><th>Arch</th><th>Cap</th><th>Margin</th><th>OK?</th><th></th></tr></thead>
+    <tbody>${matrix.rows.map((r, i) => `
       <tr class="${r.recommended ? 'is-rec' : ''} ${r.feasible ? 'is-ok' : 'is-no'}">
         <td>${esc(r.label)}${r.recommended ? ' ★' : ''}</td>
         <td>${fmtKmS(r.capability_dv_m_s)}${r.capability_cargo_kg != null ? ` / ${Math.round(r.capability_cargo_kg)} kg` : ''}</td>
         <td>${fmtKmS(r.margin_dv_m_s)}</td>
         <td>${r.feasible ? 'YES' : 'no'}</td>
+        <td><button type="button" class="btn-tiny" data-apply-arch="${i}">Apply</button></td>
       </tr>`).join('')}</tbody></table>
     <p class="studio-muted">${esc(matrix.note)}</p></div>`;
 }
@@ -519,6 +571,70 @@ async function handleAct(act, el, host) {
       notify(state.companionMode ? 'COMPANION MODE ON' : 'COMPANION MODE OFF');
       const btn = document.getElementById('btn-companion');
       if (btn) btn.textContent = state.companionMode ? 'FULL' : 'COMPANION';
+      return;
+    }
+    if (act === 'apply-family') {
+      let famPack = state.windowFamilies;
+      if (!famPack?.families?.length && state.windowShortlist?.length) {
+        famPack = clusterWindowFamilies(state.windowShortlist);
+        state.windowFamilies = famPack;
+      }
+      const f = famPack?.families?.find((x) => x.recommended) || famPack?.families?.[0];
+      if (!f) {
+        notify('NO WINDOW FAMILY — CLUSTER FIRST');
+        return;
+      }
+      const { applyWindowFamily } = await import('./campaign-apply.js');
+      const r = await applyWindowFamily(f);
+      if (out) {
+        out.hidden = false;
+        out.textContent = r.ok
+          ? `Applied family ${f.label}\n dep ${r.dep_iso} TOF ${r.tof_days}d`
+          : (r.error || 'apply failed');
+      }
+      return;
+    }
+    if (act === 'apply-arch') {
+      let matrix = state.architectureMatrix;
+      if (!matrix?.rows?.length && state.transferData?.dossier?.need) {
+        matrix = buildArchitectureMatrix(state.transferData.dossier.need, {
+          cargoMass_kg: state.cargoMass_kg,
+          originBody: state.routeOrigin,
+        });
+        state.architectureMatrix = matrix;
+      }
+      const row = matrix?.rows?.find((r) => r.recommended)
+        || matrix?.rows?.find((r) => r.feasible)
+        || matrix?.rows?.[0];
+      if (!row) {
+        notify('NO ARCHITECTURE ROW — COMPUTE / MATRIX FIRST');
+        return;
+      }
+      const { applyArchitectureRow } = await import('./campaign-apply.js');
+      const r = await applyArchitectureRow(row);
+      if (out) {
+        out.hidden = false;
+        out.textContent = r.ok
+          ? `Applied ${row.label}\n${JSON.stringify(r.applied, null, 2)}`
+          : (r.error || 'apply failed');
+      }
+      renderStudioPanel(host);
+      return;
+    }
+    if (act === 'path-truth') {
+      const { buildPathTruth, formatPathTruthLine } = await import('../physics/path-truth.js');
+      const truth = buildPathTruth(state.transferData, state);
+      if (out) {
+        out.hidden = false;
+        out.textContent = truth.ok
+          ? [formatPathTruthLine(truth), '', ...(truth.lines || [])].join('\n')
+          : (truth.note || 'unavailable');
+      }
+      const hostRes = document.getElementById('transfer-results');
+      if (hostRes) {
+        const { renderPathTruthHud } = await import('./path-truth-hud.js');
+        renderPathTruthHud(hostRes);
+      }
       return;
     }
   } catch (e) {
