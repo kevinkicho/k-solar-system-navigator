@@ -15,7 +15,7 @@ export function effectivePathGeometry(override) {
 }
 
 /**
- * Geometry for ship-aligned sampling (bead, tour, CSV, ship).
+ * Geometry for Need-honest sampling (exports, dual overlay physical branch).
  * Dual overlay (`both`) rides the physical / Need branch.
  * @param {string|null|undefined} [override]
  * @returns {'visual'|'physical'}
@@ -23,6 +23,31 @@ export function effectivePathGeometry(override) {
 export function pathSampleGeometry(override) {
   const g = effectivePathGeometry(override);
   return (g === 'physical' || g === 'both') ? 'physical' : 'visual';
+}
+
+/**
+ * Geometry for the drawn polyline, fly study ship, path bead, and camera tour.
+ *
+ * Cinematic display multiplies body inclinations (×8). A physical Lambert path
+ * lies near the ecliptic for Earth–Mars class transfers, so the blue arc looks
+ * “stuck on Earth’s orbital plane” while planets sit on exaggerated tilts.
+ * In cinematic mode we therefore stamp the **visual** (exaggerated-endpoint)
+ * orbit for scene alignment; Need/Δv remain on physical always.
+ *
+ * Schematic / ACCURATE / MAP: honor pathGeometry (product physical = ship≡Need).
+ *
+ * @param {string|null|undefined} [override]
+ * @returns {'visual'|'physical'}
+ */
+export function scenePathGeometry(override) {
+  if (override === 'visual' || override === 'physical') return override;
+  // Physics-accurate / map / schematic: path honesty with real inclinations
+  if (state.physicsAccurate || state.mapMode) return 'physical';
+  if (state.display?.mode === 'schematic') {
+    return pathSampleGeometry();
+  }
+  // Cinematic (default): match exaggerated planet positions
+  return 'visual';
 }
 
 export const state = {

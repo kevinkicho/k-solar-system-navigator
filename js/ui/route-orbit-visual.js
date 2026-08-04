@@ -8,7 +8,7 @@
  */
 import * as THREE from 'three';
 import { AU, DAY, LEG_COLORS } from '../constants.js';
-import { state, bumpPathRefineRequestId, effectivePathGeometry } from '../state.js';
+import { state, bumpPathRefineRequestId, effectivePathGeometry, scenePathGeometry } from '../state.js';
 import { getBodyPosition3D, getSunBarycentricOffset } from '../physics/kepler.js';
 import {
   buildTransferPathSamples, buildLegPathSamples, sampleTransferPathAtTime,
@@ -25,7 +25,6 @@ import { clearTransferRibbon, setTransferRibbon } from '../scene/transfer-ribbon
 import { clearDvArrows, setDvArrows } from '../scene/transfer-dv-arrows.js';
 import { clearPathBead } from '../scene/path-bead.js';
 import { scene } from '../scene/setup.js';
-import { isSchematic } from '../display-scale.js';
 
 let pathRefineWorker = null;
 let nbodyWorker = null;
@@ -35,8 +34,11 @@ function pathOptsFromState(td, extra = {}) {
   const longWay = extra.longWay != null
     ? extra.longWay
     : (td.visualLongWay != null ? td.visualLongWay : td.longWay);
-  const geom = extra.geometry
-    ?? (state.pathGeometry === 'physical' ? 'physical' : 'visual');
+  // Default scene path: visual in cinematic (matches tilted planets), physical in schematic
+  const geom = extra.geometry ?? scenePathGeometry();
+  const exaggerate = extra.exaggerate != null
+    ? extra.exaggerate
+    : (geom === 'visual');
   return {
     offsetPolicy: td.pathOffsetPolicy || state.pathOffsetPolicy || 'time_varying',
     sampleMode: state.pathSampleMode || 'equal_time',
@@ -44,7 +46,7 @@ function pathOptsFromState(td, extra = {}) {
     nSamples: extra.nSamples ?? 320,
     longWay,
     adaptive: !!(extra.adaptive ?? state.pathAccuracy?.adaptiveSampling),
-    exaggerate: extra.exaggerate,
+    exaggerate,
     ...extra,
   };
 }
@@ -103,41 +105,38 @@ export function updateTransferOrbitVisual() {
     return;
   }
 
-  // Physics-accurate / map mode → dual path (visual + physical)
-  const geomMode = (state.physicsAccurate || state.mapMode)
-    ? 'both'
-    : effectivePathGeometry();
+  // Scene primary path: cinematic visual (not glued to ecliptic under ×8 planet tilts);
+  // schematic / ACCURATE / MAP → physical (Need-aligned). Dual overlay when both/map/accurate.
+  const primaryGeom = scenePathGeometry();
+  const wantDual = state.physicsAccurate || state.mapMode
+    || effectivePathGeometry() === 'both'
+    || (primaryGeom === 'visual' && !!td.orbitPhysical); // faint physical twin in cinematic
   const depT = td.departureSimTime;
   const arrT = td.arrivalSimTime;
-  const dep = td.dep3D || getBodyPosition3D(td.body1, depT);
-  const arr = td.arr3D || getBodyPosition3D(td.body2, arrT);
+  // Endpoint bodies for markers: match scene path exaggeration
+  const dep = (primaryGeom === 'visual'
+    ? (td.dep3D || getBodyPosition3D(td.body1, depT, true))
+    : (td.dep3DPhysical || getBodyPosition3D(td.body1, depT, false)));
+  const arr = (primaryGeom === 'visual'
+    ? (td.arr3D || getBodyPosition3D(td.body2, arrT, true))
+    : (td.arr3DPhysical || getBodyPosition3D(td.body2, arrT, false)));
 
-  // Primary: physical when physics-accurate; else visual (or physical if selected)
-  const primaryGeom = state.physicsAccurate
-    ? 'physical'
-    : (geomMode === 'physical' ? 'physical' : 'visual');
   const opts = pathOptsFromState(td, {
     geometry: primaryGeom,
-    exaggerate: primaryGeom === 'physical' || state.physicsAccurate ? false : true,
-    offsetPolicy: primaryGeom === 'physical' && isSchematic()
-      ? (state.pathOffsetPolicy || 'time_varying')
-      : (primaryGeom === 'physical'
-        ? 'time_varying' // still use s(t); physical uses real-I orbit
-        : (state.pathOffsetPolicy || 'time_varying')),
+    exaggerate: primaryGeom === 'visual',
+    offsetPolicy: state.pathOffsetPolicy || 'time_varying',
   });
-  // Physical path uses real inclination orbit; sun offset still educational
-  if (primaryGeom === 'physical') {
-    opts.exaggerate = false;
-  }
 
   const built = buildTransferPathSamples(td, opts);
   if (built.fallback === 'physical') td.visualFallback = 'physical';
   else if (built.fallback === 'cosine') td.visualFallback = 'cosine';
+  td.scenePathGeometry = primaryGeom;
 
   const drawPts = samplesToLinePoints(built.points);
   if (drawPts.length >= 2) {
-    // Physical path = cyan; cinematic visual = orange
-    const color = primaryGeom === 'physical' ? 0x4fc3f7 : 0xff9800;
+    // Visual (cinematic scene-aligned) = cyan; physical (schematic/Need) = cyan-green
+    // Keep cyan for the primary so fly study reads as the active transfer arc
+    const color = primaryGeom === 'visual' ? 0x4fc3f7 : 0x00e5ff;
     setTransferLine(makeDashedLine(drawPts, color, 0.85));
     // Rich Three.js ribbon tube + DEP/MID/ARR ticks
     if (state.showTransferRibbon !== false) {
@@ -148,28 +147,28 @@ export function updateTransferOrbitVisual() {
         labels: [
           { frac: 0, text: 'DEP' },
           { frac: 0.5, text: tofDays != null ? `MID ${(tofDays * 0.5).toFixed(0)}d` : 'MID' },
-          { frac: 1, text: 'ARR' },
+          { frac: 1, text: primaryGeom === 'visual' ? 'ARR (scene)' : 'ARR' },
         ],
       });
     }
   }
 
   // Dual overlay: second geometry for honesty (physical under visual or vice versa)
-  if ((geomMode === 'both' || state.mapMode || state.physicsAccurate)
-      && (td.orbitPhysical || td.orbit)) {
+  if (wantDual && (td.orbitPhysical || td.orbit)) {
     const overlayGeom = primaryGeom === 'physical' ? 'visual' : 'physical';
     const builtP = buildTransferPathSamples(td, {
       ...pathOptsFromState(td, {
         geometry: overlayGeom,
-        exaggerate: overlayGeom === 'visual' && !state.physicsAccurate,
+        exaggerate: overlayGeom === 'visual',
         offsetPolicy: 'time_varying',
         nSamples: 256,
       }),
     });
     const ptsP = samplesToLinePoints(builtP.points);
     if (ptsP.length >= 2) {
-      const c2 = overlayGeom === 'physical' ? 0x81d4fa : 0xffb74d;
-      setPhysicalTransferLine(makeDashedLine(ptsP, c2, 0.45));
+      // Physical twin = dim amber; visual twin = dim orange
+      const c2 = overlayGeom === 'physical' ? 0xffb74d : 0xff9800;
+      setPhysicalTransferLine(makeDashedLine(ptsP, c2, 0.4));
     }
   }
 

@@ -30,7 +30,7 @@ export function displayModeBadge() {
     return 'VIEW: PHYSICS-ACCURATE — schematic frames · physical path · Δv from Lambert (Three.js is display only)';
   }
   if (isSchematic()) {
-    return 'VIEW: SCHEMATIC — incl. & sun wobble physical; moon orbits still layout-scaled; numbers always physical';
+    return 'VIEW: SCHEMATIC — real incl. · path matches Need plane · numbers always physical';
   }
-  return 'VIEW: CINEMATIC (exaggerated incl. / wobble)';
+  return 'VIEW: CINEMATIC — path uses exaggerated-incl. transfer (matches planet tilts; Need stays physical)';
 }

@@ -2,7 +2,7 @@
  * Product pathGeometry defaults: physical, MAP restore, effectivePathGeometry.
  */
 import {
-  state, effectivePathGeometry, pathSampleGeometry, PRODUCT_PATH_GEOMETRY,
+  state, effectivePathGeometry, pathSampleGeometry, scenePathGeometry, PRODUCT_PATH_GEOMETRY,
 } from '../js/state.js';
 
 let failed = 0;
@@ -36,6 +36,19 @@ check('MAP exit restore physical', state.pathGeometry === 'physical');
 check('pathSampleGeometry physical → physical', pathSampleGeometry('physical') === 'physical');
 check('pathSampleGeometry both → physical', pathSampleGeometry('both') === 'physical');
 check('pathSampleGeometry visual → visual', pathSampleGeometry('visual') === 'visual');
+
+// Scene path: cinematic uses visual (planet tilt alignment); schematic honors pathGeometry
+state.display = state.display || {};
+state.display.mode = 'cinematic';
+state.pathGeometry = 'physical';
+check('cinematic scenePathGeometry → visual', scenePathGeometry() === 'visual');
+state.display.mode = 'schematic';
+check('schematic + physical scenePathGeometry → physical', scenePathGeometry() === 'physical');
+state.physicsAccurate = true;
+state.display.mode = 'cinematic';
+check('physicsAccurate scenePathGeometry → physical', scenePathGeometry() === 'physical');
+state.physicsAccurate = false;
+state.display.mode = 'cinematic';
 
 // ACCURATE-off contract: never leave silent visual as product default
 state.pathGeometry = 'both';

@@ -18,7 +18,7 @@ import {
   resolvePlanetRelativeCentral,
   planetRelativePeriapsisOk,
   planetRelativeEndpointStates} from './planet-relative.js';
-import { state, effectivePathGeometry } from '../state.js';
+import { state, scenePathGeometry } from '../state.js';
 import { resolvePlanningBackend } from './planning-defaults.js';
 
 /**
@@ -701,11 +701,15 @@ export function getShipPositionOnTransfer(departureSimTime, tData, currentSimTim
   if (tData.departureSimTime == null && departureSimTime != null) {
     tData = { ...tData, departureSimTime };
   }
-  // Match dashed path geometry (industrial honesty): physical when pathGeometry is physical.
-  const pg = effectivePathGeometry(tData.pathGeometry || state.pathGeometry);
-  // Ship always rides the Need-matching branch; visual is display-only twin.
-  const geometry = (pg === 'physical' || pg === 'both') ? 'physical' : 'visual';
+  // Ship rides the same branch as the drawn dashed path (scenePathGeometry).
+  // Cinematic → visual (exaggerated endpoints so the arc is not glued to the ecliptic
+  // under 8× planet tilts). Schematic/ACCURATE → physical (Need-aligned).
+  // Need/Δv always use orbitPhysical regardless of this choice.
+  const geometry = scenePathGeometry();
+  const exaggerate = geometry === 'visual';
   return sampleTransferPathAtTime(tData, currentSimTime, {
     offsetPolicy: tData.pathOffsetPolicy || state.pathOffsetPolicy || 'time_varying',
-    geometry});
+    geometry,
+    exaggerate,
+  });
 }

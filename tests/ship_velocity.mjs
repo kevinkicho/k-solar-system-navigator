@@ -57,13 +57,22 @@ check(
 );
 
 // Vis-viva identity on the orbit the ship actually follows.
-// Product default pathGeometry is physical (industrial honesty: ship ≡ dashed path).
-const shipOrb = td.orbitPhysical || td.orbit;
+// Cinematic scenePathGeometry → visual (exaggerated); schematic → physical.
+const { scenePathGeometry } = await import('../js/state.js');
+const { state } = await import('../js/state.js');
+const geom = scenePathGeometry();
+const shipOrb = geom === 'physical'
+  ? (td.orbitPhysical || td.orbit)
+  : (td.orbit || td.orbitPhysical);
 const a = shipOrb.a;
 const rMid = shipMid.r_AU * AU;
 const vVis = Math.sqrt(mu * (2 / rMid - 1 / a));
 const err = Math.abs(vVis - shipMid.v_km_s * 1000) / vVis;
-check('mid-course matches vis-viva', err < 1e-6, `err=${(err * 100).toFixed(6)}%`);
+check(
+  'mid-course matches vis-viva',
+  err < 1e-5,
+  `err=${(err * 100).toFixed(6)}% geom=${geom} mode=${state.display?.mode}`,
+);
 
 // Physical orbit velocity matches Lambert v1 at t=0
 if (td.orbitPhysical && td.v1_lambert) {

@@ -209,7 +209,9 @@ const liveOff = getSunBarycentricOffset(tdEJ.departureSimTime + tdEJ.transferTim
 const bugMag = Math.hypot(midOff.x - liveOff.x, midOff.y - liveOff.y, midOff.z - liveOff.z);
 console.log(`  · diagnostic: midOff vs s(t@10%) Δ ≈ ${bugMag.toFixed(4)} AU (old ship–line drift scale)`);
 
-// ——— Physical pathGeometry: ship must follow physical conic (industrial honesty) ———
+// ——— Schematic + physical: ship follows physical Need conic ———
+state.display = state.display || {};
+state.display.mode = 'schematic';
 state.pathGeometry = 'physical';
 const tdPhys = makeTd(earth, mars, '2026-12-01T12:00:00Z', 259);
 tdPhys.pathGeometry = 'physical';
@@ -221,6 +223,7 @@ if (tdPhys.lambertOk) {
     const line = sampleTransferPathAtTime(tdPhys, t, {
       offsetPolicy: 'time_varying',
       geometry: 'physical',
+      exaggerate: false,
     });
     if (!ship || !line) { maxPhys = Infinity; break; }
     const d = Math.hypot(ship.x - line.x, ship.y - line.y, ship.z - line.z);
@@ -228,11 +231,37 @@ if (tdPhys.lambertOk) {
   }
 }
 check(
-  'C-phys ship–line residual ≤ 1e-6 AU when pathGeometry=physical',
+  'C-phys ship–line residual ≤ 1e-6 AU (schematic + physical)',
   maxPhys <= 1e-6,
   `max=${maxPhys.toExponential(3)} AU`,
 );
+
+// ——— Cinematic: ship follows visual (exaggerated) so arc is not ecliptic-flat under ×8 planet tilts ———
+state.display.mode = 'cinematic';
+state.pathGeometry = 'physical'; // product setting — scene still uses visual
+const tdVis = makeTd(earth, mars, '2026-12-01T12:00:00Z', 259);
+let maxVis = 0;
+if (tdVis.lambertOk && tdVis.orbit) {
+  for (let k = 0; k <= 20; k++) {
+    const t = tdVis.departureSimTime + (k / 20) * tdVis.transferTime;
+    const ship = getShipPositionOnTransfer(tdVis.departureSimTime, tdVis, t);
+    const line = sampleTransferPathAtTime(tdVis, t, {
+      offsetPolicy: 'time_varying',
+      geometry: 'visual',
+      exaggerate: true,
+    });
+    if (!ship || !line) { maxVis = Infinity; break; }
+    const d = Math.hypot(ship.x - line.x, ship.y - line.y, ship.z - line.z);
+    if (d > maxVis) maxVis = d;
+  }
+}
+check(
+  'C-cinematic ship–line residual ≤ 1e-6 AU on visual branch',
+  maxVis <= 1e-6,
+  `max=${maxVis.toExponential(3)} AU`,
+);
 state.pathGeometry = 'visual';
+state.display.mode = 'cinematic';
 
 if (failed) {
   console.error(`\n${failed} path frame consistency check(s) failed`);
