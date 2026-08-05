@@ -1,7 +1,7 @@
 /**
  * On-screen trajectory / scale HUD — AU distances, path residual, mode honesty.
  */
-import { state, effectivePathGeometry } from '../state.js';
+import { state, effectivePathGeometry, scenePathSampleOpts } from '../state.js';
 import { isSchematic } from '../display-scale.js';
 import {
   buildTransferPathSamples, sampleTransferPathAtTime} from '../physics/transfer-path.js';
@@ -37,13 +37,13 @@ export function measurePathResidual(td) {
   if (!td || td.isMultiLeg) {
     return { maxAU: null, samples: 0, note: td?.isMultiLeg ? 'multi-leg residual N/A' : 'no transfer' };
   }
-  const geom = state.pathGeometry === 'physical' ? 'physical' : 'visual';
+  // Must match getShipPositionOnTransfer (Present: physical + cinematic_endpoints)
   const opts = {
-    geometry: geom,
-    exaggerate: geom !== 'physical',
+    ...scenePathSampleOpts(),
     sampleMode: state.pathSampleMode || 'equal_time',
     offsetPolicy: state.pathOffsetPolicy || 'time_varying',
-    nSamples: 8};
+    nSamples: 8,
+  };
   const t0 = td.departureSimTime;
   const T = td.transferTime;
   if (t0 == null || !(T > 0)) return { maxAU: null, samples: 0, note: 'no TOF' };
@@ -66,7 +66,10 @@ export function measurePathResidual(td) {
   return {
     maxAU: n ? maxAU : null,
     samples: n,
-    note: n ? 'ship–line same-t residual' : 'no samples'};
+    note: n
+      ? `ship–line same-t residual (${opts.geometry}${opts.displayTransform ? '+' + opts.displayTransform : ''})`
+      : 'no samples',
+  };
 }
 
 /** Helio r of selected body or ship (AU). */
