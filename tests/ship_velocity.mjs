@@ -57,7 +57,7 @@ check(
 );
 
 // Vis-viva identity on the orbit the ship actually follows.
-// Present: physical Lambert + display transform (velocity still helio 2-body).
+// Present cinematic: visual Lambert (td.orbit). Analyze/schematic: physical.
 const { scenePathGeometry } = await import('../js/state.js');
 const { state } = await import('../js/state.js');
 state.productMode = 'present';
@@ -65,11 +65,19 @@ state.display = state.display || {};
 state.display.mode = 'cinematic';
 state.mapMode = false;
 state.physicsAccurate = false;
+if (state.pathAccuracy) state.pathAccuracy.useEndpointBlend = false;
 const geom = scenePathGeometry();
-const shipOrb = td.orbitPhysical || td.orbit;
+const shipOrb = geom === 'physical'
+  ? (td.orbitPhysical || td.orbit)
+  : (td.orbit || td.orbitPhysical);
+if (!shipOrb?.a) throw new Error('ship orbit missing a');
 const a = shipOrb.a;
-const rMid = shipMid.r_AU * AU;
-const vVis = Math.sqrt(mu * (2 / rMid - 1 / a));
+// Helio radius (AU) for vis-viva — not scene-frame with sun offset
+const rMidAU = shipMid.r_helio
+  ? Math.hypot(shipMid.r_helio.x, shipMid.r_helio.y, shipMid.r_helio.z)
+  : shipMid.r_AU;
+const rMidM = rMidAU * AU;
+const vVis = Math.sqrt(mu * (2 / rMidM - 1 / a));
 const err = Math.abs(vVis - shipMid.v_km_s * 1000) / vVis;
 check(
   'mid-course matches vis-viva',
