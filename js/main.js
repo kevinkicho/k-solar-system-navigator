@@ -154,8 +154,9 @@ timeState.setSpeed(3);
 timeState.updateDisplay();
 document.getElementById('depart-date').value = dateToInputValue(timeState.getDate());
 
-// Apply share hash after UI is ready.
+// Apply share hash after UI is ready; optional ?recompute=1 / ?review= review link.
 tryApplyHashOnLoad();
+import('./ui/review-recompute.js').then((m) => m.tryApplyReviewOnLoad?.()).catch(() => {});
 
 setTimeout(() => {
   const hint = document.getElementById('help-hint');

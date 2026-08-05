@@ -32,6 +32,7 @@ const LADDERS = {
   'studio-apply': ['get_window_families', 'apply_window_family', 'get_architecture_matrix', 'apply_architecture_row'],
   'path-honesty': ['get_path_truth', 'get_residual_dashboard'],
   'campaign-object': ['run_campaign_dag', 'get_path_truth', 'pin_plan', 'get_campaign_snapshot'],
+  'review-recompute': ['get_campaign_snapshot', 'compute_route', 'get_path_truth'],
 };
 
 for (const [id, tools] of Object.entries(LADDERS)) {

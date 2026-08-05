@@ -106,6 +106,23 @@ Naming: **plan timeline** = recompute seeds; **plan flow (DAG)** = branching mat
 | Playwright Studio soft checks | `tests/ci_ui.mjs` section 4b |
 | `get_campaign_snapshot` tool | C2 + FAB |
 
+## Pass 5 (2026-08) — Full reapply · plan-flow facade · review recompute
+
+| Feature | Module |
+|---------|--------|
+| Full plan seed reapply (o/d, vehicle, flybys, sites, eph) | `js/ui/plan-reapply.js` |
+| Normalize compact **or** `parsePlanRequest` shapes | `normalizePlanRequest` |
+| Unified plan-flow facade (timeline / DAG / log) | `js/agent/plan-flow.js` |
+| Review URL `?recompute=1` + hash → recompute geometry | `js/ui/review-recompute.js` |
+| Timeline UNDO/REDO/JUMP uses full reapply | `js/ui/campaign-timeline-ui.js` |
+| Studio **COPY REVIEW URL** · **RUN PLAN FLOW** | `js/ui/studio-panel.js` |
+| Pure reapply + review URL contracts | `tests/plan_reapply.mjs` |
+
+**Naming (product):**
+- **Plan timeline** — campaign-object steps; recompute seeds only (never trust stored Δv)
+- **Plan flow (DAG)** — `runPlanFlow` → campaign-dag matrix + recover
+- **Plan flow log** — campaign-runner linear steps + optional approve
+
 ## Still deferred (honest backlog)
 
 - Full DAG visual editor / multi-user org ACLs with share tokens  
@@ -113,6 +130,7 @@ Naming: **plan timeline** = recompute seeds; **plan flow (DAG)** = branching mat
 - True free-return corridor / multi-rev free-return OD  
 - DSM re-optimized multi-leg Lambert  
 - Native mobile app (companion mode is browser shell only)  
-- Hard Playwright matrix-apply assertion (soft checks landed)  
+- Package zip v3 / PWA shell  
+- Hard Playwright matrix-apply assertion (soft + review-URL checks landed)  
 
 

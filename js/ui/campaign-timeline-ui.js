@@ -1,5 +1,5 @@
 /**
- * Campaign timeline strip — undo/redo + run campaign CTA.
+ * Plan timeline strip — undo/redo + run plan flow CTA.
  */
 
 import { state } from '../state.js';
@@ -15,6 +15,7 @@ import {
   snapshotCampaign,
   onCampaignChange,
 } from '../agent/campaign-object.js';
+import { reapplyPlanRequest } from './plan-reapply.js';
 
 function esc(s) {
   return String(s || '')
@@ -45,26 +46,27 @@ export function renderCampaignTimeline(host) {
   const camp = getCampaign();
   const steps = listCampaignSteps();
   const lines = formatCampaignTimeline(camp);
-
   const canUndo = (camp?.cursor ?? 0) > 0;
   const canRedo = camp && camp.cursor < steps.length - 1;
+
   el.innerHTML = `
     <div class="ct-head">
       <span class="ct-title">PLAN TIMELINE · recompute seeds</span>
       <span class="ct-actions">
-        <button type="button" class="btn-tiny" id="ct-run" title="Branching plan run: compute, architecture matrix, optional recovery (not flight ops)">RUN PLAN FLOW</button>
+        <button type="button" class="btn-tiny" id="ct-run" title="Plan flow DAG: compute, architecture matrix, optional recovery">RUN PLAN FLOW</button>
         <button type="button" class="btn-tiny" id="ct-undo" ${canUndo ? '' : 'disabled'}>UNDO</button>
         <button type="button" class="btn-tiny" id="ct-redo" ${canRedo ? '' : 'disabled'}>REDO</button>
         <button type="button" class="btn-tiny" id="ct-snap">SNAPSHOT</button>
+        <button type="button" class="btn-tiny" id="ct-review-url" title="Copy URL that recomputes this plan">COPY REVIEW URL</button>
         <button type="button" class="btn-tiny" id="ct-clear" ${!steps.length ? 'disabled' : ''}>CLEAR</button>
       </span>
     </div>
     <ol class="ct-steps">
       ${steps.length
-    ? lines.map((l, i) => `<li class="${i === camp?.cursor ? 'is-cur' : ''}">${esc(l)}</li>`).join('')
+    ? lines.map((l, i) => `<li class="${i === camp?.cursor ? 'is-cur' : ''}" data-step="${i}">${esc(l)}</li>`).join('')
     : '<li class="ct-empty">No steps yet — compute or apply family/arch to log plan seeds.</li>'}
     </ol>
-    <p class="ct-note">Partial restore only: vehicle / cargo / dep / TOF from plan_request, then recompute. Does not restore flybys, origin/dest changes, or fidelity flags. Not flight truth.</p>
+    <p class="ct-note">UNDO/REDO restores o/d, vehicle, dep/TOF, flybys from plan_request then recomputes. Not flight truth.</p>
   `;
 
   el.querySelector('#ct-undo')?.addEventListener('click', async () => {
@@ -73,7 +75,7 @@ export function renderCampaignTimeline(host) {
       notify('NOTHING TO UNDO');
       return;
     }
-    await reapplyStep(step);
+    await reapplyPlanRequest(step.plan_request, { notifyUser: false });
     notify(`UNDO → ${step.label}`);
     renderCampaignTimeline(host);
   });
@@ -83,7 +85,7 @@ export function renderCampaignTimeline(host) {
       notify('NOTHING TO REDO');
       return;
     }
-    await reapplyStep(step);
+    await reapplyPlanRequest(step.plan_request, { notifyUser: false });
     notify(`REDO → ${step.label}`);
     renderCampaignTimeline(host);
   });
@@ -93,43 +95,47 @@ export function renderCampaignTimeline(host) {
       label: 'Manual snapshot',
       source: 'timeline',
     });
-    notify('CAMPAIGN SNAPSHOT');
+    notify('PLAN SNAPSHOT');
     renderCampaignTimeline(host);
   });
   el.querySelector('#ct-clear')?.addEventListener('click', () => {
     clearCampaign();
-    notify('CAMPAIGN CLEARED');
+    notify('PLAN TIMELINE CLEARED');
     renderCampaignTimeline(host);
+  });
+  el.querySelector('#ct-review-url')?.addEventListener('click', async () => {
+    try {
+      const { buildReviewRecomputeUrl } = await import('./review-recompute.js');
+      const url = await buildReviewRecomputeUrl();
+      if (!url) {
+        notify('SET ROUTE + COMPUTE FIRST');
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      notify('REVIEW URL COPIED · recompute=1');
+    } catch (e) {
+      notify(e.message || 'COPY FAILED');
+    }
   });
   el.querySelector('#ct-run')?.addEventListener('click', async () => {
     const out = document.getElementById('studio-out')
       || document.querySelector('#helios-studio .studio-out');
     if (out) {
       out.hidden = false;
-      out.textContent = 'Running campaign…';
+      out.textContent = 'Running plan flow…';
     }
     try {
-      const { runCampaignDag } = await import('../agent/campaign-dag.js');
-      pushCampaignStep({ kind: 'dag', label: 'Run campaign DAG', source: 'timeline' });
-      const dag = await runCampaignDag({
+      const { runPlanFlow } = await import('../agent/plan-flow.js');
+      const dag = await runPlanFlow({
         origin: state.routeOrigin?.name,
         destination: state.routeDestination?.name,
-        compute: true,
-        autoRecover: true,
-        suggestItineraries: false,
-      });
-      pushCampaignStep({
-        kind: 'dag_done',
-        label: `DAG ${dag?.status || 'done'}`,
-        detail: `${dag?.nodes?.length || 0} nodes`,
-        source: 'timeline',
-      });
+      }, { source: 'timeline' });
       if (out) {
         out.textContent = (dag?.nodes || [])
           .map((n) => `${n.status}: ${n.label}${n.detail ? ' — ' + n.detail : ''}`)
           .join('\n');
       }
-      notify('PLAN FLOW COMPLETE · review Studio / path truth');
+      notify('PLAN FLOW COMPLETE');
       renderCampaignTimeline(host);
       import('./studio-panel.js').then((m) => m.renderStudioPanel?.(host)).catch(() => {});
     } catch (e) {
@@ -137,78 +143,21 @@ export function renderCampaignTimeline(host) {
       if (out) out.textContent = e.message || String(e);
     }
   });
-}
 
-/**
- * Partial restore from plan_request seed (vehicle/dates/TOF only) + recompute.
- * Does not restore flybys or route endpoints.
- */
-async function reapplyStep(step) {
-  const pr = step?.plan_request;
-  if (!pr) {
-    notify('STEP HAS NO SEED — cannot restore');
-    return;
-  }
-  // Apply vehicle fields from seed
-  // Restore origin/dest when seed has them (partial — no surface points)
-  if (pr.o || pr.d) {
-    try {
-      const { findByIdOrName } = await import('../data/catalog.js');
-      const { setRouteOrigin, setRouteDestination } = await import('./route-planner.js');
-      if (pr.o) {
-        const b = findByIdOrName(pr.o);
-        if (b) setRouteOrigin(b);
+  // Click step to jump cursor + reapply
+  el.querySelectorAll('[data-step]').forEach((li) => {
+    li.style.cursor = 'pointer';
+    li.addEventListener('click', async () => {
+      const i = Number(li.getAttribute('data-step'));
+      const { setCampaignCursor } = await import('../agent/campaign-object.js');
+      const step = setCampaignCursor(i);
+      if (step?.plan_request) {
+        await reapplyPlanRequest(step.plan_request, { notifyUser: false });
+        notify(`JUMP → ${step.label}`);
       }
-      if (pr.d) {
-        const b = findByIdOrName(pr.d);
-        if (b) setRouteDestination(b);
-      }
-    } catch { /* */ }
-  }
-  if (pr.veh) {
-    state.vehicleId = pr.veh;
-    const sel = document.getElementById('vehicle-select');
-    if (sel) {
-      sel.value = pr.veh;
-      sel.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-  }
-  if (pr.arch) state.starshipArch = pr.arch;
-  if (pr.tankers != null) state.tankerCount = Number(pr.tankers) || 0;
-  if (pr.cargo != null) {
-    state.cargoMass_kg = Number(pr.cargo) || 0;
-    const c = document.getElementById('cargo-mass');
-    if (c) {
-      c.value = String(state.cargoMass_kg);
-      c.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-  }
-  if (pr.dep) {
-    const { dateToSimTime, dateToInputValue } = await import('./format.js');
-    const { timeState } = await import('./time-system.js');
-    const d = new Date(pr.dep + 'T00:00:00Z');
-    if (!isNaN(d.getTime())) {
-      const input = document.getElementById('depart-date');
-      if (input) {
-        input.value = dateToInputValue(d);
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      timeState.simTime = dateToSimTime(d);
-      timeState.updateDisplay();
-    }
-  }
-  if (pr.tof != null) {
-    state.userTofDays = Number(pr.tof);
-    const tofInput = document.getElementById('tof-days');
-    if (tofInput) {
-      tofInput.value = String(pr.tof);
-      tofInput.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-  }
-  if (state.routeOrigin && state.routeDestination) {
-    const { computeRoute } = await import('./route-planner.js');
-    computeRoute();
-  }
+      renderCampaignTimeline(host);
+    });
+  });
 }
 
 export { snapshotCampaign };

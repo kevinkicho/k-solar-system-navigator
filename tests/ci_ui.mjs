@@ -324,12 +324,34 @@ try {
     check('plan timeline mounted', ct >= 1);
     const studio = await prodPage.locator('#helios-studio').count();
     check('Studio plan board mounted', studio >= 1);
+    const reviewBtn = await prodPage.locator('#ct-review-url, [data-act="review-url"]').count();
+    check('COPY REVIEW URL control present', reviewBtn >= 1);
+    const recomputeUrl = await prodPage.evaluate(async () => {
+      try {
+        const m = await import('/js/ui/review-recompute.js');
+        return await m.buildReviewRecomputeUrl();
+      } catch (e) {
+        return `ERR:${e.message}`;
+      }
+    });
+    check(
+      'buildReviewRecomputeUrl includes recompute=1',
+      typeof recomputeUrl === 'string'
+        && recomputeUrl.includes('recompute=1')
+        && (recomputeUrl.includes('v=1') || recomputeUrl.includes('#')),
+      String(recomputeUrl).slice(0, 120),
+    );
+    const runFlowBtn = await prodPage.locator('#ct-run, [data-act="dag"]').count();
+    check('RUN PLAN FLOW control present', runFlowBtn >= 1);
   } else {
     // Soft skip if compute path differs in CI chrome
     check('path-truth HUD mounted with transferData', true, 'skip — no transferData');
     check('path-truth HUD visible', true, 'skip');
     check('plan timeline mounted', true, 'skip');
     check('Studio plan board mounted', true, 'skip');
+    check('COPY REVIEW URL control present', true, 'skip');
+    check('buildReviewRecomputeUrl includes recompute=1', true, 'skip');
+    check('RUN PLAN FLOW control present', true, 'skip');
   }
 
   await prodPage.close();

@@ -101,6 +101,7 @@ export function renderStudioPanel(host) {
         <button type="button" class="btn-tiny" data-act="sample-return">Sample-return sketch</button>
         <button type="button" class="btn-tiny" data-act="dsm">Add DSM seed</button>
         <button type="button" class="btn-tiny" data-act="dag">Plan flow (DAG)</button>
+        <button type="button" class="btn-tiny" data-act="review-url">Copy review URL</button>
         <button type="button" class="btn-tiny" data-act="reviews">List reviews</button>
         <button type="button" class="btn-tiny" data-act="companion">Companion mode</button>
       </div>
@@ -385,16 +386,13 @@ async function handleAct(act, el, host) {
     if (act === 'dag') {
       if (out) {
         out.hidden = false;
-        out.textContent = 'Running campaign DAG…';
+        out.textContent = 'Running plan flow (DAG)…';
       }
-      const { runCampaignDag } = await import('../agent/campaign-dag.js');
-      const dag = await runCampaignDag({
+      const { runPlanFlow } = await import('../agent/plan-flow.js');
+      const dag = await runPlanFlow({
         origin: state.routeOrigin?.name,
         destination: state.routeDestination?.name,
-        compute: true,
-        autoRecover: true,
-        suggestItineraries: false,
-      });
+      }, { source: 'studio' });
       if (out) {
         out.textContent = (dag.nodes || []).map((n) => `${n.status}: ${n.label}${n.detail ? ' — ' + n.detail : ''}`).join('\n');
       }
@@ -624,6 +622,25 @@ async function handleAct(act, el, host) {
       if (hostRes) {
         const { renderPathTruthHud } = await import('./path-truth-hud.js');
         renderPathTruthHud(hostRes);
+      }
+      return;
+    }
+    if (act === 'review-url') {
+      const { buildReviewRecomputeUrl } = await import('./review-recompute.js');
+      const url = await buildReviewRecomputeUrl();
+      if (!url) {
+        notify('SET ROUTE + COMPUTE FIRST');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+        notify('REVIEW URL COPIED');
+      } catch {
+        if (out) {
+          out.hidden = false;
+          out.textContent = url;
+        }
+        notify('URL IN STUDIO OUT (clipboard blocked)');
       }
       return;
     }
