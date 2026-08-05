@@ -15,13 +15,14 @@ function assert(cond, msg) {
 const earth = BODIES.find((b) => b.name === 'Earth');
 const mars = BODIES.find((b) => b.name === 'Mars');
 assert(earth && mars, 'bodies');
-// Present product defaults: physical + cinematic_endpoints (ship ≡ dashed path)
+// Present product defaults: visual scene path (ship ≡ one arc)
 state.pathGeometry = 'physical';
 state.productMode = 'present';
 state.mapMode = false;
 state.physicsAccurate = false;
 state.display = state.display || {};
 state.display.mode = 'cinematic';
+if (state.pathAccuracy) state.pathAccuracy.useEndpointBlend = false;
 
 // ~2026-04-23 class departure
 const depSim = (Date.UTC(2026, 3, 23, 12) - Date.UTC(2000, 0, 1, 12)) / 1000;

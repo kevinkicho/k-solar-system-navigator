@@ -37,14 +37,15 @@ check('pathSampleGeometry physical → physical', pathSampleGeometry('physical')
 check('pathSampleGeometry both → physical', pathSampleGeometry('both') === 'physical');
 check('pathSampleGeometry visual → visual', pathSampleGeometry('visual') === 'visual');
 
-// Scene path: Present uses physical + cinematic_endpoints transform; schematic honors pathGeometry
+// Scene path: Present = visual; Analyze/schematic = physical
 state.display = state.display || {};
 state.display.mode = 'cinematic';
 state.productMode = 'present';
 state.mapMode = false;
 state.physicsAccurate = false;
 state.pathGeometry = 'physical';
-check('cinematic Present scenePathGeometry → physical', scenePathGeometry() === 'physical');
+if (state.pathAccuracy) state.pathAccuracy.useEndpointBlend = false;
+check('cinematic Present scenePathGeometry → visual', scenePathGeometry() === 'visual');
 state.display.mode = 'schematic';
 state.productMode = 'analyze';
 check('schematic + physical scenePathGeometry → physical', scenePathGeometry() === 'physical');

@@ -25,6 +25,7 @@ import {
 } from '../scene/transfer-visual.js';
 import { setEpochDestinationBody, hideEpochDestinationBody } from '../scene/epoch-body.js';
 import { clearTransferRibbon, setTransferRibbon } from '../scene/transfer-ribbon.js';
+// setTransferLine(null) clears dashed stroke when stroke=ribbon only
 import { clearDvArrows, setDvArrows } from '../scene/transfer-dv-arrows.js';
 import { clearPathBead } from '../scene/path-bead.js';
 import { scene } from '../scene/setup.js';
@@ -122,21 +123,19 @@ export function updateTransferOrbitVisual() {
     return;
   }
 
-  // Present: physical Lambert + cinematic endpoint transform (one solve).
-  // Analyze/schematic: physical. Compare/Ops: dual overlay.
+  // Present: one visual Lambert arc (matches planet tilts). Analyze: physical.
+  // Compare/Ops: dual overlay. Never draw ribbon+dashed together (looks like 2 trips).
   const sampleOpts = scenePathSampleOpts();
   const primaryGeom = sampleOpts.geometry;
   const cinematicXf = sampleOpts.displayTransform === 'cinematic_endpoints';
-  let wantDual = !!(state.physicsAccurate || state.mapMode
-    || effectivePathGeometry() === 'both'
-    || state.productMode === 'compare'
-    || state.productMode === 'ops');
-  if (state.productMode === 'present' || state.productMode === 'analyze') {
-    wantDual = effectivePathGeometry() === 'both';
-  }
+  // Dual overlay ONLY in Compare/Ops (or Advanced pathGeometry=both)
+  const wantDual = (state.productMode === 'compare' || state.productMode === 'ops'
+    || state.physicsAccurate || state.mapMode
+    || effectivePathGeometry() === 'both')
+    && state.productMode !== 'present'
+    && state.productMode !== 'analyze';
   const depT = td.departureSimTime;
   const arrT = td.arrivalSimTime;
-  // Endpoints: cinematic Present uses exaggerated body positions (matches transform)
   const useExagEnds = cinematicXf || primaryGeom === 'visual';
   const dep = (useExagEnds
     ? (td.dep3D || getBodyPosition3D(td.body1, depT, true))
@@ -156,40 +155,49 @@ export function updateTransferOrbitVisual() {
   td.scenePathGeometry = primaryGeom;
   td.sceneDisplayTransform = sampleOpts.displayTransform || null;
 
+  // Always clear dual twin unless we redraw it
+  setPhysicalTransferLine(null);
+
   const drawPts = samplesToLinePoints(built.points);
   if (drawPts.length >= 2) {
-    // Present (transformed physical) or visual = cyan; pure physical = cyan-green
     const color = (cinematicXf || primaryGeom === 'visual') ? 0x4fc3f7 : 0x00e5ff;
-    setTransferLine(makeDashedLine(drawPts, color, 0.85));
-    if (state.showTransferRibbon !== false) {
-      const tofDays = td.transferTime != null ? td.transferTime / DAY : null;
-      setTransferRibbon(drawPts, {
-        color,
-        labels: [
-          { frac: 0, text: 'DEP' },
-          { frac: 0.5, text: tofDays != null ? `MID ${(tofDays * 0.5).toFixed(0)}d` : 'MID' },
-          { frac: 1, text: cinematicXf ? 'ARR (scene)' : 'ARR' },
-        ],
-      });
+    // One stroke only — ribbon+dashed looked like two trajectories
+    const stroke = state.transferStroke
+      || (state.showTransferRibbon === false ? 'line' : 'ribbon');
+    const tofDays = td.transferTime != null ? td.transferTime / DAY : null;
+    const labels = [
+      { frac: 0, text: 'DEP' },
+      { frac: 0.5, text: tofDays != null ? `MID ${(tofDays * 0.5).toFixed(0)}d` : 'MID' },
+      { frac: 1, text: primaryGeom === 'visual' ? 'ARR (scene)' : 'ARR' },
+    ];
+    if (stroke === 'line' || stroke === 'both') {
+      setTransferLine(makeDashedLine(drawPts, color, 0.9));
+    } else {
+      setTransferLine(null);
+    }
+    if (stroke === 'ribbon' || stroke === 'both') {
+      setTransferRibbon(drawPts, { color, labels });
+    } else {
+      try { clearTransferRibbon(); } catch { /* */ }
     }
   }
 
-  // Dual overlay: second geometry for honesty (physical under visual or vice versa)
+  // Dual overlay: amber twin — Compare/Ops honesty only (not Present)
   if (wantDual && (td.orbitPhysical || td.orbit)) {
     const overlayGeom = primaryGeom === 'physical' ? 'visual' : 'physical';
     const builtP = buildTransferPathSamples(td, {
       ...pathOptsFromState(td, {
         geometry: overlayGeom,
         exaggerate: overlayGeom === 'visual',
+        displayTransform: null,
         offsetPolicy: 'time_varying',
         nSamples: 256,
       }),
     });
     const ptsP = samplesToLinePoints(builtP.points);
     if (ptsP.length >= 2) {
-      // Physical twin = dim amber; visual twin = dim orange
       const c2 = overlayGeom === 'physical' ? 0xffb74d : 0xff9800;
-      setPhysicalTransferLine(makeDashedLine(ptsP, c2, 0.4));
+      setPhysicalTransferLine(makeDashedLine(ptsP, c2, 0.35));
     }
   }
 

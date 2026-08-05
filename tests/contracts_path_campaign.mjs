@@ -34,8 +34,9 @@ state.productMode = 'present';
 state.mapMode = false;
 state.physicsAccurate = false;
 state.display.mode = 'cinematic';
-check('cinematic Present → physical + transform', scenePathGeometry() === 'physical');
-check('cinematic Present uses endpoint transform', useCinematicEndpointTransform() === true);
+if (state.pathAccuracy) state.pathAccuracy.useEndpointBlend = false;
+check('cinematic Present → visual (one scene arc)', scenePathGeometry() === 'visual');
+check('cinematic Present transform OFF by default', useCinematicEndpointTransform() === false);
 check('Need sample still physical when setting physical', pathSampleGeometry() === 'physical');
 
 state.display.mode = 'schematic';
@@ -45,7 +46,7 @@ state.physicsAccurate = true;
 check('ACCURATE → scene physical', scenePathGeometry() === 'physical');
 state.physicsAccurate = false;
 
-// Ship ≡ line under cinematic Present (physical + cinematic_endpoints transform)
+// Ship ≡ line under cinematic Present (visual Lambert — one arc)
 const earth = BODIES.find((b) => b.name === 'Earth');
 const mars = BODIES.find((b) => b.name === 'Mars');
 const depT = (Date.UTC(2026, 11, 1, 12) - Date.UTC(2000, 0, 1, 12)) / 1000;
@@ -61,16 +62,15 @@ state.display.mode = 'cinematic';
 state.productMode = 'present';
 state.mapMode = false;
 state.physicsAccurate = false;
+if (state.pathAccuracy) state.pathAccuracy.useEndpointBlend = false;
 check('Lambert ok for path truth', !!td.lambertOk);
-check('Present scene geometry physical', scenePathGeometry() === 'physical');
+check('Present scene geometry visual', scenePathGeometry() === 'visual');
 
 let maxD = 0;
 if (td.lambertOk) {
   const pathOpts = {
-    geometry: 'physical',
-    exaggerate: false,
-    displayTransform: 'cinematic_endpoints',
-    offsetExaggerate: true,
+    geometry: 'visual',
+    exaggerate: true,
     offsetPolicy: 'time_varying',
   };
   for (let k = 0; k <= 10; k++) {
@@ -81,7 +81,7 @@ if (td.lambertOk) {
     maxD = Math.max(maxD, Math.hypot(ship.x - line.x, ship.y - line.y, ship.z - line.z));
   }
 }
-check('cinematic ship≡transformed physical path ≤ 1e-6 AU', maxD <= 1e-6, `max=${maxD}`);
+check('cinematic ship≡visual path ≤ 1e-6 AU', maxD <= 1e-6, `max=${maxD}`);
 
 // Path truth
 const truth = buildPathTruth(td, state, td.arrivalSimTime);

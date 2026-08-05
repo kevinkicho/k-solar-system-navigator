@@ -34,11 +34,12 @@ clearSunOffsetCache();
 setDisplayMode('cinematic');
 state.pathOffsetPolicy = 'time_varying';
 state.pathSampleMode = 'equal_time';
-// Present: physical Lambert + cinematic_endpoints display transform
+// Present: visual Lambert (one scene arc); Need stays physical
 state.pathGeometry = 'physical';
 state.productMode = 'present';
 state.mapMode = false;
 state.physicsAccurate = false;
+if (state.pathAccuracy) state.pathAccuracy.useEndpointBlend = false;
 
 const earth = BODIES.find((b) => b.name === 'Earth');
 const mars = BODIES.find((b) => b.name === 'Mars');
@@ -255,19 +256,18 @@ state.display.mode = 'cinematic';
 state.productMode = 'present';
 state.mapMode = false;
 state.physicsAccurate = false;
-state.pathGeometry = 'physical'; // Present: physical + cinematic_endpoints
+state.pathGeometry = 'physical';
+if (state.pathAccuracy) state.pathAccuracy.useEndpointBlend = false;
 const tdVis = makeTd(earth, mars, '2026-12-01T12:00:00Z', 259);
 let maxVis = 0;
-if (tdVis.lambertOk && (tdVis.orbitPhysical || tdVis.orbit)) {
+if (tdVis.lambertOk && tdVis.orbit) {
   for (let k = 0; k <= 20; k++) {
     const t = tdVis.departureSimTime + (k / 20) * tdVis.transferTime;
     const ship = getShipPositionOnTransfer(tdVis.departureSimTime, tdVis, t);
     const line = sampleTransferPathAtTime(tdVis, t, {
       offsetPolicy: 'time_varying',
-      geometry: 'physical',
-      exaggerate: false,
-      displayTransform: 'cinematic_endpoints',
-      offsetExaggerate: true,
+      geometry: 'visual',
+      exaggerate: true,
     });
     if (!ship || !line) { maxVis = Infinity; break; }
     const d = Math.hypot(ship.x - line.x, ship.y - line.y, ship.z - line.z);
@@ -275,7 +275,7 @@ if (tdVis.lambertOk && (tdVis.orbitPhysical || tdVis.orbit)) {
   }
 }
 check(
-  'C-cinematic ship–line residual ≤ 1e-6 AU on transformed physical',
+  'C-cinematic ship–line residual ≤ 1e-6 AU on visual branch',
   maxVis <= 1e-6,
   `max=${maxVis.toExponential(3)} AU`,
 );

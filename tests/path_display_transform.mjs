@@ -71,16 +71,23 @@ const mid = sampleTransferPathAtTime(td, depT + 0.5 * td.transferTime, {
 });
 check('mid sample ok', !!mid);
 
-// Product mode flags
+// Product mode flags — Present uses visual Lambert; blend is opt-in only
 state.display.mode = 'cinematic';
 state.productMode = 'present';
 state.mapMode = false;
 state.physicsAccurate = false;
-check('present transform on', useCinematicEndpointTransform());
-check('present scene geom physical', scenePathGeometry() === 'physical');
+state.pathAccuracy = state.pathAccuracy || {};
+state.pathAccuracy.useEndpointBlend = false;
+check('present transform OFF by default', !useCinematicEndpointTransform());
+check('present scene geom visual', scenePathGeometry() === 'visual');
+state.pathAccuracy.useEndpointBlend = true;
+check('opt-in blend enables transform', useCinematicEndpointTransform());
+check('opt-in blend scene geom physical', scenePathGeometry() === 'physical');
+state.pathAccuracy.useEndpointBlend = false;
 state.productMode = 'analyze';
 state.display.mode = 'schematic';
 check('analyze transform off', !useCinematicEndpointTransform());
+check('analyze scene geom physical', scenePathGeometry() === 'physical');
 
 if (failed) {
   console.error(`${failed} path_display_transform check(s) failed`);

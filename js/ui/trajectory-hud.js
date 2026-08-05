@@ -1,7 +1,7 @@
 /**
  * On-screen trajectory / scale HUD — AU distances, path residual, mode honesty.
  */
-import { state, effectivePathGeometry, scenePathSampleOpts } from '../state.js';
+import { state, effectivePathGeometry, scenePathGeometry, scenePathSampleOpts } from '../state.js';
 import { isSchematic } from '../display-scale.js';
 import {
   buildTransferPathSamples, sampleTransferPathAtTime} from '../physics/transfer-path.js';
@@ -101,10 +101,10 @@ function ephLabel() {
 
 function pathLabel(td) {
   if (!td) return 'idle';
-  const g = effectivePathGeometry();
-  const mode = state.display?.mode || 'cinematic';
-  const ribbon = state.showTransferRibbon ? '+ribbon' : '';
-  return `Kepler conic · ${g}${ribbon} · ${mode}`;
+  const g = td.scenePathGeometry || scenePathGeometry();
+  const stroke = state.transferStroke || (state.showTransferRibbon === false ? 'line' : 'ribbon');
+  const mode = state.productMode || state.display?.mode || 'cinematic';
+  return `scene=${g} · stroke=${stroke} · ${mode}`;
 }
 
 /**
@@ -124,10 +124,10 @@ export function updateTrajectoryHud(nowMs = performance.now()) {
   const resEl = document.getElementById('thud-res');
 
   if (modeEl) {
-    if (state.physicsAccurate) modeEl.textContent = 'VIEW: PHYSICS-ACCURATE';
-    else if (state.mapMode) modeEl.textContent = 'VIEW: MAP · dual path';
-    else if (isSchematic()) modeEl.textContent = 'VIEW: SCHEMATIC';
-    else modeEl.textContent = 'VIEW: CINEMATIC ×incl/wobble';
+    if (state.physicsAccurate || state.productMode === 'ops') modeEl.textContent = 'VIEW: OPS · dual path';
+    else if (state.mapMode || state.productMode === 'compare') modeEl.textContent = 'VIEW: COMPARE · dual path';
+    else if (state.productMode === 'analyze' || isSchematic()) modeEl.textContent = 'VIEW: ANALYZE · physical';
+    else modeEl.textContent = 'VIEW: PRESENT · one scene arc';
   }
   if (ephEl) ephEl.textContent = `EPH: ${ephLabel()}`;
 
@@ -141,20 +141,23 @@ export function updateTrajectoryHud(nowMs = performance.now()) {
       : 'r: —';
   }
 
+  // RES = ship≡drawn path only (not path-end vs live planet mid-flight)
   if (resEl) {
     if (td && !td.isMultiLeg && (td.lambertOk || td.orbit || td.orbitPhysical)) {
       const res = measurePathResidual(td);
       if (res.maxAU != null) {
         const good = res.maxAU < 1e-4;
-        resEl.textContent = `RES: ${res.maxAU.toExponential(2)} AU ${good ? '✓' : ''}`;
-        resEl.title = res.note;
+        resEl.textContent = good
+          ? `SHIP≡PATH ✓ ${res.maxAU.toExponential(1)} AU`
+          : `SHIP≠PATH ${res.maxAU.toExponential(2)} AU`;
+        resEl.title = `${res.note || ''} · This is ship vs drawn arc, not vs the live planet. Live dest residual grows mid-flight (expected).`;
         resEl.classList.toggle('thud-ok', good);
         resEl.classList.toggle('thud-warn', !good && res.maxAU > 1e-3);
       } else {
-        resEl.textContent = 'RES: —';
+        resEl.textContent = 'SHIP≡PATH: —';
       }
     } else {
-      resEl.textContent = 'RES: —';
+      resEl.textContent = 'SHIP≡PATH: —';
     }
   }
 }

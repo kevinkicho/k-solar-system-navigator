@@ -26,13 +26,17 @@ export function pathSampleGeometry(override) {
 }
 
 /**
- * Present / cinematic: sample **physical** Lambert, then apply
- * cinematic_endpoints display transform (one solve, display projection).
- * Need/Δv always physical. Compare/Ops still dual-overlay when enabled.
+ * Endpoint-blend transform is **opt-in only** (Advanced / experiments).
+ * Default Present uses a **visual Lambert** scene path so ship ≡ line ≡
+ * cinematic planet tilts. Linear endpoint blend warps outer-planet arcs
+ * (Saturn→Jupiter class) by AU-scale amounts mid-path — looks broken.
+ * Need/Δv always stay on physical Lambert.
  *
  * @returns {boolean}
  */
 export function useCinematicEndpointTransform() {
+  // Only if Advanced explicitly set pathAccuracy.useEndpointBlend
+  if (!state.pathAccuracy?.useEndpointBlend) return false;
   if (state.physicsAccurate || state.mapMode) return false;
   if (state.display?.mode === 'schematic') return false;
   const mode = state.productMode || 'present';
@@ -43,26 +47,29 @@ export function useCinematicEndpointTransform() {
 /**
  * Geometry for the drawn polyline, fly study ship, path bead, and camera tour.
  *
- * Present (cinematic): physical orbit + endpoint blend transform (not a second Lambert).
- * Schematic / Analyze / ACCURATE / MAP: honor pathGeometry / physical as appropriate.
+ * Present (cinematic default): **visual** Lambert (matches planet tilts; one arc).
+ * Analyze / schematic / ACCURATE / MAP: physical (Need plane).
+ * Need/Δv always physical regardless.
  *
  * @param {string|null|undefined} [override]
  * @returns {'visual'|'physical'}
  */
 export function scenePathGeometry(override) {
   if (override === 'visual' || override === 'physical') return override;
-  // Physics-accurate / map / schematic: path honesty with real inclinations
+  // Physics-accurate / map: Need-aligned physical path
   if (state.physicsAccurate || state.mapMode) return 'physical';
   if (state.display?.mode === 'schematic') {
     return pathSampleGeometry();
   }
-  // Present: physical samples + cinematic endpoint transform (one orbit)
+  // Analyze product mode: physical even if display not yet schematic
+  if (state.productMode === 'analyze') return 'physical';
+  // Optional experimental blend still samples physical then transforms
   if (useCinematicEndpointTransform()) return 'physical';
-  // Legacy fallback: separate visual Lambert branch
+  // Present / cinematic default: visual Lambert so the fly study matches tilted planets
   return 'visual';
 }
 
-/** Path sample opts for ship ≡ dashed line under current product mode. */
+/** Path sample opts for ship ≡ drawn path under current product mode. */
 export function scenePathSampleOpts(extra = {}) {
   const geometry = scenePathGeometry();
   const cinematic = useCinematicEndpointTransform();
@@ -187,7 +194,17 @@ export const state = {
     multiRevMax: 1,
     preferSampleDeOuter: true, // banner only, no silent switch
     nbodyOverlay: false,
+    /**
+     * Experimental: physical Lambert + endpoint blend (breaks outer-planet fly study).
+     * Default off — Present uses visual Lambert for scene honesty.
+     */
+    useEndpointBlend: false,
   },
+  /**
+   * Transfer mesh style: 'line' | 'ribbon' | 'both'
+   * Present default 'ribbon' alone — line+ribbon looked like two trajectories.
+   */
+  transferStroke: 'ribbon',
   /** Monotonic id to cancel path-refine / n-body workers */
   pathRefineRequestId: 0,
   lastPathRebuildWallMs: 0,

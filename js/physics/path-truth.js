@@ -5,7 +5,9 @@
 
 import { getBodyPosition3D } from './kepler.js';
 import { sampleTransferPathAtTime } from './transfer-path.js';
-import { scenePathGeometry, pathSampleGeometry, effectivePathGeometry } from '../state.js';
+import {
+  scenePathGeometry, pathSampleGeometry, effectivePathGeometry, scenePathSampleOpts,
+} from '../state.js';
 
 /**
  * @param {object} td transferData
@@ -40,12 +42,21 @@ export function buildPathTruth(td, appState = {}, simTime = null) {
   const tDep = td.departureSimTime;
   const tNow = simTime != null ? simTime : tArr;
 
-  const exaggerate = sceneGeom === 'visual';
-  const pathEnd = sampleTransferPathAtTime(td, tArr, {
+  // Same sample opts as ship / drawn arc (Present = visual Lambert)
+  const sceneSample = {
+    ...scenePathSampleOpts(),
     geometry: sceneGeom,
-    exaggerate,
+    exaggerate: sceneGeom === 'visual',
     offsetPolicy: appState.pathOffsetPolicy || td.pathOffsetPolicy || 'time_varying',
-  });
+  };
+  // When forceSceneGeom used, honor it over product sample opts
+  if (appState._forceSceneGeom) {
+    sceneSample.geometry = sceneGeom;
+    sceneSample.exaggerate = sceneGeom === 'visual';
+    sceneSample.displayTransform = null;
+  }
+  const exaggerate = !!sceneSample.exaggerate;
+  const pathEnd = sampleTransferPathAtTime(td, tArr, sceneSample);
   const liveDest = getBodyPosition3D(td.body2, tNow, exaggerate);
   // Live body in scene frame: planning positions are helio; path samples are scene.
   // For residual, compare helio if we have r_helio on path end.
@@ -81,17 +92,18 @@ export function buildPathTruth(td, appState = {}, simTime = null) {
   const lines = [
     `Display: ${displayMode} · scene path: ${sceneGeom} · Need path: ${needGeom} · setting: ${pathGeomSetting}`,
     sceneGeom === 'visual'
-      ? 'Fly study follows visual (exaggerated-incl.) path to match planet tilts. Need/Δv stay physical.'
-      : 'Fly study follows physical path (Need plane). Numbers and line share real inclinations.',
+      ? 'Present fly study: one visual Lambert arc (matches planet tilts). Need/Δv stay physical.'
+      : 'Analyze/MAP: one physical path (Need plane). Dual amber arc only in Compare/Ops.',
     `ARR epoch path end vs destination at ARR: ${
       pathEndVsArrivalBody_AU != null
         ? `${pathEndVsArrivalBody_AU.toExponential(2)} AU`
         : '—'
     }`,
-    `ARR path end vs destination body *now* (often large): ${
+    `Path-end vs live ${td.body2?.name || 'dest'} *now*: ${
       pathEndVsLive_AU != null ? `${pathEndVsLive_AU.toExponential(2)} AU` : '—'
-    }`,
-    'Ghost AT ARRIVAL = path endpoint epoch — not the live planet mesh.',
+    } — large mid-flight is expected (planet moved; not ship error).`,
+    'ARR ghost = path endpoint at arrival epoch — not the live planet mesh.',
+    'Colored ellipses = planet orbits. Cyan/green = your transfer only once (not dual in Present).',
   ];
 
   return {

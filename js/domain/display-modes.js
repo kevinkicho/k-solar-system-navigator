@@ -19,12 +19,12 @@ export const PRODUCT_MODES = {
     displayMode: 'cinematic',
     mapMode: false,
     physicsAccurate: false,
-    pathGeometry: PRODUCT_PATH_GEOMETRY, // physical solve + cinematic_endpoints display transform
+    pathGeometry: PRODUCT_PATH_GEOMETRY, // Need/export physical; scene uses visual Lambert
     dualOverlay: false,
     flightOpsMode: false,
     nbodyOverlay: false,
-    badge: 'VIEW: PRESENT · physical + display transform',
-    title: 'Presentation — one physical Lambert + cinematic endpoint blend. Need stays physical.',
+    badge: 'VIEW: PRESENT · one scene arc',
+    title: 'Presentation — one visual fly-study arc (matches planet tilts). Need/Δv stay physical. Not dual path.',
   },
   analyze: {
     id: 'analyze',
