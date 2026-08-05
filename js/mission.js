@@ -1,6 +1,6 @@
 import { state, effectivePathGeometry } from './state.js';
 import { getSunBarycentricOffset } from './physics/kepler.js';
-import { getShipPositionOnTransfer } from './physics/routing.js';
+import { getShipPositionOnTransfer, getPhysicalHelioSpeedOnTransfer } from './physics/routing.js';
 import {
   addTrailPoint, resetTrail, shipGroup, shipLabelDiv, trailLine,
   setShipLabelVisible, setShipVelocityDirection,
@@ -172,8 +172,12 @@ export function launchMission() {
       <div class="progress-bar-wrap"><div class="progress-bar" id="mission-progress" style="width:0%"></div></div>
       <div class="info-row"><span class="key">Progress (time)</span><span class="val" id="mission-pct">0%</span></div>
       <div class="info-row"><span class="key">Time remaining</span><span class="val highlight" id="mission-remaining">--</span></div>
-      <div class="info-row"><span class="key">Helio speed</span><span class="val green" id="mission-speed">—</span></div>
-      <div class="info-row"><span class="key">Sun distance</span><span class="val" id="mission-r">—</span></div>
+      <div class="info-row" title="Heliocentric |v| on the physical Lambert conic (Sun frame). Saturn→Earth: ~5 km/s outer → ~40 km/s near Earth. Not planet-relative V∞.">
+        <span class="key">Helio speed</span><span class="val green" id="mission-speed">—</span>
+      </div>
+      <div class="info-row" title="Heliocentric radius of the physical transfer (AU from Sun).">
+        <span class="key">Sun distance</span><span class="val" id="mission-r">—</span>
+      </div>
       <div class="info-row"><span class="key">Path mode</span><span class="val" id="mission-path-mode">—</span></div>
       <div class="info-row"><span class="key">Time compression</span><span class="val amber" id="mission-time-x">—</span></div>
       <p class="mission-study-hint">Ship follows the <strong>2-body Kepler transfer</strong>. <strong>Calendar rate is constant</strong> (bottom-bar label); the ship still moves faster near the Sun (vis-viva) — that is physics, not a changing time scale. Scrub / DEP / ARR / play. <button type="button" class="btn-tiny" id="ms-follow-ship">Follow ship</button></p>
@@ -264,7 +268,7 @@ export function updateMission() {
     hideDepartureGhost();
     transferMarkers.arrive.visible = false;
     transferMarkers.depart.visible = false;
-    setShipVelocityDirection(null);
+    // Keep helio speed readout at ARR epoch (do not blank to —)
 
     const box = document.getElementById('mission-status-box');
     if (box) {
@@ -273,33 +277,56 @@ export function updateMission() {
     }
   }
 
-  let shipInfo = null;
-  if (progress < 1) {
-    shipInfo = getShipPositionOnTransfer(m.departureSimTime, td, t);
-    if (shipInfo) {
-      // Scene frame already — do NOT add getSunBarycentricOffset again (Phase 1).
-      const sx = shipInfo.x, sy = shipInfo.y, sz = shipInfo.z;
-      shipGroup.position.set(sx, sy, sz);
-      setShipVelocityDirection(shipInfo.vx, shipInfo.vy, shipInfo.vz, shipInfo.v_km_s);
+  // Clamp to [DEP, ARR] so ARR epoch still samples the transfer (not live planet mesh only)
+  const tClamp = Math.min(
+    Math.max(t, m.departureSimTime),
+    m.arrivalSimTime,
+  );
+  // Scene path position (visual Present / physical Analyze)
+  let shipInfo = getShipPositionOnTransfer(m.departureSimTime, td, tClamp);
+  // Need-honest heliocentric speed on physical Lambert (always)
+  const speedInfo = getPhysicalHelioSpeedOnTransfer(td, tClamp);
 
-      // Trail denser when physically faster (more path length per sim second)
-      const vRef = Math.max(1, shipInfo.v_km_s || 20); // km/s
-      const baseInterval = td.transferTime / MAX_TRAIL_POINTS;
-      const trailInterval = baseInterval * (20 / vRef);
-      if (t - m.lastTrailTime >= trailInterval) {
-        addTrailPoint(sx, sy, sz);
-        m.lastTrailTime = t;
-      }
-      const vLabel = shipInfo.v_km_s != null
-        ? ` · ${shipInfo.v_km_s.toFixed(1)} km/s`
-        : '';
-      shipLabelDiv.textContent = `SHIP ${Math.round(progress * 100)}%${vLabel}`;
+  if (progress < 1 && shipInfo) {
+    const sx = shipInfo.x, sy = shipInfo.y, sz = shipInfo.z;
+    shipGroup.position.set(sx, sy, sz);
+    // Arrow uses physical v when available
+    if (speedInfo?.v_km_s != null) {
+      setShipVelocityDirection(
+        shipInfo.vx, shipInfo.vy, shipInfo.vz,
+        speedInfo.v_km_s,
+      );
+    } else {
+      setShipVelocityDirection(shipInfo.vx, shipInfo.vy, shipInfo.vz, shipInfo.v_km_s);
     }
-  } else {
-    const destPos = state.bodyPositions.get(td.body2.name);
-    if (destPos) shipGroup.position.set(destPos.x, destPos.y, destPos.z);
-    shipLabelDiv.textContent = 'ARRIVED';
-    setShipVelocityDirection(null);
+
+    const vRef = Math.max(1, speedInfo?.v_km_s || shipInfo.v_km_s || 20);
+    const baseInterval = td.transferTime / MAX_TRAIL_POINTS;
+    const trailInterval = baseInterval * (20 / vRef);
+    if (t - m.lastTrailTime >= trailInterval) {
+      addTrailPoint(sx, sy, sz);
+      m.lastTrailTime = t;
+    }
+    const vShow = speedInfo?.v_km_s ?? shipInfo.v_km_s;
+    const vLabel = vShow != null ? ` · ${vShow.toFixed(1)} km/s helio` : '';
+    shipLabelDiv.textContent = `SHIP ${Math.round(progress * 100)}%${vLabel}`;
+  } else if (progress >= 1) {
+    // Prefer path-end pose (ARR epoch); fall back to live dest mesh
+    if (shipInfo) {
+      shipGroup.position.set(shipInfo.x, shipInfo.y, shipInfo.z);
+    } else {
+      const destPos = state.bodyPositions.get(td.body2.name);
+      if (destPos) shipGroup.position.set(destPos.x, destPos.y, destPos.z);
+    }
+    const vArr = speedInfo?.v_km_s;
+    shipLabelDiv.textContent = vArr != null
+      ? `ARRIVED · ${vArr.toFixed(1)} km/s helio`
+      : 'ARRIVED';
+    if (speedInfo?.v_km_s != null && shipInfo) {
+      setShipVelocityDirection(shipInfo.vx, shipInfo.vy, shipInfo.vz, speedInfo.v_km_s);
+    } else {
+      setShipVelocityDirection(null);
+    }
   }
 
   if (isMulti && shipInfo && typeof shipInfo.legIndex === 'number') {
@@ -335,39 +362,37 @@ export function updateMission() {
     remEl.textContent = remaining > 0 ? formatTimePrecise(remaining) : 'ARRIVED';
   }
   if (spdEl) {
-    if (shipInfo?.v_km_s != null && progress < 1) {
-      const modeNote = shipInfo.mode === 'kepler' ? '' : ' (approx)';
-      spdEl.textContent = `${formatVelocity(shipInfo.v_km_s * 1000)}${modeNote}`;
-      spdEl.className = shipInfo.mode === 'kepler' ? 'val green' : 'val amber';
-    } else if (progress >= 1) {
+    if (speedInfo?.v_km_s != null) {
+      const tag = speedInfo.atArrival || progress >= 1 ? ' · ARR epoch' : '';
+      const modeNote = speedInfo.mode === 'kepler' ? '' : ' (approx)';
+      spdEl.textContent = `${formatVelocity(speedInfo.v_km_s * 1000)} helio${tag}${modeNote}`;
+      spdEl.className = speedInfo.mode === 'kepler' ? 'val green' : 'val amber';
+      spdEl.title = 'Heliocentric speed on physical Lambert (Sun frame). Not relative to planet. Inward trips: slow outer → fast near Sun.';
+    } else {
       spdEl.textContent = '—';
     }
   }
   if (rEl) {
-    if (progress < 1) {
-      // Prefer pure heliocentric radius for path honesty
-      const rh = shipInfo?.r_helio;
-      const rAu = shipInfo?.r_AU != null
-        ? shipInfo.r_AU
-        : (rh ? Math.hypot(rh.x, rh.y, rh.z) : null);
-      rEl.textContent = rAu != null ? `${rAu.toFixed(3)} AU` : '—';
-    } else {
-      rEl.textContent = '—';
-    }
+    // Physical transfer r from Sun (Need geometry)
+    const rAu = speedInfo?.r_AU != null
+      ? speedInfo.r_AU
+      : (shipInfo?.r_helio
+        ? Math.hypot(shipInfo.r_helio.x, shipInfo.r_helio.y, shipInfo.r_helio.z)
+        : shipInfo?.r_AU);
+    rEl.textContent = rAu != null ? `${rAu.toFixed(3)} AU` : '—';
   }
   if (modeEl) {
     if (progress >= 1) {
-      modeEl.textContent = 'arrived';
+      modeEl.textContent = 'arrived · helio speed = physical ARR epoch';
     } else {
-      const base = shipInfo?.mode === 'kepler'
-        ? 'kepler · 2-body vis-viva'
-        : shipInfo?.mode === 'cosine'
-          ? 'cosine blend (non-Kepler)'
-          : (shipInfo?.mode || '—');
-      const off = shipInfo?.offsetPolicy || td.pathOffsetPolicy || 'time_varying';
-      const geom = effectivePathGeometry();
+      const base = speedInfo?.mode === 'kepler' || shipInfo?.mode === 'kepler'
+        ? 'kepler · physical vis-viva'
+        : (shipInfo?.mode === 'cosine' ? 'cosine blend (non-Kepler)' : (shipInfo?.mode || '—'));
+      const geom = shipInfo?.displayTransform
+        ? `${td.scenePathGeometry || 'scene'}+xf`
+        : (td.scenePathGeometry || effectivePathGeometry());
       const flight = state.flightPathMode || 'static';
-      modeEl.textContent = `${base} · ${geom}/${off} · flight=${flight} · v=helio2body`;
+      modeEl.textContent = `${base} · scene=${geom} · flight=${flight} · v=physical_helio`;
     }
   }
   if (xEl) {

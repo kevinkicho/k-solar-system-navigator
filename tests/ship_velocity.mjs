@@ -103,6 +103,33 @@ const wall = (8 * 365.25 * DAY) / scale;
 check('8 yr transit wall study ~30–120 s', wall > 30 && wall < 150, `wall=${wall.toFixed(1)}s idx=${idx}`);
 check('format compression', formatTimeCompression(DAY).includes('×') || formatTimeCompression(DAY).includes('k'));
 
+// Saturn → Earth: physical helio speed slow outer → fast ARR (~40 km/s, not ~13)
+{
+  const { getPhysicalHelioSpeedOnTransfer } = await import('../js/physics/routing.js');
+  const saturn = BODIES.find((b) => b.name === 'Saturn');
+  const earthB = BODIES.find((b) => b.name === 'Earth');
+  const depS = (Date.UTC(2029, 7, 29, 12) - Date.UTC(2000, 0, 1, 12)) / 1000;
+  const tofS = 2465 * DAY;
+  const tdSE = {
+    body1: saturn,
+    body2: earthB,
+    departureSimTime: depS,
+    transferTime: tofS,
+    arrivalSimTime: depS + tofS,
+  };
+  solveTransferOrbit(tdSE);
+  check('Saturn→Earth Lambert ok', !!tdSE.lambertOk);
+  const vDep = getPhysicalHelioSpeedOnTransfer(tdSE, depS);
+  const vArr = getPhysicalHelioSpeedOnTransfer(tdSE, depS + tofS);
+  const vMid = getPhysicalHelioSpeedOnTransfer(tdSE, depS + 0.5 * tofS);
+  check('DEP helio ~3–8 km/s (outer)', vDep?.v_km_s > 3 && vDep?.v_km_s < 8, `vDep=${vDep?.v_km_s?.toFixed(2)}`);
+  check('ARR helio ~35–45 km/s (near Earth)', vArr?.v_km_s > 35 && vArr?.v_km_s < 45, `vArr=${vArr?.v_km_s?.toFixed(2)}`);
+  check('ARR much faster than DEP', vArr?.v_km_s > (vDep?.v_km_s || 0) * 4, `dep=${vDep?.v_km_s?.toFixed(1)} arr=${vArr?.v_km_s?.toFixed(1)}`);
+  check('ARR not mid-path ~13 km/s', !(vArr?.v_km_s > 10 && vArr?.v_km_s < 18), `vArr=${vArr?.v_km_s?.toFixed(2)}`);
+  check('MID slower than ARR', (vMid?.v_km_s || 0) < (vArr?.v_km_s || 0), `mid=${vMid?.v_km_s?.toFixed(1)}`);
+  check('getPhysicalHelioSpeed marks ARR epoch', vArr?.atArrival === true);
+}
+
 if (failed) {
   console.error(`\n${failed} ship velocity check(s) failed`);
   process.exit(1);

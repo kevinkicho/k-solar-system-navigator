@@ -708,11 +708,44 @@ export function getShipPositionOnTransfer(departureSimTime, tData, currentSimTim
   if (tData.departureSimTime == null && departureSimTime != null) {
     tData = { ...tData, departureSimTime };
   }
-  // Ship rides the same branch as the drawn dashed path.
-  // Present: physical Lambert + cinematic_endpoints transform (one solve).
-  // Need/Δv always use orbitPhysical regardless of this choice.
+  // Ship *position* rides the drawn scene path (visual in Present, physical in Analyze).
   return sampleTransferPathAtTime(tData, currentSimTime, {
     offsetPolicy: tData.pathOffsetPolicy || state.pathOffsetPolicy || 'time_varying',
     ...scenePathSampleOpts(),
   });
+}
+
+/**
+ * Heliocentric speed on the **physical** Lambert conic (Need-honest).
+ * Use for "Helio speed" UI — not planet-relative, not cinematic visual orbit.
+ * Clamp simTime to [DEP, ARR] so ARR epoch reports ~vis-viva at destination r.
+ *
+ * @returns {{ v_km_s: number, r_AU: number, progress: number, mode: string }|null}
+ */
+export function getPhysicalHelioSpeedOnTransfer(tData, simTime) {
+  if (!tData) return null;
+  const tDep = tData.departureSimTime;
+  const tof = tData.transferTime;
+  if (tDep == null || !(tof > 0)) return null;
+  const tArr = tData.arrivalSimTime ?? (tDep + tof);
+  const t = Math.min(Math.max(simTime, tDep), tArr);
+  const st = sampleTransferPathAtTime(tData, t, {
+    geometry: 'physical',
+    exaggerate: false,
+    displayTransform: null,
+    offsetPolicy: 'none', // velocity is helio; skip sun offset
+  });
+  if (!st || st.v_km_s == null) return null;
+  const rAU = st.r_helio
+    ? Math.hypot(st.r_helio.x, st.r_helio.y, st.r_helio.z)
+    : st.r_AU;
+  return {
+    v_km_s: st.v_km_s,
+    r_AU: rAU,
+    progress: st.progress,
+    mode: st.mode || 'kepler',
+    t_sec: t,
+    atArrival: t >= tArr - 1e-6,
+    velocityFrame: 'heliocentric_2body_physical',
+  };
 }
