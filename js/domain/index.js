@@ -1,5 +1,6 @@
 /**
  * Domain spine public surface.
+ * Types: see `./types.js` (JSDoc typedefs PlanSeed, PlanResult, PlanCommand).
  */
 
 export {
@@ -8,7 +9,7 @@ export {
   digestPlanSeed,
 } from './plan-seed.js';
 export { reapplyPlanRequest } from './plan-apply.js';
-export { dispatchPlanCommand, getPlanSessionSnapshot } from './plan-commands.js';
+export { dispatchPlanCommand, getPlanSessionSnapshot, setPlanCommandRecorder } from './plan-commands.js';
 export { buildPlanResult, planResultDigest } from './plan-result.js';
 export {
   setProductMode,
@@ -21,3 +22,4 @@ export {
 } from './display-modes.js';
 export { waitForPlanComputed } from './wait-plan.js';
 export { runWorkflow } from './workflow-runner.js';
+export {} from './types.js';

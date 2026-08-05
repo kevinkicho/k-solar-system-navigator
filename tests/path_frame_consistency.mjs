@@ -8,7 +8,7 @@
  */
 import { BODIES } from '../js/data/bodies.js';
 import { DAY } from '../js/constants.js';
-import { state } from '../js/state.js';
+import { state, scenePathSampleOpts } from '../js/state.js';
 import { setDisplayMode } from '../js/display-scale.js';
 import { solveTransferOrbit, getShipPositionOnTransfer } from '../js/physics/routing.js';
 import {
@@ -34,8 +34,11 @@ clearSunOffsetCache();
 setDisplayMode('cinematic');
 state.pathOffsetPolicy = 'time_varying';
 state.pathSampleMode = 'equal_time';
-// C1–C2 fixtures use visual geometry (cinematic); product default is physical.
-state.pathGeometry = 'visual';
+// Present: physical Lambert + cinematic_endpoints display transform
+state.pathGeometry = 'physical';
+state.productMode = 'present';
+state.mapMode = false;
+state.physicsAccurate = false;
 
 const earth = BODIES.find((b) => b.name === 'Earth');
 const mars = BODIES.find((b) => b.name === 'Mars');
@@ -61,23 +64,28 @@ const tdEM = makeTd(earth, mars, '2026-12-01T12:00:00Z', 259);
 check('Earth–Mars Lambert ok', tdEM.lambertOk === true, `ok=${tdEM.lambertOk}`);
 check('Earth–Mars has visual orbit', !!tdEM.orbit);
 
-const builtEM = buildTransferPathSamples(tdEM, {
+const sceneOpts = {
   offsetPolicy: 'time_varying',
   sampleMode: 'equal_time',
   nSamples: 320,
-});
+  ...scenePathSampleOpts(),
+};
+const builtEM = buildTransferPathSamples(tdEM, sceneOpts);
 check('path has ≥320 knots', builtEM.points.length >= 320, `n=${builtEM.points.length}`);
 check('path mode not pure fail', builtEM.points[0]?.mode === 'kepler' || builtEM.fallback == null
   || builtEM.fallback === 'physical' || builtEM.points[0]?.mode === 'cosine');
 
-// C1: same-t residual at 21 knots (visual geometry default)
+// C1: same-t residual at 21 knots (ship ≡ scene path opts)
 let maxRes = 0;
 const knots = [];
 for (let k = 0; k <= 20; k++) {
   const u = k / 20;
   const t = tdEM.departureSimTime + u * tdEM.transferTime;
   const ship = getShipPositionOnTransfer(tdEM.departureSimTime, tdEM, t);
-  const line = sampleTransferPathAtTime(tdEM, t, { offsetPolicy: 'time_varying', geometry: 'visual' });
+  const line = sampleTransferPathAtTime(tdEM, t, {
+    offsetPolicy: 'time_varying',
+    ...scenePathSampleOpts(),
+  });
   if (!ship || !line) {
     maxRes = Infinity;
     break;
@@ -92,10 +100,13 @@ check(
   `max=${maxRes.toExponential(3)} AU`,
 );
 
-// Identity: ship === sampleTransferPathAtTime (same function)
+// Identity: ship === sampleTransferPathAtTime (same opts)
 const tMid = tdEM.departureSimTime + tdEM.transferTime / 2;
 const a = getShipPositionOnTransfer(tdEM.departureSimTime, tdEM, tMid);
-const b = sampleTransferPathAtTime(tdEM, tMid, { offsetPolicy: 'time_varying' });
+const b = sampleTransferPathAtTime(tdEM, tMid, {
+  offsetPolicy: 'time_varying',
+  ...scenePathSampleOpts(),
+});
 const id = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 check('ship API ≡ sampleTransferPathAtTime', id < 1e-12, `Δ=${id.toExponential(2)}`);
 
@@ -144,7 +155,10 @@ if (tdEJ.lambertOk) {
   for (let k = 0; k <= 20; k++) {
     const t = tdEJ.departureSimTime + (k / 20) * tdEJ.transferTime;
     const ship = getShipPositionOnTransfer(tdEJ.departureSimTime, tdEJ, t);
-    const line = sampleTransferPathAtTime(tdEJ, t, { offsetPolicy: 'time_varying' });
+    const line = sampleTransferPathAtTime(tdEJ, t, {
+      offsetPolicy: 'time_varying',
+      ...scenePathSampleOpts(),
+    });
     if (!ship || !line) { maxResJ = Infinity; break; }
     const d = Math.hypot(ship.x - line.x, ship.y - line.y, ship.z - line.z);
     if (d > maxResJ) maxResJ = d;
@@ -238,17 +252,22 @@ check(
 
 // ——— Cinematic: ship follows visual (exaggerated) so arc is not ecliptic-flat under ×8 planet tilts ———
 state.display.mode = 'cinematic';
-state.pathGeometry = 'physical'; // product setting — scene still uses visual
+state.productMode = 'present';
+state.mapMode = false;
+state.physicsAccurate = false;
+state.pathGeometry = 'physical'; // Present: physical + cinematic_endpoints
 const tdVis = makeTd(earth, mars, '2026-12-01T12:00:00Z', 259);
 let maxVis = 0;
-if (tdVis.lambertOk && tdVis.orbit) {
+if (tdVis.lambertOk && (tdVis.orbitPhysical || tdVis.orbit)) {
   for (let k = 0; k <= 20; k++) {
     const t = tdVis.departureSimTime + (k / 20) * tdVis.transferTime;
     const ship = getShipPositionOnTransfer(tdVis.departureSimTime, tdVis, t);
     const line = sampleTransferPathAtTime(tdVis, t, {
       offsetPolicy: 'time_varying',
-      geometry: 'visual',
-      exaggerate: true,
+      geometry: 'physical',
+      exaggerate: false,
+      displayTransform: 'cinematic_endpoints',
+      offsetExaggerate: true,
     });
     if (!ship || !line) { maxVis = Infinity; break; }
     const d = Math.hypot(ship.x - line.x, ship.y - line.y, ship.z - line.z);
@@ -256,12 +275,13 @@ if (tdVis.lambertOk && tdVis.orbit) {
   }
 }
 check(
-  'C-cinematic ship–line residual ≤ 1e-6 AU on visual branch',
+  'C-cinematic ship–line residual ≤ 1e-6 AU on transformed physical',
   maxVis <= 1e-6,
   `max=${maxVis.toExponential(3)} AU`,
 );
-state.pathGeometry = 'visual';
+state.pathGeometry = 'physical';
 state.display.mode = 'cinematic';
+state.productMode = 'present';
 
 if (failed) {
   console.error(`\n${failed} path frame consistency check(s) failed`);

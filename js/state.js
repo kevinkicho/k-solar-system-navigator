@@ -26,15 +26,25 @@ export function pathSampleGeometry(override) {
 }
 
 /**
+ * Present / cinematic: sample **physical** Lambert, then apply
+ * cinematic_endpoints display transform (one solve, display projection).
+ * Need/Δv always physical. Compare/Ops still dual-overlay when enabled.
+ *
+ * @returns {boolean}
+ */
+export function useCinematicEndpointTransform() {
+  if (state.physicsAccurate || state.mapMode) return false;
+  if (state.display?.mode === 'schematic') return false;
+  const mode = state.productMode || 'present';
+  if (mode === 'analyze' || mode === 'compare' || mode === 'ops') return false;
+  return true;
+}
+
+/**
  * Geometry for the drawn polyline, fly study ship, path bead, and camera tour.
  *
- * Cinematic display multiplies body inclinations (×8). A physical Lambert path
- * lies near the ecliptic for Earth–Mars class transfers, so the blue arc looks
- * “stuck on Earth’s orbital plane” while planets sit on exaggerated tilts.
- * In cinematic mode we therefore stamp the **visual** (exaggerated-endpoint)
- * orbit for scene alignment; Need/Δv remain on physical always.
- *
- * Schematic / ACCURATE / MAP: honor pathGeometry (product physical = ship≡Need).
+ * Present (cinematic): physical orbit + endpoint blend transform (not a second Lambert).
+ * Schematic / Analyze / ACCURATE / MAP: honor pathGeometry / physical as appropriate.
  *
  * @param {string|null|undefined} [override]
  * @returns {'visual'|'physical'}
@@ -46,8 +56,23 @@ export function scenePathGeometry(override) {
   if (state.display?.mode === 'schematic') {
     return pathSampleGeometry();
   }
-  // Cinematic (default): match exaggerated planet positions
+  // Present: physical samples + cinematic endpoint transform (one orbit)
+  if (useCinematicEndpointTransform()) return 'physical';
+  // Legacy fallback: separate visual Lambert branch
   return 'visual';
+}
+
+/** Path sample opts for ship ≡ dashed line under current product mode. */
+export function scenePathSampleOpts(extra = {}) {
+  const geometry = scenePathGeometry();
+  const cinematic = useCinematicEndpointTransform();
+  return {
+    geometry,
+    exaggerate: geometry === 'visual',
+    displayTransform: cinematic ? 'cinematic_endpoints' : null,
+    offsetExaggerate: cinematic ? true : (geometry === 'visual'),
+    ...extra,
+  };
 }
 
 export const state = {

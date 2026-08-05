@@ -4,6 +4,7 @@
  */
 import {
   state, scenePathGeometry, pathSampleGeometry, PRODUCT_PATH_GEOMETRY,
+  useCinematicEndpointTransform,
 } from '../js/state.js';
 import { buildPathTruth, formatPathTruthLine } from '../js/physics/path-truth.js';
 import { clusterWindowFamilies } from '../js/physics/window-families.js';
@@ -29,7 +30,12 @@ state.physicsAccurate = false;
 state.mapMode = false;
 state.display.mode = 'cinematic';
 state.pathGeometry = PRODUCT_PATH_GEOMETRY;
-check('cinematic → scene visual', scenePathGeometry() === 'visual');
+state.productMode = 'present';
+state.mapMode = false;
+state.physicsAccurate = false;
+state.display.mode = 'cinematic';
+check('cinematic Present → physical + transform', scenePathGeometry() === 'physical');
+check('cinematic Present uses endpoint transform', useCinematicEndpointTransform() === true);
 check('Need sample still physical when setting physical', pathSampleGeometry() === 'physical');
 
 state.display.mode = 'schematic';
@@ -39,7 +45,7 @@ state.physicsAccurate = true;
 check('ACCURATE → scene physical', scenePathGeometry() === 'physical');
 state.physicsAccurate = false;
 
-// Ship ≡ line under cinematic visual
+// Ship ≡ line under cinematic Present (physical + cinematic_endpoints transform)
 const earth = BODIES.find((b) => b.name === 'Earth');
 const mars = BODIES.find((b) => b.name === 'Mars');
 const depT = (Date.UTC(2026, 11, 1, 12) - Date.UTC(2000, 0, 1, 12)) / 1000;
@@ -52,19 +58,30 @@ const td = {
 };
 solveTransferOrbit(td);
 state.display.mode = 'cinematic';
+state.productMode = 'present';
+state.mapMode = false;
+state.physicsAccurate = false;
 check('Lambert ok for path truth', !!td.lambertOk);
+check('Present scene geometry physical', scenePathGeometry() === 'physical');
 
 let maxD = 0;
 if (td.lambertOk) {
+  const pathOpts = {
+    geometry: 'physical',
+    exaggerate: false,
+    displayTransform: 'cinematic_endpoints',
+    offsetExaggerate: true,
+    offsetPolicy: 'time_varying',
+  };
   for (let k = 0; k <= 10; k++) {
     const t = depT + (k / 10) * td.transferTime;
     const ship = shipPos(depT, td, t);
-    const line = samplePath(td, t, { geometry: 'visual', exaggerate: true, offsetPolicy: 'time_varying' });
+    const line = samplePath(td, t, pathOpts);
     if (!ship || !line) { maxD = Infinity; break; }
     maxD = Math.max(maxD, Math.hypot(ship.x - line.x, ship.y - line.y, ship.z - line.z));
   }
 }
-check('cinematic ship≡visual path ≤ 1e-6 AU', maxD <= 1e-6, `max=${maxD}`);
+check('cinematic ship≡transformed physical path ≤ 1e-6 AU', maxD <= 1e-6, `max=${maxD}`);
 
 // Path truth
 const truth = buildPathTruth(td, state, td.arrivalSimTime);

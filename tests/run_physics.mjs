@@ -73,6 +73,7 @@ const SUITE = [
   'tests/tool_goldens.mjs',
   'tests/plan_reapply.mjs',
   'tests/domain_spine.mjs',
+  'tests/path_display_transform.mjs',
   'tests/core_planning_realism.mjs',
   'tests/launch_site_plane.mjs',
   'tests/need_geometry.mjs',

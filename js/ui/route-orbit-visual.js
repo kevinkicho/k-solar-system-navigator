@@ -8,7 +8,9 @@
  */
 import * as THREE from 'three';
 import { AU, DAY, LEG_COLORS } from '../constants.js';
-import { state, bumpPathRefineRequestId, effectivePathGeometry, scenePathGeometry } from '../state.js';
+import {
+  state, bumpPathRefineRequestId, effectivePathGeometry, scenePathGeometry, scenePathSampleOpts,
+} from '../state.js';
 import { getBodyPosition3D, getSunBarycentricOffset } from '../physics/kepler.js';
 import {
   buildTransferPathSamples, buildLegPathSamples, sampleTransferPathAtTime,
@@ -35,20 +37,33 @@ function pathOptsFromState(td, extra = {}) {
   const longWay = extra.longWay != null
     ? extra.longWay
     : (td.visualLongWay != null ? td.visualLongWay : td.longWay);
-  // Default scene path: visual in cinematic (matches tilted planets), physical in schematic
-  const geom = extra.geometry ?? scenePathGeometry();
+  // Present: physical + cinematic_endpoints transform (one orbit, display projection)
+  const base = scenePathSampleOpts();
+  const geom = extra.geometry != null ? extra.geometry : base.geometry;
+  // When caller forces a different geometry (dual overlay twin), drop display transform
+  const forcedGeom = extra.geometry != null && extra.geometry !== base.geometry;
+  const displayTransform = extra.displayTransform !== undefined
+    ? extra.displayTransform
+    : (forcedGeom ? null : base.displayTransform);
   const exaggerate = extra.exaggerate != null
     ? extra.exaggerate
-    : (geom === 'visual');
+    : (forcedGeom ? (geom === 'visual') : base.exaggerate);
   return {
     offsetPolicy: td.pathOffsetPolicy || state.pathOffsetPolicy || 'time_varying',
     sampleMode: state.pathSampleMode || 'equal_time',
-    geometry: geom,
     nSamples: extra.nSamples ?? 320,
     longWay,
     adaptive: !!(extra.adaptive ?? state.pathAccuracy?.adaptiveSampling),
+    geometry: geom,
     exaggerate,
+    displayTransform,
+    offsetExaggerate: extra.offsetExaggerate != null
+      ? extra.offsetExaggerate
+      : (displayTransform === 'cinematic_endpoints' ? true : (geom === 'visual')),
     ...extra,
+    geometry: geom,
+    exaggerate,
+    displayTransform,
   };
 }
 
@@ -107,33 +122,31 @@ export function updateTransferOrbitVisual() {
     return;
   }
 
-  // Scene primary path: cinematic visual (not glued to ecliptic under ×8 planet tilts);
-  // schematic / ACCURATE / MAP → physical (Need-aligned).
-  // Dual overlay only in Compare/Ops product modes (or Advanced both).
-  const primaryGeom = scenePathGeometry();
+  // Present: physical Lambert + cinematic endpoint transform (one solve).
+  // Analyze/schematic: physical. Compare/Ops: dual overlay.
+  const sampleOpts = scenePathSampleOpts();
+  const primaryGeom = sampleOpts.geometry;
+  const cinematicXf = sampleOpts.displayTransform === 'cinematic_endpoints';
   let wantDual = !!(state.physicsAccurate || state.mapMode
     || effectivePathGeometry() === 'both'
     || state.productMode === 'compare'
     || state.productMode === 'ops');
-  try {
-    // Prefer domain helper when available (sync require not used — flags above cover)
-    if (state.productMode === 'present' || state.productMode === 'analyze') {
-      wantDual = effectivePathGeometry() === 'both';
-    }
-  } catch { /* */ }
+  if (state.productMode === 'present' || state.productMode === 'analyze') {
+    wantDual = effectivePathGeometry() === 'both';
+  }
   const depT = td.departureSimTime;
   const arrT = td.arrivalSimTime;
-  // Endpoint bodies for markers: match scene path exaggeration
-  const dep = (primaryGeom === 'visual'
+  // Endpoints: cinematic Present uses exaggerated body positions (matches transform)
+  const useExagEnds = cinematicXf || primaryGeom === 'visual';
+  const dep = (useExagEnds
     ? (td.dep3D || getBodyPosition3D(td.body1, depT, true))
     : (td.dep3DPhysical || getBodyPosition3D(td.body1, depT, false)));
-  const arr = (primaryGeom === 'visual'
+  const arr = (useExagEnds
     ? (td.arr3D || getBodyPosition3D(td.body2, arrT, true))
     : (td.arr3DPhysical || getBodyPosition3D(td.body2, arrT, false)));
 
   const opts = pathOptsFromState(td, {
-    geometry: primaryGeom,
-    exaggerate: primaryGeom === 'visual',
+    ...sampleOpts,
     offsetPolicy: state.pathOffsetPolicy || 'time_varying',
   });
 
@@ -141,23 +154,21 @@ export function updateTransferOrbitVisual() {
   if (built.fallback === 'physical') td.visualFallback = 'physical';
   else if (built.fallback === 'cosine') td.visualFallback = 'cosine';
   td.scenePathGeometry = primaryGeom;
+  td.sceneDisplayTransform = sampleOpts.displayTransform || null;
 
   const drawPts = samplesToLinePoints(built.points);
   if (drawPts.length >= 2) {
-    // Visual (cinematic scene-aligned) = cyan; physical (schematic/Need) = cyan-green
-    // Keep cyan for the primary so fly study reads as the active transfer arc
-    const color = primaryGeom === 'visual' ? 0x4fc3f7 : 0x00e5ff;
+    // Present (transformed physical) or visual = cyan; pure physical = cyan-green
+    const color = (cinematicXf || primaryGeom === 'visual') ? 0x4fc3f7 : 0x00e5ff;
     setTransferLine(makeDashedLine(drawPts, color, 0.85));
-    // Rich Three.js ribbon tube + DEP/MID/ARR ticks
     if (state.showTransferRibbon !== false) {
       const tofDays = td.transferTime != null ? td.transferTime / DAY : null;
       setTransferRibbon(drawPts, {
         color,
-        // DEP / MID / ARR only — denser ticks pile up and fight body labels
         labels: [
           { frac: 0, text: 'DEP' },
           { frac: 0.5, text: tofDays != null ? `MID ${(tofDays * 0.5).toFixed(0)}d` : 'MID' },
-          { frac: 1, text: primaryGeom === 'visual' ? 'ARR (scene)' : 'ARR' },
+          { frac: 1, text: cinematicXf ? 'ARR (scene)' : 'ARR' },
         ],
       });
     }

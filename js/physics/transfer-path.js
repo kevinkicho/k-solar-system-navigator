@@ -17,6 +17,7 @@ import {
 } from './helio.js';
 import { v3dot, v3mag, v3scale } from './vec3.js';
 import { isSchematic } from '../display-scale.js';
+import { applyDisplayTransformHelio } from './path-display-transform.js';
 
 /** Parent-frame metres → heliocentric AU (avoids routing.js cycle). */
 function parentFrameToHelioAU(orbitPos_m, central, timeSec, exaggerate = true) {
@@ -206,12 +207,22 @@ function resolvePathOpts(td, opts = {}) {
     ?? td.parentPolicy
     ?? defaultParentPolicy(td, tof);
   const adaptive = !!opts.adaptive;
+  /** @type {null|'cinematic_endpoints'} */
+  const displayTransform = opts.displayTransform === 'cinematic_endpoints'
+    ? 'cinematic_endpoints'
+    : null;
+  // When transforming physical→cinematic display, sun wobble should match the scene
+  const offsetExaggerate = opts.offsetExaggerate != null
+    ? !!opts.offsetExaggerate
+    : (displayTransform === 'cinematic_endpoints' ? true : exaggerate);
   return {
     offsetPolicy,
     sampleMode,
     geometry,
     nSamples,
     exaggerate,
+    offsetExaggerate,
+    displayTransform,
     tDep,
     tArr,
     tMid,
@@ -332,7 +343,7 @@ export function buildTransferPathSamples(td, opts = {}) {
     tDep: cfg.tDep,
     tArr: cfg.tArr,
     tMid: cfg.tMid,
-    exaggerate: cfg.exaggerate,
+    exaggerate: cfg.offsetExaggerate,
   };
 
   let orb = resolveOrbit(td, cfg.geometry);
@@ -365,8 +376,9 @@ export function buildTransferPathSamples(td, opts = {}) {
           }
           dt = Math.max(0, Math.min(cfg.tof, dt));
           const tAbs = cfg.tDep + dt;
-          const h = helioAtDt(td, orb, dt, tAbs, cfg.parentPolicy, cfg.exaggerate);
+          let h = helioAtDt(td, orb, dt, tAbs, cfg.parentPolicy, cfg.exaggerate);
           if (!h) { ok = false; break; }
+          h = applyDisplayTransformHelio(h, td, tAbs, cfg) || h;
           const scene = applySunOffset(h, tAbs, offsetCtx);
           points.push({
             t_sec: tAbs,
@@ -374,6 +386,7 @@ export function buildTransferPathSamples(td, opts = {}) {
             r_helio: { x: h.x, y: h.y, z: h.z },
             nu,
             mode: 'kepler',
+            displayTransform: cfg.displayTransform || null,
           });
         }
         if (!ok) points.length = 0;
@@ -385,11 +398,12 @@ export function buildTransferPathSamples(td, opts = {}) {
       for (let i = 0; i <= N; i++) {
         const dt = (i / N) * cfg.tof;
         const tAbs = cfg.tDep + dt;
-        const h = helioAtDt(td, orb, dt, tAbs, cfg.parentPolicy, cfg.exaggerate);
+        let h = helioAtDt(td, orb, dt, tAbs, cfg.parentPolicy, cfg.exaggerate);
         if (!h) {
           points.length = 0;
           break;
         }
+        h = applyDisplayTransformHelio(h, td, tAbs, cfg) || h;
         const scene = applySunOffset(h, tAbs, offsetCtx);
         points.push({
           t_sec: tAbs,
@@ -397,6 +411,7 @@ export function buildTransferPathSamples(td, opts = {}) {
           r_helio: { x: h.x, y: h.y, z: h.z },
           nu: h.nu,
           mode: 'kepler',
+          displayTransform: cfg.displayTransform || null,
         });
       }
     }
@@ -438,6 +453,7 @@ export function buildTransferPathSamples(td, opts = {}) {
     sampleMode: cfg.sampleMode,
     offsetPolicy: cfg.offsetPolicy,
     geometry: cfg.geometry,
+    displayTransform: cfg.displayTransform || null,
     fallback,
     longWay: cfg.longWay,
   };
@@ -466,7 +482,7 @@ export function sampleTransferPathAtTime(td, simTime, opts = {}) {
     tDep: cfg.tDep,
     tArr: cfg.tArr,
     tMid: cfg.tMid,
-    exaggerate: cfg.exaggerate,
+    exaggerate: cfg.offsetExaggerate,
   };
 
   // Multi-leg: find active leg and sample within it
@@ -488,8 +504,9 @@ export function sampleTransferPathAtTime(td, simTime, opts = {}) {
   }
 
   if (orb && tof > 0) {
-    const h = helioAtDt(td, orb, dt, simTime, cfg.parentPolicy, cfg.exaggerate);
+    let h = helioAtDt(td, orb, dt, simTime, cfg.parentPolicy, cfg.exaggerate);
     if (h) {
+      h = applyDisplayTransformHelio(h, td, simTime, cfg) || h;
       const scene = applySunOffset(h, simTime, offsetCtx);
       return {
         x: scene.x, y: scene.y, z: scene.z,
@@ -500,6 +517,7 @@ export function sampleTransferPathAtTime(td, simTime, opts = {}) {
         t_sec: simTime,
         progress,
         mode: 'kepler',
+        displayTransform: cfg.displayTransform || null,
         vx: h.v?.[0], vy: h.v?.[1], vz: h.v?.[2],
         v_km_s: h.v_mag != null ? h.v_mag / 1000 : null,
         r_AU: h.r_mag != null ? h.r_mag / AU : Math.hypot(h.x, h.y, h.z),
@@ -510,8 +528,9 @@ export function sampleTransferPathAtTime(td, simTime, opts = {}) {
     }
   }
 
-  const h = cosineHelio(td, progress);
+  let h = cosineHelio(td, progress);
   if (!h) return null;
+  h = applyDisplayTransformHelio(h, td, simTime, cfg) || h;
   const scene = applySunOffset(h, simTime, offsetCtx);
   const dBlend = 0.5 * PI * Math.sin(PI * progress);
   const tofSafe = Math.max(1, tof);
@@ -528,6 +547,7 @@ export function sampleTransferPathAtTime(td, simTime, opts = {}) {
     t_sec: simTime,
     progress,
     mode: 'cosine',
+    displayTransform: cfg.displayTransform || null,
     vx, vy, vz,
     v_km_s: Math.hypot(vx, vy, vz) / 1000,
     r_AU: Math.hypot(h.x, h.y, h.z),

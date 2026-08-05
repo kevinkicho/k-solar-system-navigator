@@ -2,6 +2,8 @@
  * PlanSeed normalize + build — domain spine (Phase 1).
  * Single internal compact shape used by apply / history / codecs.
  * Not flight-certified; recompute from seed for authority.
+ *
+ * @typedef {import('./types.js').PlanSeed} PlanSeed
  */
 
 import { bodyId } from '../data/catalog.js';

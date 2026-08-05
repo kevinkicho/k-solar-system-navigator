@@ -88,12 +88,14 @@ check('Live Horizons inject label', /Live Horizons|Horizons endpoint inject/i.te
 check('Vehicle Lab hidden from product UI', /helios-mock-hidden|btn-vehicle-lab[\s\S]{0,80}hidden|hidden[\s\S]{0,40}btn-vehicle-lab/.test(indexHtml)
   || /helios-mock-hidden[\s\S]{0,200}btn-vehicle-lab/.test(indexHtml));
 check('product-chrome module', existsSync(resolve(ROOT, 'js/ui/product-chrome.js')));
-// Ship rides scenePathGeometry (cinematic=visual for planet-tilt alignment;
-// schematic/ACCURATE=physical Need plane). Need/Δv stay on orbitPhysical.
+// Ship rides scenePathSampleOpts (Present: physical + cinematic_endpoints).
+// Need/Δv stay on orbitPhysical.
 const routingJs = readFileSync(resolve(ROOT, 'js/physics/routing.js'), 'utf8');
-check('Ship uses scenePathGeometry in routing', /scenePathGeometry/.test(routingJs));
+check('Ship uses scenePathSampleOpts in routing', /scenePathSampleOpts/.test(routingJs));
 check('Ship samples transfer path', /sampleTransferPathAtTime/.test(routingJs));
 check('state exports scenePathGeometry', /export function scenePathGeometry/.test(stateJs));
+check('state exports cinematic transform flag', /useCinematicEndpointTransform/.test(stateJs));
+check('path-display-transform module', existsSync(resolve(ROOT, 'js/physics/path-display-transform.js')));
 check('Adaptive sampling default ON', /adaptiveSampling:\s*true/.test(stateJs));
 check('Endpoint markers match_path_end default', /endpointMarkerPolicy:\s*['"]match_path_end['"]/.test(stateJs));
 check('Product pathGeometry physical', /pathGeometry:\s*['"]physical['"]/.test(stateJs));

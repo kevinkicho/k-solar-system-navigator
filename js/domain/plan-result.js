@@ -1,6 +1,9 @@
 /**
  * PlanResult boundary — structured solve + assessment from transferData.
  * Packages/AI read this; never treat stored Δv as authority without recompute.
+ *
+ * @typedef {import('./types.js').PlanResult} PlanResult
+ * @typedef {import('./types.js').PlanAssessment} PlanAssessment
  */
 
 import { state } from '../state.js';

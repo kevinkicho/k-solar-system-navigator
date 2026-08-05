@@ -235,7 +235,7 @@ Explain why two arcs appear (see §8). No behavior change required.
 2. ✅ MAP → Compare · ACCURATE → Ops  
 3. ✅ Dual overlay for Compare/Ops (+ Advanced both)  
 4. ✅ Product mode select in Plan Advanced · view badge from modes  
-5. ⏳ Optional: Present = single orbit × tilt transform (future)
+5. ✅ Present = physical Lambert + `cinematic_endpoints` blend (one solve; see `path-display-transform.js`)
 
 ### Phase 4 — PlanResult · **LANDED**
 

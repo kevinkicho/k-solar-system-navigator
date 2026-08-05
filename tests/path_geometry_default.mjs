@@ -37,18 +37,23 @@ check('pathSampleGeometry physical → physical', pathSampleGeometry('physical')
 check('pathSampleGeometry both → physical', pathSampleGeometry('both') === 'physical');
 check('pathSampleGeometry visual → visual', pathSampleGeometry('visual') === 'visual');
 
-// Scene path: cinematic uses visual (planet tilt alignment); schematic honors pathGeometry
+// Scene path: Present uses physical + cinematic_endpoints transform; schematic honors pathGeometry
 state.display = state.display || {};
 state.display.mode = 'cinematic';
+state.productMode = 'present';
+state.mapMode = false;
+state.physicsAccurate = false;
 state.pathGeometry = 'physical';
-check('cinematic scenePathGeometry → visual', scenePathGeometry() === 'visual');
+check('cinematic Present scenePathGeometry → physical', scenePathGeometry() === 'physical');
 state.display.mode = 'schematic';
+state.productMode = 'analyze';
 check('schematic + physical scenePathGeometry → physical', scenePathGeometry() === 'physical');
 state.physicsAccurate = true;
 state.display.mode = 'cinematic';
 check('physicsAccurate scenePathGeometry → physical', scenePathGeometry() === 'physical');
 state.physicsAccurate = false;
 state.display.mode = 'cinematic';
+state.productMode = 'present';
 
 // ACCURATE-off contract: never leave silent visual as product default
 state.pathGeometry = 'both';

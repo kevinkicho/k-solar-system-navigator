@@ -19,12 +19,12 @@ export const PRODUCT_MODES = {
     displayMode: 'cinematic',
     mapMode: false,
     physicsAccurate: false,
-    pathGeometry: PRODUCT_PATH_GEOMETRY, // scenePathGeometry still visual under cinematic
+    pathGeometry: PRODUCT_PATH_GEOMETRY, // physical solve + cinematic_endpoints display transform
     dualOverlay: false,
     flightOpsMode: false,
     nbodyOverlay: false,
-    badge: 'VIEW: PRESENT · cinematic display orbit',
-    title: 'Presentation — cinematic frames; Need stays physical. One scene path.',
+    badge: 'VIEW: PRESENT · physical + display transform',
+    title: 'Presentation — one physical Lambert + cinematic endpoint blend. Need stays physical.',
   },
   analyze: {
     id: 'analyze',

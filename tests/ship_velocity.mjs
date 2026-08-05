@@ -57,13 +57,16 @@ check(
 );
 
 // Vis-viva identity on the orbit the ship actually follows.
-// Cinematic scenePathGeometry → visual (exaggerated); schematic → physical.
+// Present: physical Lambert + display transform (velocity still helio 2-body).
 const { scenePathGeometry } = await import('../js/state.js');
 const { state } = await import('../js/state.js');
+state.productMode = 'present';
+state.display = state.display || {};
+state.display.mode = 'cinematic';
+state.mapMode = false;
+state.physicsAccurate = false;
 const geom = scenePathGeometry();
-const shipOrb = geom === 'physical'
-  ? (td.orbitPhysical || td.orbit)
-  : (td.orbit || td.orbitPhysical);
+const shipOrb = td.orbitPhysical || td.orbit;
 const a = shipOrb.a;
 const rMid = shipMid.r_AU * AU;
 const vVis = Math.sqrt(mu * (2 / rMid - 1 / a));
