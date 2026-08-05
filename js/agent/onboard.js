@@ -107,29 +107,14 @@ async function executeCommand(cmd) {
     }
 
     case 'set_launch_site': {
-      state.launchSiteId = String(args.launchSiteId || 'any');
-      const sel = document.getElementById('launch-site');
-      if (sel) {
-        sel.value = state.launchSiteId;
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      return { launchSiteId: state.launchSiteId };
+      const { applyLaunchSiteArgs } = await import('../domain/plan-actions.js');
+      const launchSiteId = applyLaunchSiteArgs(args.launchSiteId || 'any');
+      return { launchSiteId };
     }
 
     case 'suggest_ga': {
-      const thoroughEl = document.getElementById('ga-suggest-thorough');
-      if (thoroughEl && args.thorough != null) thoroughEl.checked = !!args.thorough;
-      const { runGaSuggestions } = await import('../ui/ga-suggest-ui.js');
-      if (typeof runGaSuggestions === 'function') {
-        await runGaSuggestions();
-      } else {
-        document.getElementById('btn-ga-suggest')?.click();
-      }
-      return {
-        ok: true,
-        n: state.gaSuggestions?.suggestions?.length ?? 0,
-        recommended: state.gaSuggestions?.suggestions?.find((s) => s.recommended)?.label || null,
-      };
+      const { runSuggestGa } = await import('../domain/plan-actions.js');
+      return runSuggestGa({ thorough: args.thorough });
     }
 
     case 'suggest_itineraries': {
@@ -438,62 +423,27 @@ async function executeCommand(cmd) {
       if (!state.routeOrigin || !state.routeDestination) {
         throw new Error('SET ORIGIN AND DESTINATION FIRST');
       }
-      const waitP = waitForPlanComputed();
-      computeRoute();
-      await waitP;
+      const { dispatchPlanCommand } = await import('../domain/plan-commands.js');
+      await dispatchPlanCommand({ type: 'COMPUTE', wait: true, source: 'onboard' });
       return snapshotState();
     }
 
-    case 'clear_route':
-      clearRoute();
+    case 'clear_route': {
+      const { dispatchPlanCommand } = await import('../domain/plan-commands.js');
+      await dispatchPlanCommand({ type: 'CLEAR_ROUTE', source: 'onboard' });
       return { cleared: true };
+    }
 
     case 'set_vehicle': {
-      if (args.vehicleId) {
-        state.vehicleId = String(args.vehicleId);
-        const sel = document.getElementById('vehicle-select');
-        if (sel) {
-          sel.value = state.vehicleId;
-          sel.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      }
-      if (args.cargoMass_kg != null && Number.isFinite(Number(args.cargoMass_kg))) {
-        state.cargoMass_kg = Number(args.cargoMass_kg);
-        const cargo = document.getElementById('cargo-mass');
-        if (cargo) {
-          cargo.value = String(state.cargoMass_kg);
-          cargo.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }
-      if (args.starshipArch) {
-        state.starshipArch = args.starshipArch;
-      }
-      window.dispatchEvent(new CustomEvent('helios:vehicle-changed'));
-      return {
-        vehicleId: state.vehicleId,
-        cargoMass_kg: state.cargoMass_kg,
-        starshipArch: state.starshipArch,
-      };
+      const { applyVehicleArgs } = await import('../domain/plan-actions.js');
+      return applyVehicleArgs(args);
     }
 
     case 'set_departure': {
       const raw = args.date || args.iso;
       if (!raw) throw new Error('date required');
-      let d;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-        d = new Date(raw + 'T00:00:00Z');
-      } else {
-        d = new Date(raw.endsWith('Z') || raw.includes('+') ? raw : raw + 'Z');
-      }
-      if (isNaN(d.getTime())) throw new Error(`Invalid date: ${raw}`);
-      const input = document.getElementById('depart-date');
-      const val = dateToInputValue(d);
-      if (input) {
-        input.value = val;
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      timeState.simTime = dateToSimTime(d);
-      timeState.updateDisplay();
+      const { applyDepartureArgs } = await import('../domain/plan-actions.js');
+      const val = applyDepartureArgs(raw);
       return { departure: val };
     }
 

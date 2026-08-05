@@ -3,27 +3,10 @@
  */
 
 import { state } from '../state.js';
-import { computeRoute } from '../ui/route-planner.js';
 import { dateToInputValue, notify, simTimeToDate } from '../ui/format.js';
 import { timeState } from '../ui/time-system.js';
 import { getMissionAiBundle } from './ai-core.js';
 import { buildMissionSnapshot } from './transfer-summary.js';
-
-function waitForPlan(timeoutMs = 120_000) {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = (p) => {
-      if (done) return;
-      done = true;
-      window.removeEventListener('helios:plan-computed', onEvt);
-      clearTimeout(timer);
-      resolve(p);
-    };
-    const onEvt = (e) => finish(e.detail || { ok: true });
-    const timer = setTimeout(() => finish({ ok: true, timedOut: true }), timeoutMs);
-    window.addEventListener('helios:plan-computed', onEvt);
-  });
-}
 
 /**
  * Propose recovery actions from current dossier fails/warns (no side effects).
@@ -121,40 +104,13 @@ export async function applyGateRecovery(actionId, extraArgs = {}) {
 
   switch (action) {
     case 'set_vehicle': {
-      if (args.cargoMass_kg != null) {
-        state.cargoMass_kg = Number(args.cargoMass_kg);
-        const cargo = document.getElementById('cargo-mass');
-        if (cargo) {
-          cargo.value = String(state.cargoMass_kg);
-          cargo.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }
-      if (args.vehicleId) {
-        state.vehicleId = args.vehicleId;
-        const sel = document.getElementById('vehicle-select');
-        if (sel) {
-          sel.value = state.vehicleId;
-          sel.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      }
-      if (args.starshipArch) {
-        state.starshipArch = args.starshipArch;
-        const arch = document.getElementById('starship-arch');
-        if (arch) {
-          arch.value = state.starshipArch;
-          arch.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      }
-      window.dispatchEvent(new CustomEvent('helios:vehicle-changed'));
+      const { applyVehicleArgs } = await import('../domain/plan-actions.js');
+      applyVehicleArgs(args);
       break;
     }
     case 'set_launch_site': {
-      state.launchSiteId = args.launchSiteId || 'any';
-      const sel = document.getElementById('launch-site');
-      if (sel) {
-        sel.value = state.launchSiteId;
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-      }
+      const { applyLaunchSiteArgs } = await import('../domain/plan-actions.js');
+      applyLaunchSiteArgs(args.launchSiteId || 'any');
       break;
     }
     case 'clear_flybys': {
@@ -173,9 +129,8 @@ export async function applyGateRecovery(actionId, extraArgs = {}) {
   }
 
   if (state.routeOrigin && state.routeDestination) {
-    const waitP = waitForPlan();
-    computeRoute();
-    await waitP;
+    const { dispatchPlanCommand } = await import('../domain/plan-commands.js');
+    await dispatchPlanCommand({ type: 'COMPUTE', wait: true, recordHistory: true, source: 'recovery' });
   }
   notify(`RECOVERY APPLIED: ${p.label || actionId}`);
   return {
@@ -204,18 +159,15 @@ export async function findNearestWindowAndApply() {
     return { ok: false, error: 'No nearest feasible window in local seed search' };
   }
   const dep = fix.departureSimTime;
-  const input = document.getElementById('depart-date');
-  if (input && dep != null) {
-    input.value = dateToInputValue(simTimeToDate(dep));
-    timeState.simTime = dep;
-    timeState.updateDisplay();
+  if (dep != null) {
+    const { applyDepartureArgs } = await import('../domain/plan-actions.js');
+    applyDepartureArgs(dateToInputValue(simTimeToDate(dep)));
   }
   if (fix.transferTime != null) {
     state.userTofDays = fix.transferTime / 86400;
   }
-  const waitP = waitForPlan();
-  computeRoute();
-  await waitP;
+  const { dispatchPlanCommand } = await import('../domain/plan-commands.js');
+  await dispatchPlanCommand({ type: 'COMPUTE', wait: true, recordHistory: true, source: 'recovery' });
   notify('NEAREST FEASIBLE WINDOW APPLIED · recompute done');
   return {
     ok: true,

@@ -326,7 +326,8 @@ export function wireControls() {
       : 'CINEMATIC VIEW — exaggerated inclinations');
   };
 
-  // Path accuracy UI (PR5–10)
+  // Product mode + path accuracy UI
+  const productModeSel = document.getElementById('product-mode-select');
   const pathGeomSel = document.getElementById('path-geometry-select');
   const flightModeSel = document.getElementById('flight-path-mode');
   const flagAdaptive = document.getElementById('flag-adaptive-path');
@@ -335,7 +336,17 @@ export function wireControls() {
   const flagNbodyWrap = document.getElementById('flag-nbody-wrap');
   const flagLtNeed = document.getElementById('flag-lt-need');
 
+  if (productModeSel) {
+    productModeSel.value = state.productMode || 'present';
+    productModeSel.onchange = () => {
+      import('../domain/display-modes.js').then(({ setProductMode }) => {
+        setProductMode(productModeSel.value, { silent: false });
+      });
+    };
+  }
+
   function syncPathAccuracyUI() {
+    if (productModeSel) productModeSel.value = state.productMode || 'present';
     if (pathGeomSel) pathGeomSel.value = effectivePathGeometry();
     if (flightModeSel) flightModeSel.value = state.flightPathMode || 'static';
     if (flagAdaptive) flagAdaptive.checked = !!state.pathAccuracy?.adaptiveSampling;

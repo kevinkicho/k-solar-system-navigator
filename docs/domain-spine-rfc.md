@@ -1,6 +1,6 @@
 # RFC: Domain Spine — PlanSeed · one apply · one result · one bus
 
-**Status:** Phase 1 landed (2026-08-05) · further phases proposed  
+**Status:** Phases 1–5 landed (2026-08-05)  
 **Product class:** Preliminary industrial workstation — not flight-certified  
 **Goal:** Replace parallel apply/orchestrator paths and god-state sprawl with a thin domain core, without becoming GMAT/STK.
 
@@ -208,41 +208,46 @@ Keep UI files as **views**; move authority out.
 
 Explain why two arcs appear (see §8). No behavior change required.
 
-### Phase 1 — Spine without rewrite · **LANDED 2026-08-05**
+### Phase 1 — Spine · **LANDED**
 
 1. ✅ `js/domain/plan-seed.js` — normalize + build + digest  
 2. ✅ `js/domain/plan-session.js` — façade over campaign-object  
-3. ✅ `js/domain/plan-commands.js` — APPLY_SEED / COMPUTE / UNDO / REDO / JUMP / RUN_WORKFLOW  
-4. ✅ `js/domain/plan-apply.js` — single reapply implementation  
+3. ✅ `js/domain/plan-commands.js` — full command set  
+4. ✅ `js/domain/plan-apply.js` — single reapply  
 5. ✅ Timeline + review-recompute use `dispatchPlanCommand`  
-6. ✅ `ui/plan-reapply.js` re-exports domain (compat)  
-7. ⏳ Share `applyPlanRequest` still legacy path (Phase 1.5: wrap)  
-8. ⏳ Agent DOM clicks (Phase 2)  
+6. ✅ `ui/plan-reapply.js` re-exports domain  
 
-**Exit (partial):** timeline/review use command bus; share apply still dual until Phase 1.5.
+### Phase 1.5 — Share apply · **LANDED**
 
-### Phase 2 — Kill DOM agent (1 week)
+1. ✅ `share.applyPlanRequest` → `normalize` + `reapplyPlanRequest`  
+2. ✅ Removed inline multi-leg/hohmann apply fork from share.js  
 
-1. Replace `campaign.js` / `onboard.js` `getElementById` / `.click()` with commands.  
-2. Tool goldens run against a **mock dispatcher** (record commands), not string allowlists only.  
-3. `waitForPlan` listens to session events, not only CustomEvent soup (keep events as adapter).
+### Phase 2 — Kill DOM agent · **LANDED**
 
-### Phase 3 — Display modes (1 week)
+1. ✅ `campaign.js` via `dispatchPlanCommand` (no find-windows / GA button click)  
+2. ✅ `onboard` / `recovery` use `plan-actions` + COMPUTE command  
+3. ✅ `setPlanCommandRecorder` mock for tool-style command goldens  
+4. ✅ `waitForPlanComputed` in `domain/wait-plan.js`  
 
-1. Implement `display-modes.js`; wire MAP / ACCURATE / default to modes.  
-2. Dual overlay **only** in Compare (and Advanced both).  
-3. Path-truth HUD becomes secondary; mode badge is primary.  
-4. Optional follow-up: Present = physical samples × cinematic inclination transform (single orbit).
+### Phase 3 — Display modes · **LANDED**
 
-### Phase 4 — PlanResult boundary (ongoing)
+1. ✅ `display-modes.js` Present / Analyze / Compare / Ops  
+2. ✅ MAP → Compare · ACCURATE → Ops  
+3. ✅ Dual overlay for Compare/Ops (+ Advanced both)  
+4. ✅ Product mode select in Plan Advanced · view badge from modes  
+5. ⏳ Optional: Present = single orbit × tilt transform (future)
 
-1. Adapters produce `assessment` from dossier without UI grepping six field paths.  
-2. Packages/export store `seed` + `result.assessment` digest; recompute always.
+### Phase 4 — PlanResult · **LANDED**
 
-### Phase 5 — Deployable (separate track)
+1. ✅ `buildPlanResult` / `planResultDigest`  
+2. ✅ Mission JSON + package manifest include `plan_result` + digest + seed  
+3. ✅ Note: recompute from `plan_request` remains authority  
 
-1. Declare **one** primary host; other is mirror or kill.  
-2. Stop hand-copy as architecture; CI asserts hash equality if mirror kept.
+### Phase 5 — Deployable · **LANDED (docs)**
+
+1. ✅ App Hosting declared **primary**; classic Hosting is mirror  
+2. ✅ `smoke:build-sha` remains the cross-surface hash check  
+3. ✅ Prepare pipeline is single SPA source (`web:prepare`)
 
 ---
 

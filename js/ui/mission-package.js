@@ -170,14 +170,17 @@ export async function exportMissionPackage(td) {
     generated_at: plan.generated_at,
     fidelity: plan.methodology?.fidelity || state.fidelityLevel,
     ephemeris_backend: plan.methodology?.ephemeris_backend,
+    product_mode: plan.methodology?.product_mode || state.productMode || 'present',
     share_hash: shareHash,
+    plan_request: plan.plan_request || null,
+    plan_result_digest: plan.plan_result_digest || null,
     files: [
       `${base}.json`,
       `${base}-path.csv`,
       `${base}-brief.md`,
       `${base}-manifest.json`,
     ],
-    note: 'Open share_hash on HELIOS to recompute geometry. Never trust stored Δv alone.'};
+    note: 'Open share_hash / plan_request on HELIOS to recompute geometry. Never trust stored Δv alone — plan_result_digest is not authority.'};
   if (state.flightOpsMode) manifest.files.push(`${base}-oem-like.txt`);
 
   downloadBlob(`${base}.json`, JSON.stringify(plan, null, 2), 'application/json');

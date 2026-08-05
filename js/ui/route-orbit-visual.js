@@ -109,10 +109,18 @@ export function updateTransferOrbitVisual() {
 
   // Scene primary path: cinematic visual (not glued to ecliptic under ×8 planet tilts);
   // schematic / ACCURATE / MAP → physical (Need-aligned).
-  // Dual overlay only when MAP / ACCURATE / explicit pathGeometry=both (not default cinematic).
+  // Dual overlay only in Compare/Ops product modes (or Advanced both).
   const primaryGeom = scenePathGeometry();
-  const wantDual = !!(state.physicsAccurate || state.mapMode
-    || effectivePathGeometry() === 'both');
+  let wantDual = !!(state.physicsAccurate || state.mapMode
+    || effectivePathGeometry() === 'both'
+    || state.productMode === 'compare'
+    || state.productMode === 'ops');
+  try {
+    // Prefer domain helper when available (sync require not used — flags above cover)
+    if (state.productMode === 'present' || state.productMode === 'analyze') {
+      wantDual = effectivePathGeometry() === 'both';
+    }
+  } catch { /* */ }
   const depT = td.departureSimTime;
   const arrT = td.arrivalSimTime;
   // Endpoint bodies for markers: match scene path exaggeration

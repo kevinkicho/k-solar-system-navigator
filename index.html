@@ -1264,15 +1264,25 @@ input[type="range"]::-webkit-slider-thumb {
             <button type="button" class="btn-tiny" id="btn-vehicle-lab" title="Internal vehicle model browser">OPEN VEHICLE LAB</button>
           </div>
           <div class="route-field-row">
-            <label>Display scale</label>
+            <label>Product mode</label>
+            <select id="product-mode-select" title="Present · Analyze · Compare · Ops — preferred over raw path knobs">
+              <option value="present" selected>Present — cinematic fly study (1 path)</option>
+              <option value="analyze">Analyze — physical path (1 path)</option>
+              <option value="compare">Compare — dual path honesty</option>
+              <option value="ops">Ops — dual path + analysis residual</option>
+            </select>
+            <p class="surface-hint" style="margin-top:4px">MAP → Compare · ACCURATE → Ops. Need Δv always physical.</p>
+          </div>
+          <div class="route-field-row">
+            <label>Display scale (advanced)</label>
             <select id="display-mode-select" title="Cinematic exaggeration vs schematic inclinations">
               <option value="cinematic">Cinematic (exaggerated)</option>
               <option value="schematic">Schematic (true incl./wobble)</option>
             </select>
           </div>
           <div class="route-field-row">
-            <label>Need path policy</label>
-            <select id="path-geometry-select" title="Need/export path policy. Cinematic fly study still uses visual scene path for planet-tilt alignment. Dual overlay only when Both or MAP/ACCURATE.">
+            <label>Need path policy (advanced)</label>
+            <select id="path-geometry-select" title="Need/export path policy. Prefer Product mode above. Dual overlay only in Compare/Ops or Both.">
               <option value="physical" selected>Physical Need plane (product default · schematic fly study)</option>
               <option value="both">Both — show dual overlay (physical + visual)</option>
               <option value="visual" hidden>Visual only (hidden · not product)</option>

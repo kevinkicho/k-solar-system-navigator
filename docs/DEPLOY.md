@@ -2,6 +2,17 @@
 
 **Product class:** industrial preliminary mission design — **not flight-certified**, not range safety, not live SPICE OD.
 
+## Primary surface (Domain Spine Phase 5)
+
+| Role | URL / path |
+|------|------------|
+| **Primary** | **Firebase App Hosting** — `https://helios--k-solar-system-navigator.us-central1.hosted.app` |
+| Mirror | Classic Hosting SPA — `https://k-solar-system-navigator.web.app` |
+
+**Source of truth for SPA code:** repo root `js/`, `css/`, `assets/` → prepared into `web/public` via `npm run web:prepare` (same prepare for both hosts).
+
+Do not treat classic Hosting as a second product. When physics/UI change, deploy **App Hosting** (primary); deploy classic Hosting as optional mirror so `npm run smoke:build-sha` can confirm hash parity.
+
 ## Before every push
 
 ```bash

@@ -73,7 +73,7 @@ check('route-display analysis READY board', /missionReviewBoardHtml|mission-revi
   readFileSync(resolve(ROOT, 'js/ui/route-display.js'), 'utf8')));
 check('effectivePathGeometry helper', /export function effectivePathGeometry/.test(stateJs));
 check('path geometry HTML default physical', /path-geometry-select[\s\S]*value=["']physical["'][^>]*selected|value=["']physical["'] selected/.test(indexHtml));
-check('MAP restores product physical', /PRODUCT_PATH_GEOMETRY|_pathGeomBeforeMap/.test(
+check('MAP uses product mode Compare/Present', /setProductMode|productMode|compare/.test(
   readFileSync(resolve(ROOT, 'js/ui/map-mode.js'), 'utf8')));
 check('planning backend resolve sample-de', /PRODUCT_PLANNING_BACKEND|resolvePlanningBackend/.test(
   readFileSync(resolve(ROOT, 'js/physics/planning-defaults.js'), 'utf8')));

@@ -117,7 +117,9 @@ Naming: **plan timeline** = recompute seeds; **plan flow (DAG)** = branching mat
 | Review URL `?recompute=1` + hash → recompute geometry | `js/ui/review-recompute.js` |
 | Timeline UNDO/REDO/JUMP via command bus | `js/ui/campaign-timeline-ui.js` |
 | Studio **COPY REVIEW URL** · **RUN PLAN FLOW** | `js/ui/studio-panel.js` |
-| Domain spine RFC | [domain-spine-rfc.md](./domain-spine-rfc.md) |
+| Domain spine Phases 1–5 | [domain-spine-rfc.md](./domain-spine-rfc.md) · `js/domain/*` |
+| Product modes Present/Analyze/Compare/Ops | `display-modes.js` · Plan Advanced |
+| PlanResult on packages | `plan_result` + digest in mission JSON/manifest |
 | Plan-only small bodies (scene-hidden) | `catalog.sceneVisible` · `ensureSceneBody` |
 | Constant calendar rate (mission study) | `timeState.setContinuousScale` · `advance()` |
 

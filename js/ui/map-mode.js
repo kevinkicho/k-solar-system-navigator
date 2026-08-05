@@ -1,61 +1,24 @@
 /**
- * Map mode — schematic frames + dual path overlay for honest trajectory mapping.
- * Cinematic stays the default presentation; map mode is one click for dual-path truth.
+ * Map mode — Compare product mode (schematic + dual path).
+ * Prefer setProductMode('compare'|'present') from domain.
  */
 import * as THREE from 'three';
-import { state, PRODUCT_PATH_GEOMETRY, effectivePathGeometry } from '../state.js';
-import { setDisplayMode, isSchematic } from '../display-scale.js';
+import { state, effectivePathGeometry } from '../state.js';
+import { isSchematic } from '../display-scale.js';
 import { BODIES } from '../data/bodies.js';
 import { generateOrbitPoints } from '../physics/kepler.js';
 import { orbitLines } from '../scene/planets.js';
 import { updateViewBadge } from './share.js';
 
-/** Geometry in force before MAP dual-overlay (restore on exit). */
-let _pathGeomBeforeMap = null;
-
 /**
- * Apply or clear map mode.
+ * Apply or clear map mode → product mode compare / present.
  * @param {boolean} on
  * @param {{ silent?: boolean }} [opts]
  */
 export function setMapMode(on, opts = {}) {
-  const want = !!on;
-  state.mapMode = want;
-
-  if (want) {
-    setDisplayMode('schematic');
-    // Remember pre-MAP geometry so exit restores product physical (not silent visual).
-    if (state.pathGeometry !== 'both') {
-      _pathGeomBeforeMap = effectivePathGeometry();
-    }
-    // Dual overlay: bright cinematic-capable line + faint physical (real-I) line
-    state.pathGeometry = 'both';
-  } else {
-    if (state.display?.mode === 'schematic') setDisplayMode('cinematic');
-    if (state.pathGeometry === 'both') {
-      state.pathGeometry = _pathGeomBeforeMap || PRODUCT_PATH_GEOMETRY;
-      _pathGeomBeforeMap = null;
-    }
-  }
-
-  rebuildOrbitLines();
-  syncMapModeUi();
-  updateViewBadge();
-
-  if (state.showTransferOrbit && state.transferData) {
-    import('../physics/routing.js').then(({ refreshVisualTransferGeometry }) => {
-      refreshVisualTransferGeometry(state.transferData);
-      return import('./route-orbit-visual.js');
-    }).then((m) => m?.updateTransferOrbitVisual?.());
-  }
-
-  if (!opts.silent) {
-    import('./format.js').then(({ notify }) => {
-      notify(want
-        ? 'MAP MODE — schematic frames · dual path (physical + visual)'
-        : 'CINEMATIC VIEW — exaggerated inclinations / sun wobble');
-    });
-  }
+  import('../domain/display-modes.js').then(({ setProductMode }) => {
+    setProductMode(on ? 'compare' : 'present', { silent: opts.silent, skipRecompute: true });
+  });
 }
 
 export function toggleMapMode() {
@@ -91,11 +54,13 @@ export function syncMapModeUi() {
 }
 
 export function mapModeBadgeText() {
-  if (state.mapMode) return 'VIEW: MAP · dual path · physical frames';
-  if (isSchematic()) {
-    return 'VIEW: SCHEMATIC — incl. & sun wobble physical; moons still layout-scaled; numbers always physical';
+  if (state.mapMode || state.productMode === 'compare') {
+    return 'VIEW: COMPARE · dual path · physical frames';
   }
-  return 'VIEW: CINEMATIC (exaggerated incl. / wobble)';
+  if (isSchematic()) {
+    return 'VIEW: ANALYZE — physical path; numbers always physical';
+  }
+  return 'VIEW: PRESENT (cinematic display orbit)';
 }
 
 export function wireMapMode() {

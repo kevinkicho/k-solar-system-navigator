@@ -1,6 +1,5 @@
 /**
  * Plan command bus — single entry for UI / agent / share / undo.
- * Phase 1: wraps session history + domain apply.
  */
 
 import {
@@ -14,18 +13,35 @@ import {
 } from '../agent/campaign-object.js';
 import { reapplyPlanRequest } from './plan-apply.js';
 import { buildPlanRequestFromState, normalizePlanRequest, digestPlanSeed } from './plan-seed.js';
+import { buildPlanResult } from './plan-result.js';
+import { waitForPlanComputed } from './wait-plan.js';
+import {
+  applyVehicleArgs,
+  applyDepartureArgs,
+  applyLaunchSiteArgs,
+  openWindowSearch,
+  runSuggestGa,
+  resolveBody,
+} from './plan-actions.js';
+import { setProductMode } from './display-modes.js';
 import { state } from '../state.js';
 
-/**
- * @typedef {{ type: string, seed?: object, compute?: boolean, notifyUser?: boolean, index?: number, label?: string, source?: string }} PlanCommand
- */
+/** Optional test/mock hook: if set, records commands instead of executing. */
+let _mockRecorder = null;
+
+export function setPlanCommandRecorder(fn) {
+  _mockRecorder = typeof fn === 'function' ? fn : null;
+}
 
 /**
- * Dispatch a plan command.
- * @param {PlanCommand} cmd
+ * @param {object} cmd
  */
 export async function dispatchPlanCommand(cmd) {
   if (!cmd || !cmd.type) return { ok: false, error: 'no command' };
+  if (_mockRecorder) {
+    _mockRecorder(cmd);
+    return { ok: true, mocked: true, cmd };
+  }
 
   switch (cmd.type) {
     case 'APPLY_SEED': {
@@ -41,7 +57,7 @@ export async function dispatchPlanCommand(cmd) {
           source: cmd.source || 'command',
         });
       }
-      return r;
+      return { ...r, result: r.ok ? buildPlanResult() : null };
     }
 
     case 'COMPUTE': {
@@ -49,7 +65,9 @@ export async function dispatchPlanCommand(cmd) {
       if (!state.routeOrigin || !state.routeDestination) {
         return { ok: false, error: 'no route' };
       }
+      const waitP = cmd.wait !== false ? waitForPlanComputed() : Promise.resolve({ ok: true });
       computeRoute();
+      await waitP;
       if (cmd.recordHistory !== false) {
         pushCampaignStep({
           kind: 'compute',
@@ -57,7 +75,74 @@ export async function dispatchPlanCommand(cmd) {
           source: cmd.source || 'command',
         });
       }
-      return { ok: true };
+      return { ok: true, result: buildPlanResult() };
+    }
+
+    case 'SET_VEHICLE': {
+      const out = applyVehicleArgs(cmd);
+      return { ok: true, ...out };
+    }
+
+    case 'SET_DEPARTURE': {
+      try {
+        const departure = applyDepartureArgs(cmd.date || cmd.iso || cmd.departure);
+        return { ok: true, departure };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    }
+
+    case 'SET_LAUNCH_SITE': {
+      const launchSiteId = applyLaunchSiteArgs(cmd.launchSiteId || cmd.site);
+      return { ok: true, launchSiteId };
+    }
+
+    case 'SET_ROUTE': {
+      const { setRouteOrigin, setRouteDestination } = await import('../ui/route-planner.js');
+      const out = {};
+      if (cmd.origin) {
+        const b = resolveBody(cmd.origin);
+        if (!b) return { ok: false, error: `Unknown origin: ${cmd.origin}` };
+        setRouteOrigin(b);
+        out.origin = b.name;
+      }
+      if (cmd.destination) {
+        const b = resolveBody(cmd.destination);
+        if (!b) return { ok: false, error: `Unknown destination: ${cmd.destination}` };
+        setRouteDestination(b);
+        out.destination = b.name;
+      }
+      if (!cmd.origin && !cmd.destination) {
+        return { ok: false, error: 'SET_ROUTE needs origin and/or destination' };
+      }
+      return { ok: true, ...out };
+    }
+
+    case 'CLEAR_ROUTE': {
+      const { clearRoute } = await import('../ui/route-planner.js');
+      clearRoute();
+      return { ok: true, cleared: true };
+    }
+
+    case 'OPEN_WINDOWS': {
+      return openWindowSearch();
+    }
+
+    case 'SUGGEST_GA': {
+      return runSuggestGa({ thorough: cmd.thorough });
+    }
+
+    case 'SET_MODE': {
+      return setProductMode(cmd.mode || cmd.id || 'present', {
+        silent: cmd.silent,
+        skipRecompute: cmd.skipRecompute,
+      });
+    }
+
+    case 'RUN_CAMPAIGN': {
+      const { runMissionCampaign } = await import('../agent/campaign.js');
+      const r = await runMissionCampaign(cmd.plan || cmd.args || cmd);
+      return { ok: !!r?.ok, ...r };
     }
 
     case 'UNDO': {
@@ -69,7 +154,7 @@ export async function dispatchPlanCommand(cmd) {
           compute: cmd.compute !== false,
         });
       }
-      return { ok: true, step };
+      return { ok: true, step, result: buildPlanResult() };
     }
 
     case 'REDO': {
@@ -81,7 +166,7 @@ export async function dispatchPlanCommand(cmd) {
           compute: cmd.compute !== false,
         });
       }
-      return { ok: true, step };
+      return { ok: true, step, result: buildPlanResult() };
     }
 
     case 'JUMP': {
@@ -93,7 +178,7 @@ export async function dispatchPlanCommand(cmd) {
           compute: cmd.compute !== false,
         });
       }
-      return { ok: true, step };
+      return { ok: true, step, result: buildPlanResult() };
     }
 
     case 'SNAPSHOT': {
@@ -111,16 +196,13 @@ export async function dispatchPlanCommand(cmd) {
     }
 
     case 'RUN_WORKFLOW': {
-      const { runPlanFlow, runPlanFlowLog } = await import('../agent/plan-flow.js');
-      if (cmd.id === 'linear' || cmd.workflow === 'linear') {
-        const r = await runPlanFlowLog(cmd.plan || {}, cmd.opts || {});
-        return { ok: true, result: r };
-      }
-      const dag = await runPlanFlow(cmd.plan || {}, {
+      const { runWorkflow } = await import('./workflow-runner.js');
+      const kind = cmd.id || cmd.workflow || 'dag';
+      const result = await runWorkflow(kind, cmd.plan || {}, {
         source: cmd.source || 'command',
         ...(cmd.opts || {}),
       });
-      return { ok: true, result: dag };
+      return { ok: true, result };
     }
 
     default:
@@ -134,5 +216,7 @@ export function getPlanSessionSnapshot() {
     steps: listCampaignSteps(),
     seed: buildPlanRequestFromState(state),
     digest: digestPlanSeed(buildPlanRequestFromState(state)),
+    result: buildPlanResult(),
+    productMode: state.productMode || 'present',
   };
 }

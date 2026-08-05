@@ -89,6 +89,16 @@ export async function reapplyPlanRequest(pr, opts = {}) {
     state.ephemerisBackend = 'approx';
   }
 
+  if (seed.view === 'schematic' || seed.view === 'cinematic') {
+    try {
+      const { setDisplayMode } = await import('../display-scale.js');
+      setDisplayMode(seed.view);
+    } catch { /* */ }
+  }
+  if (seed.archOmitted) {
+    notify('SHARE OMITTED ARCH — USING LEGACY-DEMO');
+  }
+
   if (seed.os || seed.ds) {
     try {
       const { normalizeSurfacePoint } = await import('../physics/surface-point.js');

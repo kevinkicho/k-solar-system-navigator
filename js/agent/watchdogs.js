@@ -96,14 +96,21 @@ export function runWatchdogs() {
 export async function applyWatchdogAction(action) {
   if (!action?.type) return { ok: false };
   switch (action.type) {
-    case 'set_path_geometry':
-      state.pathGeometry = action.value || PRODUCT_PATH_GEOMETRY;
-      try {
-        const sel = document.getElementById('path-geometry-select');
-        if (sel) sel.value = state.pathGeometry;
-        window.dispatchEvent(new CustomEvent('helios-path-geometry'));
-      } catch { /* */ }
+    case 'set_path_geometry': {
+      const v = action.value || PRODUCT_PATH_GEOMETRY;
+      if (v === 'both') {
+        const { setProductMode } = await import('../domain/display-modes.js');
+        await setProductMode('compare', { silent: true, skipRecompute: true });
+      } else {
+        state.pathGeometry = v;
+        try {
+          const sel = document.getElementById('path-geometry-select');
+          if (sel) sel.value = state.pathGeometry;
+          window.dispatchEvent(new CustomEvent('helios-path-geometry'));
+        } catch { /* */ }
+      }
       return { ok: true, pathGeometry: state.pathGeometry };
+    }
     case 'set_ephemeris':
       state.ephemerisBackend = action.value || 'sample-de';
       if (state.ephemerisBackend === 'sample-de' && state.fidelityLevel === 'L1') {

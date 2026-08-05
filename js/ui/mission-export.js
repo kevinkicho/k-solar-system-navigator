@@ -16,6 +16,8 @@ import { requiredDeltaV, transferBudgetNow, computeNeedNow } from './mission-bud
 import {
   COORD_SYSTEM_ID, cloneSurfacePoint, isSurfacePointActive,
   geographicEndpointPackage} from '../physics/surface-point.js';
+import { buildPlanResult, planResultDigest } from '../domain/plan-result.js';
+import { buildPlanRequestFromState } from '../domain/plan-seed.js';
 
 export function exportMissionPlan(td) {
   const plan = buildPlanObject(td);
@@ -56,6 +58,17 @@ export function buildPlanObject(td) {
   const feasible = !!margin.feasible;
   const isoUTC = (simT) => new Date(simT * 1000 + Date.UTC(2000, 0, 1, 12, 0, 0)).toISOString();
 
+  const seed = buildPlanRequestFromState(state, td) || {
+    v: 2,
+    o: bodyId(td.body1),
+    d: bodyId(td.body2),
+    dep: isoUTC(td.departureSimTime).slice(0, 10),
+    tof: Math.round(td.transferTime / DAY),
+    veh: state.vehicleId,
+    ab: state.abstractBudget_m_s,
+    basis: costBasis,
+  };
+  const planResult = buildPlanResult(td, state);
   const plan = {
     schema_version: 3,
     generated_at: new Date().toISOString(),
@@ -69,6 +82,7 @@ export function buildPlanObject(td) {
       transfer: 'Lambert universal-variable, dual geometry (physical Δv / visual line)',
       disclaimer: 'Preliminary mission design — not flight-certified software; not range safety; not SpaceX-certified performance; not operational SPICE OD.',
       display_mode: state.display?.mode || 'cinematic',
+      product_mode: state.productMode || 'present',
       fidelity: state.fidelityLevel === 'L2' ? 'L2-compare' : (state.fidelityLevel || 'L1')},
     summary: {
       origin: td.body1.name,
@@ -85,15 +99,19 @@ export function buildPlanObject(td) {
       multi_leg:     isMulti,
       n_flybys:      isMulti ? td.flybys.length : 0,
       cargo_mass_kg: state.cargoMass_kg ?? 0},
+    /** Domain PlanResult — recompute from plan_request for authority */
+    plan_result: planResult,
+    plan_result_digest: planResultDigest(planResult),
     plan_request: {
-      v: 1,
-      o: bodyId(td.body1),
-      d: bodyId(td.body2),
-      dep: isoUTC(td.departureSimTime).slice(0, 10),
-      tof: Math.round(td.transferTime / DAY),
-      veh: state.vehicleId,
-      ab: state.abstractBudget_m_s,
-      basis: costBasis,
+      ...seed,
+      v: seed.v || 2,
+      o: seed.o || bodyId(td.body1),
+      d: seed.d || bodyId(td.body2),
+      dep: seed.dep || isoUTC(td.departureSimTime).slice(0, 10),
+      tof: seed.tof ?? Math.round(td.transferTime / DAY),
+      veh: seed.veh || state.vehicleId,
+      ab: seed.ab ?? state.abstractBudget_m_s,
+      basis: seed.basis || costBasis,
       view: state.display?.mode || 'cinematic',
       cargo: Math.round(state.cargoMass_kg || 0),
       arch: state.vehicleId === 'sh-starship' ? (state.starshipArch || 'unrefueled') : undefined,

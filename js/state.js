@@ -117,6 +117,11 @@ export const state = {
     mode: 'cinematic',
   },
   /**
+   * Named product mode: 'present' | 'analyze' | 'compare' | 'ops'
+   * See js/domain/display-modes.js — preferred over raw pathGeometry/map/accurate knobs.
+   */
+  productMode: 'present',
+  /**
    * Physics-accurate scene mode (not a Three.js solver — uses our Lambert/ephemeris).
    * Forces schematic frames + physical path geometry + dual overlay optional.
    */

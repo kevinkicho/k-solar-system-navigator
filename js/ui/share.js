@@ -3,20 +3,15 @@
 
 import { DAY } from '../constants.js';
 import { state } from '../state.js';
-import { bodyId, findById, findByIdOrName, resolveFlybyBody } from '../data/catalog.js';
-import { setDisplayMode } from '../display-scale.js';
-import { hohmannTransfer } from '../physics/kepler.js';
-import { MIN_PERIHELION_AU, findNearestFeasibleTransfer, solveMultiLegRoute, solveTransferOrbit } from '../physics/routing.js';
-import { dateToInputValue, dateToSimTime, notify, simTimeToDate } from './format.js';
-import { renderRouteUI, updateTransferOrbitVisual } from './route-display.js';
-import { setRouteDestination, setRouteOrigin, renderFlybyList } from './route-planner.js';
+import { bodyId, resolveFlybyBody } from '../data/catalog.js';
+import { notify, simTimeToDate } from './format.js';
 import { timeState } from './time-system.js';
-import { updateBodyList } from './body-list.js';
 import {
-  encodePlanRequestObject, parsePlanRequest as parseHash, padDate, MAX_FLYS} from './share-codec.js';
+  encodePlanRequestObject, parsePlanRequest as parseHash, padDate, MAX_FLYS,
+} from './share-codec.js';
 import {
-  cloneSurfacePoint, isSurfacePointActive, normalizeSurfacePoint} from '../physics/surface-point.js';
-import { refreshSurfacePointUi } from './surface-point-ui.js';
+  cloneSurfacePoint, isSurfacePointActive,
+} from '../physics/surface-point.js';
 
 export function parsePlanRequest(hash) { return parseHash(hash); }
 
@@ -60,152 +55,46 @@ export function encodePlanRequest(opts = {}) {
   return encodePlanRequestObject(plan);
 }
 
-export function applyPlanRequest(req) {
+/**
+ * Apply share/hash plan via domain command bus (single apply path).
+ * Returns a Promise<boolean> (thenable — sync callers treat as truthy while loading).
+ * @param {object} req parsePlanRequest shape or compact seed
+ * @returns {Promise<boolean>}
+ */
+export async function applyPlanRequest(req) {
   if (!req) return false;
-  const origin = findByIdOrName(req.originId);
-  const dest = findByIdOrName(req.destId);
-  if (!origin || !dest) {
+  const { normalizePlanRequest } = await import('../domain/plan-seed.js');
+  const { reapplyPlanRequest } = await import('../domain/plan-apply.js');
+  const seed = normalizePlanRequest(req);
+  if (!seed?.o || !seed?.d) {
     notify('SHARE LINK: unknown body id');
     return false;
   }
-
-  setDisplayMode(req.view);
-  state.vehicleId = req.vehicleId || 'sh-starship';
-  state.abstractBudget_m_s = req.abstractBudget_m_s ?? 8000;
-  state.costBasis = req.costBasis || 'helio';
-  state.cargoMass_kg = req.cargoMass_kg ?? 0;
-  if (req.vehicleId === 'sh-starship' || !req.vehicleId) {
-    state.starshipArch = req.starshipArch || 'legacy-demo';
-    if (req.archOmitted) notify('SHARE OMITTED ARCH — USING LEGACY-DEMO');
-  }
-  if (req.tankerCount != null) state.tankerCount = req.tankerCount;
-  if (req.falcon9Variant) state.falcon9Variant = req.falcon9Variant;
-  if (req.ephemerisBackend === 'sample-de') {
-    state.ephemerisBackend = 'sample-de';
-    state.fidelityLevel = 'L2-plan';
-  } else {
-    state.ephemerisBackend = 'approx';
-    // keep L2-compare if already set; otherwise L1
-    if (state.fidelityLevel === 'L2-plan') state.fidelityLevel = 'L1';
-  }
-  const ephSel = document.getElementById('ephemeris-backend');
-  if (ephSel) ephSel.value = state.ephemerisBackend;
-  if (req.flybys.length > 0 && req.costBasis === 'mission') {
+  if (Array.isArray(req.flybys) && req.flybys.length > 0 && (req.costBasis === 'mission' || seed.basis === 'mission')) {
     notify('MISSION BASIS IS SINGLE-LEG ONLY — USING HELIO');
-    state.costBasis = 'helio';
+    seed.basis = 'helio';
   }
   if (req.tofIgnoredMulti) notify('TOF IGNORED FOR MULTI-LEG');
-  // Sync vehicle UI controls if present
-  const vehSel = document.getElementById('vehicle-select');
-  if (vehSel) vehSel.value = state.vehicleId;
-  const cargoIn = document.getElementById('cargo-mass');
-  if (cargoIn) cargoIn.value = String(state.cargoMass_kg);
-  const archSel = document.getElementById('starship-arch');
-  if (archSel && state.starshipArch) archSel.value = state.starshipArch;
 
-  setRouteOrigin(origin);
-  setRouteDestination(dest);
-  // Apply geographic sites after body set (setRoute resets defaults)
-  if (req.originSite) {
-    state.routeOriginPoint = normalizeSurfacePoint(req.originSite, origin);
+  const r = await reapplyPlanRequest(seed, { notifyUser: false, compute: true });
+  if (!r.ok) {
+    notify(r.error || 'SHARE APPLY FAILED');
+    return false;
   }
-  if (req.destSite) {
-    state.routeDestPoint = normalizeSurfacePoint(req.destSite, dest);
-  }
-  try { refreshSurfacePointUi(); } catch { /* */ }
-
-  const depSim = dateToSimTime(req.depDate);
-  timeState.simTime = depSim;
-  timeState.setSpeed(3);
-  timeState.updateDisplay();
-  const depInput = document.getElementById('depart-date');
-  if (depInput) depInput.value = dateToInputValue(req.depDate);
-
-  state.flybys = [];
-  for (const f of req.flybys) {
-    const body = findById(f.bodyId);
-    if (!body || !body.flybyEligible) continue;
-    state.flybys.push({
-      bodyId: body.id,
-      bodyName: body.name,
-      simTime: dateToSimTime(f.date)});
-  }
-  renderFlybyList();
-
-  // Sync remaining vehicle UI (vehSel/cargo/arch already set above)
-  const basisSel = document.getElementById('cost-basis-select');
-  if (basisSel) {
-    basisSel.value = state.costBasis;
-    basisSel.disabled = state.flybys.length > 0;
-  }
-  const abInput = document.getElementById('abstract-budget');
-  if (abInput) abInput.value = String(state.abstractBudget_m_s);
+  try {
+    const { updateTransferOrbitVisual } = await import('./route-orbit-visual.js');
+    updateTransferOrbitVisual?.();
+  } catch { /* */ }
+  try {
+    const { renderRouteUI } = await import('./route-display.js');
+    if (state.transferData) renderRouteUI();
+  } catch { /* */ }
+  try {
+    const { updateBodyList } = await import('./body-list.js');
+    updateBodyList();
+  } catch { /* */ }
   updateViewBadge();
-
-  if (state.flybys.length > 0) {
-    const waypoints = [
-      { body: origin, simTime: depSim },
-      ...state.flybys.map(f => ({ body: resolveFlybyBody(f), simTime: f.simTime })).filter(w => w.body),
-      // Destination arrival: Hohmann-ish gap after last flyby
-      { body: dest, simTime: state.flybys[state.flybys.length - 1].simTime + hohmannTransfer(
-        resolveFlybyBody(state.flybys[state.flybys.length - 1]) || origin, dest,
-        state.flybys[state.flybys.length - 1].simTime,
-      ).transferTime },
-    ];
-    // Prefer last flyby + dest with proper TOF
-    const lastFb = state.flybys[state.flybys.length - 1];
-    const lastBody = resolveFlybyBody(lastFb);
-    const h = hohmannTransfer(lastBody || origin, dest, lastFb.simTime);
-    waypoints[waypoints.length - 1] = { body: dest, simTime: lastFb.simTime + h.transferTime };
-
-    state.transferData = solveMultiLegRoute(waypoints, {
-      surfaceOriginPoint: state.routeOriginPoint,
-      surfaceDestPoint: state.routeDestPoint});
-    state.transferData.surfaceOriginPoint = cloneSurfacePoint(state.routeOriginPoint, origin);
-    state.transferData.surfaceDestPoint = cloneSurfacePoint(state.routeDestPoint, dest);
-    state.showTransferOrbit = true;
-    state.userTofDays = null;
-  } else {
-    state.transferData = hohmannTransfer(origin, dest, depSim);
-    state.transferData.surfaceOriginPoint = cloneSurfacePoint(state.routeOriginPoint, origin);
-    state.transferData.surfaceDestPoint = cloneSurfacePoint(state.routeDestPoint, dest);
-    if (req.tofDays != null) {
-      state.userTofDays = req.tofDays;
-      state.transferData.transferTime = req.tofDays * DAY;
-      state.transferData.arrivalSimTime = depSim + req.tofDays * DAY;
-      state.transferData.departureSimTime = depSim;
-    } else {
-      state.userTofDays = null;
-    }
-    solveTransferOrbit(state.transferData);
-
-    // Pathological auto-snap only (heliocentric Sun-grazing — not planet-relative)
-    const td = state.transferData;
-    if (td.lambertOk && td.orbitPhysical && !td.planetRelative) {
-      const peri = td.orbitPhysical.a * (1 - td.orbitPhysical.e) / (1.495978707e11);
-      const dv = td.dvTotal_lambert;
-      if (peri < MIN_PERIHELION_AU || dv > 50000) {
-        const best = findNearestFeasibleTransfer(origin, dest, depSim, td.transferTime);
-        if (best) {
-          timeState.simTime = best.departureSimTime;
-          state.transferData = hohmannTransfer(origin, dest, best.departureSimTime);
-          state.transferData.transferTime = best.transferTime;
-          state.transferData.arrivalSimTime = best.arrivalSimTime;
-          state.transferData.departureSimTime = best.departureSimTime;
-          state.transferData.surfaceOriginPoint = cloneSurfacePoint(state.routeOriginPoint, origin);
-          state.transferData.surfaceDestPoint = cloneSurfacePoint(state.routeDestPoint, dest);
-          solveTransferOrbit(state.transferData);
-          if (depInput) depInput.value = dateToInputValue(simTimeToDate(best.departureSimTime));
-        }
-      }
-    }
-    state.showTransferOrbit = true;
-  }
-
-  updateTransferOrbitVisual();
-  renderRouteUI();
-  updateBodyList();
-  notify(`LOADED SHARE: ${origin.name.toUpperCase()} → ${dest.name.toUpperCase()}`);
+  notify(`LOADED SHARE: ${(seed.o || '?').toUpperCase()} → ${(seed.d || '?').toUpperCase()}`);
   return true;
 }
 
@@ -246,25 +135,32 @@ function fallbackCopy(url) {
 
 export function tryApplyHashOnLoad() {
   const req = parsePlanRequest(location.hash);
-  if (req) applyPlanRequest(req);
+  if (req) {
+    applyPlanRequest(req).catch((e) => console.warn('[HELIOS] hash apply', e));
+  }
 }
 
 export function updateViewBadge() {
   const el = document.getElementById('view-mode-badge');
   if (!el) return;
-  try {
-    if (state.physicsAccurate) {
-      el.textContent = 'VIEW: PHYSICS-ACCURATE';
-      el.title = 'Schematic frames + physical path geometry. Numbers from Lambert/ephemeris — Three.js is display only.';
-      return;
-    }
-    if (state.mapMode) {
-      el.textContent = 'VIEW: MAP · dual path';
-      el.title = 'Map mode — schematic frames + dual path overlay; numbers always physical';
-      return;
-    }
-  } catch { /* */ }
-  import('../display-scale.js').then(({ displayModeBadge }) => {
-    el.textContent = displayModeBadge();
+  import('../domain/display-modes.js').then(({ productModeBadgeText, productModeTitle, getProductMode }) => {
+    const mode = getProductMode();
+    el.textContent = productModeBadgeText();
+    el.title = productModeTitle();
+    el.dataset.productMode = mode;
+  }).catch(() => {
+    try {
+      if (state.physicsAccurate) {
+        el.textContent = 'VIEW: PHYSICS-ACCURATE';
+        return;
+      }
+      if (state.mapMode) {
+        el.textContent = 'VIEW: MAP · dual path';
+        return;
+      }
+    } catch { /* */ }
+    import('../display-scale.js').then(({ displayModeBadge }) => {
+      el.textContent = displayModeBadge();
+    });
   });
 }
