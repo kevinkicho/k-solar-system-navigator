@@ -46,13 +46,15 @@ export function renderCampaignTimeline(host) {
   const steps = listCampaignSteps();
   const lines = formatCampaignTimeline(camp);
 
+  const canUndo = (camp?.cursor ?? 0) > 0;
+  const canRedo = camp && camp.cursor < steps.length - 1;
   el.innerHTML = `
     <div class="ct-head">
-      <span class="ct-title">CAMPAIGN · timeline</span>
+      <span class="ct-title">PLAN TIMELINE · recompute seeds</span>
       <span class="ct-actions">
-        <button type="button" class="btn-tiny" id="ct-run" title="NL-free full campaign: windows optional, matrix, gates">RUN CAMPAIGN</button>
-        <button type="button" class="btn-tiny" id="ct-undo" ${steps.length < 2 ? 'disabled' : ''}>UNDO</button>
-        <button type="button" class="btn-tiny" id="ct-redo">REDO</button>
+        <button type="button" class="btn-tiny" id="ct-run" title="Branching plan run: compute, architecture matrix, optional recovery (not flight ops)">RUN PLAN FLOW</button>
+        <button type="button" class="btn-tiny" id="ct-undo" ${canUndo ? '' : 'disabled'}>UNDO</button>
+        <button type="button" class="btn-tiny" id="ct-redo" ${canRedo ? '' : 'disabled'}>REDO</button>
         <button type="button" class="btn-tiny" id="ct-snap">SNAPSHOT</button>
         <button type="button" class="btn-tiny" id="ct-clear" ${!steps.length ? 'disabled' : ''}>CLEAR</button>
       </span>
@@ -60,9 +62,9 @@ export function renderCampaignTimeline(host) {
     <ol class="ct-steps">
       ${steps.length
     ? lines.map((l, i) => `<li class="${i === camp?.cursor ? 'is-cur' : ''}">${esc(l)}</li>`).join('')
-    : '<li class="ct-empty">No steps yet — compute or apply family/arch to start a campaign log.</li>'}
+    : '<li class="ct-empty">No steps yet — compute or apply family/arch to log plan seeds.</li>'}
     </ol>
-    <p class="ct-note">Steps store recompute seeds (plan_request), not flight truth. Undo moves cursor — re-apply seed to restore vehicle/dates.</p>
+    <p class="ct-note">Partial restore only: vehicle / cargo / dep / TOF from plan_request, then recompute. Does not restore flybys, origin/dest changes, or fidelity flags. Not flight truth.</p>
   `;
 
   el.querySelector('#ct-undo')?.addEventListener('click', async () => {
@@ -127,20 +129,42 @@ export function renderCampaignTimeline(host) {
           .map((n) => `${n.status}: ${n.label}${n.detail ? ' — ' + n.detail : ''}`)
           .join('\n');
       }
-      notify('CAMPAIGN RUN COMPLETE');
+      notify('PLAN FLOW COMPLETE · review Studio / path truth');
       renderCampaignTimeline(host);
       import('./studio-panel.js').then((m) => m.renderStudioPanel?.(host)).catch(() => {});
     } catch (e) {
-      notify(e.message || 'CAMPAIGN FAILED');
+      notify(e.message || 'PLAN FLOW FAILED');
       if (out) out.textContent = e.message || String(e);
     }
   });
 }
 
+/**
+ * Partial restore from plan_request seed (vehicle/dates/TOF only) + recompute.
+ * Does not restore flybys or route endpoints.
+ */
 async function reapplyStep(step) {
   const pr = step?.plan_request;
-  if (!pr) return;
+  if (!pr) {
+    notify('STEP HAS NO SEED — cannot restore');
+    return;
+  }
   // Apply vehicle fields from seed
+  // Restore origin/dest when seed has them (partial — no surface points)
+  if (pr.o || pr.d) {
+    try {
+      const { findByIdOrName } = await import('../data/catalog.js');
+      const { setRouteOrigin, setRouteDestination } = await import('./route-planner.js');
+      if (pr.o) {
+        const b = findByIdOrName(pr.o);
+        if (b) setRouteOrigin(b);
+      }
+      if (pr.d) {
+        const b = findByIdOrName(pr.d);
+        if (b) setRouteDestination(b);
+      }
+    } catch { /* */ }
+  }
   if (pr.veh) {
     state.vehicleId = pr.veh;
     const sel = document.getElementById('vehicle-select');

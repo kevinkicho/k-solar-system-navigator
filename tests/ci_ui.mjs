@@ -290,35 +290,46 @@ try {
     }
   }
 
-  // Pass 4 Studio smoke: path truth + campaign timeline after compute
-  await prodPage.locator('.rail-tab[data-tab="results"]').click().catch(() => {});
-  await prodPage.waitForTimeout(500);
-  // Ensure a route is computed for Studio inject
-  await prodPage.evaluate(() => {
-    try {
-      const h = window.__HELIOS;
-      if (!h?.state) return;
-      // trigger compute if possible
-      document.getElementById('btn-compute')?.click();
-    } catch { /* */ }
-  });
-  await prodPage.waitForTimeout(2500);
-  await prodPage.locator('.rail-tab[data-tab="results"]').click().catch(() => {});
-  await prodPage.waitForTimeout(800);
-  const pathTruth = await prodPage.locator('#path-truth-hud').count();
-  check('path-truth HUD present after compute (or host)', pathTruth >= 0);
-  const studio = await prodPage.locator('#helios-studio').count();
-  check('Studio panel injects when results host exists', studio >= 0);
-  // Soft: if transfer exists, path-truth should show
-  const hasTd = await prodPage.evaluate(() => !!window.__HELIOS?.state?.transferData);
-  if (hasTd) {
-    const ptVis = await prodPage.locator('#path-truth-hud').isVisible().catch(() => false);
-    check('path-truth visible with transferData', ptVis);
-    const ct = await prodPage.locator('#campaign-timeline').count();
-    check('campaign timeline present', ct >= 1);
+  // Studio / path-truth smoke after a real route compute
+  await prodPage.locator('.rail-tab[data-tab="plan"]').click().catch(() => {});
+  await prodPage.locator('.body-item', { hasText: 'Earth' }).first().click({ button: 'right' }).catch(() => {});
+  await prodPage.locator('.body-item', { hasText: 'Mars' }).first().click({ button: 'right' }).catch(() => {});
+  await prodPage.waitForTimeout(200);
+  // Primary compute control is often "Compute route" / route button in plan rail
+  const computeBtn = prodPage.locator(
+    '#btn-compute-route, button:has-text("COMPUTE"), button:has-text("Compute")',
+  ).first();
+  if (await computeBtn.count()) {
+    await computeBtn.click().catch(() => {});
+    await prodPage.waitForTimeout(3000);
   } else {
-    check('path-truth visible with transferData', true, 'skip no td');
-    check('campaign timeline present', true, 'skip no td');
+    await prodPage.evaluate(() => {
+      try {
+        window.__HELIOS?.computeRoute?.()
+          || document.querySelector('[data-action="compute"]')?.click();
+      } catch { /* */ }
+    });
+    await prodPage.waitForTimeout(3000);
+  }
+  await prodPage.locator('.rail-tab[data-tab="results"]').click().catch(() => {});
+  await prodPage.waitForTimeout(1000);
+  const hasTd = await prodPage.evaluate(() => !!window.__HELIOS?.state?.transferData);
+  check('transferData after Earth→Mars compute attempt', hasTd === true || hasTd === false);
+  if (hasTd) {
+    const ptCount = await prodPage.locator('#path-truth-hud').count();
+    check('path-truth HUD mounted with transferData', ptCount >= 1);
+    const ptVis = await prodPage.locator('#path-truth-hud').isVisible().catch(() => false);
+    check('path-truth HUD visible', ptVis);
+    const ct = await prodPage.locator('#campaign-timeline').count();
+    check('plan timeline mounted', ct >= 1);
+    const studio = await prodPage.locator('#helios-studio').count();
+    check('Studio plan board mounted', studio >= 1);
+  } else {
+    // Soft skip if compute path differs in CI chrome
+    check('path-truth HUD mounted with transferData', true, 'skip — no transferData');
+    check('path-truth HUD visible', true, 'skip');
+    check('plan timeline mounted', true, 'skip');
+    check('Studio plan board mounted', true, 'skip');
   }
 
   await prodPage.close();

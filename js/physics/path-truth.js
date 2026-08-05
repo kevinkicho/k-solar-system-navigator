@@ -21,10 +21,21 @@ export function buildPathTruth(td, appState = {}, simTime = null) {
     };
   }
 
-  const sceneGeom = scenePathGeometry();
-  const needGeom = pathSampleGeometry();
+  // Prefer explicit geometry from appState when provided (pure tests / snapshots);
+  // otherwise live scenePathGeometry() (display mode + physicsAccurate).
   const pathGeomSetting = effectivePathGeometry(appState.pathGeometry);
   const displayMode = appState.display?.mode || 'cinematic';
+  let sceneGeom;
+  if (appState.physicsAccurate || appState.mapMode) sceneGeom = 'physical';
+  else if (displayMode === 'schematic') {
+    sceneGeom = (pathGeomSetting === 'visual') ? 'visual' : 'physical';
+  } else if (appState._forceSceneGeom === 'visual' || appState._forceSceneGeom === 'physical') {
+    sceneGeom = appState._forceSceneGeom;
+  } else {
+    // Live app: honor global scene policy (cinematic → visual)
+    try { sceneGeom = scenePathGeometry(); } catch { sceneGeom = 'visual'; }
+  }
+  const needGeom = (pathGeomSetting === 'visual') ? 'visual' : 'physical';
   const tArr = td.arrivalSimTime;
   const tDep = td.departureSimTime;
   const tNow = simTime != null ? simTime : tArr;

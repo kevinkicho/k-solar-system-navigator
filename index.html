@@ -1271,11 +1271,11 @@ input[type="range"]::-webkit-slider-thumb {
             </select>
           </div>
           <div class="route-field-row">
-            <label>Path geometry</label>
-            <select id="path-geometry-select" title="Product default: physical (matches Need). Dual overlay for MAP/ACCURATE.">
-              <option value="physical" selected>Physical (matches Need · product default)</option>
-              <option value="both">Both (physical + visual overlay)</option>
-              <option value="visual" hidden>Scene visual twin (hidden mock path)</option>
+            <label>Need path policy</label>
+            <select id="path-geometry-select" title="Need/export path policy. Cinematic fly study still uses visual scene path for planet-tilt alignment. Dual overlay only when Both or MAP/ACCURATE.">
+              <option value="physical" selected>Physical Need plane (product default · schematic fly study)</option>
+              <option value="both">Both — show dual overlay (physical + visual)</option>
+              <option value="visual" hidden>Visual only (hidden · not product)</option>
             </select>
           </div>
           <div class="route-field-row">

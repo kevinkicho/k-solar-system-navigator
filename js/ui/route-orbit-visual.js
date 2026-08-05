@@ -108,11 +108,11 @@ export function updateTransferOrbitVisual() {
   }
 
   // Scene primary path: cinematic visual (not glued to ecliptic under ×8 planet tilts);
-  // schematic / ACCURATE / MAP → physical (Need-aligned). Dual overlay when both/map/accurate.
+  // schematic / ACCURATE / MAP → physical (Need-aligned).
+  // Dual overlay only when MAP / ACCURATE / explicit pathGeometry=both (not default cinematic).
   const primaryGeom = scenePathGeometry();
-  const wantDual = state.physicsAccurate || state.mapMode
-    || effectivePathGeometry() === 'both'
-    || (primaryGeom === 'visual' && !!td.orbitPhysical); // faint physical twin in cinematic
+  const wantDual = !!(state.physicsAccurate || state.mapMode
+    || effectivePathGeometry() === 'both');
   const depT = td.departureSimTime;
   const arrT = td.arrivalSimTime;
   // Endpoint bodies for markers: match scene path exaggeration
@@ -232,19 +232,15 @@ function placeEndpointMarkers(td, dep, arr, depT, arrT, drawPts) {
   transferMarkers.arrive.visible = true;
   const depLabel = epochGhostLabel(td.body1?.name, depT, 'DEPARTURE');
   const arrLabel = epochGhostLabel(td.body2?.name, arrT, 'ARRIVAL');
+  // DEP: ring marker + light ghost label only
   setDepartureGhost({
     x: depMark.x, y: depMark.y, z: depMark.z,
     radius: (td.body1.displayRadius || 0.02) * 1.6,
     color: parseInt(String(td.body1.color || '#00e676').replace('#', ''), 16),
     label: depLabel,
   });
-  setArrivalGhost({
-    x: arrMark.x, y: arrMark.y, z: arrMark.z,
-    radius: (td.body2.displayRadius || 0.02) * 1.6,
-    color: parseInt(String(td.body2.color || '#ff9800').replace('#', ''), 16),
-    label: arrLabel,
-  });
-  // Embodied ARR-epoch body (path end) — not the live destination mesh
+  // ARR: embodied epoch body mesh + ring; hide CSS2D arrival ghost (no double label).
+  hideArrivalGhost();
   try {
     const col = parseInt(String(td.body2.color || '#ff9800').replace('#', ''), 16);
     setEpochDestinationBody({
@@ -255,6 +251,12 @@ function placeEndpointMarkers(td, dep, arr, depT, arrT, drawPts) {
     });
   } catch {
     hideEpochDestinationBody();
+    setArrivalGhost({
+      x: arrMark.x, y: arrMark.y, z: arrMark.z,
+      radius: (td.body2.displayRadius || 0.02) * 1.6,
+      color: parseInt(String(td.body2.color || '#ff9800').replace('#', ''), 16),
+      label: arrLabel,
+    });
   }
 }
 

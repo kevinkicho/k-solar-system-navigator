@@ -331,6 +331,10 @@ function solvePlanetRelativeTransferOrbit(tData) {
   }
   tData.lambertOk = physicsOk;
 
+  // Physical parent-frame AU endpoints (for residual / schematic)
+  if (st1?.posAU) tData.dep3DPhysical = { x: st1.posAU.x, y: st1.posAU.y, z: st1.posAU.z };
+  if (st2?.posAU) tData.arr3DPhysical = { x: st2.posAU.x, y: st2.posAU.y, z: st2.posAU.z };
+
   // Heliocentric markers for ghosts / cosine fallback (exaggerated scene).
   const depV0 = getBodyPosition3D(tData.body1, tData.departureSimTime, true);
   const arrV0 = getBodyPosition3D(tData.body2, tData.arrivalSimTime, true);
@@ -413,6 +417,9 @@ export function solveTransferOrbit(tData) {
   const arrP = arrS.pos;
   const vBody1 = depS.vel;
   const vBody2 = arrS.vel;
+  // Physical-frame endpoints for n-body residual / schematic ghosts (real inclination)
+  tData.dep3DPhysical = { x: depP.x, y: depP.y, z: depP.z };
+  tData.arr3DPhysical = { x: arrP.x, y: arrP.y, z: arrP.z };
   const r1vP = [depP.x * AU, depP.y * AU, depP.z * AU];
   const r2vP = [arrP.x * AU, arrP.y * AU, arrP.z * AU];
   const maxRev = Math.max(0, Math.min(2, Math.floor(tData.maxRevolutions ?? 0)));

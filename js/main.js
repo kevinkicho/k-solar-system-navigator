@@ -122,6 +122,8 @@ try {
   wireAiChrome(); // top-bar AI chip (core product surface)
   wireAgentChat(); // FAB chat + onboard agent C2 — never block app boot
   import('./ui/companion-mode.js').then((m) => m.wireCompanionMode?.()).catch(() => {});
+  // Restore plan timeline seeds from localStorage (partial restore on undo only)
+  import('./agent/campaign-object.js').then((m) => m.loadCampaignFromLocal?.()).catch(() => {});
 } catch (err) {
   console.error('[HELIOS] agent chat failed to wire', err);
 }

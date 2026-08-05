@@ -163,7 +163,7 @@ export async function runCampaignWithLog(plan = {}, opts = {}) {
 
   _run.status = 'completed';
   _run.finished_at = new Date().toISOString();
-  notify('CAMPAIGN RUN COMPLETE · review Results / AI strip');
+  notify('PLAN FLOW LOG COMPLETE · review Results strip');
   emit();
   return _run;
 }
@@ -207,7 +207,7 @@ export function renderCampaignLog(host) {
   el.hidden = false;
   const steps = _run.steps || [];
   el.innerHTML = `
-    <div class="ai-next-title">AI CAMPAIGN RUN · ${_run.status}</div>
+    <div class="ai-next-title">PLAN FLOW LOG · ${_run.status}</div>
     <ol class="ai-run-steps">
       ${steps.map((s) => `
         <li class="ai-run-step status-${s.status || 'done'}">

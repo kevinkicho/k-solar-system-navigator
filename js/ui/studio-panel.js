@@ -6,7 +6,7 @@
 
 import { state } from '../state.js';
 import { notify } from './format.js';
-import { clusterWindowFamilies, formatFamilyCalendar } from '../physics/window-families.js';
+import { clusterWindowFamilies } from '../physics/window-families.js';
 import { buildArchitectureMatrix } from '../physics/architecture-matrix.js';
 import { pinPlan, getPlanPins, clearPlanPins, removePlanPin, diffPlanPins } from '../physics/plan-pins.js';
 import { listFidelityPresets, applyFidelityPreset } from '../physics/fidelity-presets.js';
@@ -67,52 +67,43 @@ export function renderStudioPanel(host) {
     : null;
 
   el.innerHTML = `
-    <div class="ai-next-title">HELIOS STUDIO · campaign board</div>
-    <p class="studio-note">Campaign board — apply window/arch · pins · path truth · package. Preliminary only — not flight-certified.</p>
+    <div class="ai-next-title">HELIOS STUDIO · plan board</div>
+    <p class="studio-note">Apply window/arch seeds · pins · package. Plan timeline (above) logs recompute seeds. Preliminary only — not flight-certified.</p>
     <div class="campaign-board">
       <div class="cb-col">
         <div class="cb-col-title">Windows</div>
         <button type="button" class="btn-tiny" data-act="families">Cluster families</button>
         <button type="button" class="btn-tiny" data-act="pareto">Pareto shortlist</button>
         <button type="button" class="btn-tiny" data-act="apply-family" ${fam?.families?.[0] ? '' : 'disabled'}>Apply recommended family</button>
+        <button type="button" class="btn-tiny" data-act="calendar-csv">Calendar CSV</button>
       </div>
       <div class="cb-col">
         <div class="cb-col-title">Architectures</div>
         <button type="button" class="btn-tiny" data-act="matrix">Build matrix</button>
         <button type="button" class="btn-tiny" data-act="apply-arch" ${matrix?.rows?.find((r) => r.recommended || r.feasible) ? '' : 'disabled'}>Apply recommended arch</button>
+        <button type="button" class="btn-tiny" data-act="doe">Vehicle DoE</button>
+        <button type="button" class="btn-tiny" data-act="waterfall">Need waterfall</button>
       </div>
       <div class="cb-col">
         <div class="cb-col-title">Pins / package</div>
         <button type="button" class="btn-tiny" data-act="pin">Pin plan</button>
         <button type="button" class="btn-tiny" data-act="diff">Diff pins</button>
-        <button type="button" class="btn-tiny" data-act="stakeholder">Stakeholder pkg</button>
+        <button type="button" class="btn-tiny" data-act="clear-pins">Clear pins</button>
+        <button type="button" class="btn-tiny" data-act="stakeholder">Stakeholder package</button>
+        <button type="button" class="btn-tiny" data-act="review">Save review</button>
       </div>
       <div class="cb-col">
-        <div class="cb-col-title">Gates / trust</div>
-        <button type="button" class="btn-tiny" data-act="residual">Residuals</button>
+        <div class="cb-col-title">Trust / tools</div>
         <button type="button" class="btn-tiny" data-act="path-truth">Path truth</button>
-        <button type="button" class="btn-tiny" data-act="dag">Campaign DAG</button>
+        <button type="button" class="btn-tiny" data-act="residual">Residuals</button>
+        <button type="button" class="btn-tiny" data-act="launch-geo">Launch geometry</button>
+        <button type="button" class="btn-tiny" data-act="catalog">Itinerary catalog</button>
+        <button type="button" class="btn-tiny" data-act="sample-return">Sample-return sketch</button>
+        <button type="button" class="btn-tiny" data-act="dsm">Add DSM seed</button>
+        <button type="button" class="btn-tiny" data-act="dag">Plan flow (DAG)</button>
+        <button type="button" class="btn-tiny" data-act="reviews">List reviews</button>
+        <button type="button" class="btn-tiny" data-act="companion">Companion mode</button>
       </div>
-    </div>
-    <div class="studio-actions">
-      <button type="button" class="btn-tiny" data-act="families">Window families</button>
-      <button type="button" class="btn-tiny" data-act="matrix">Architecture matrix</button>
-      <button type="button" class="btn-tiny" data-act="waterfall">Need waterfall</button>
-      <button type="button" class="btn-tiny" data-act="doe">Vehicle DoE</button>
-      <button type="button" class="btn-tiny" data-act="launch-geo">Launch geometry</button>
-      <button type="button" class="btn-tiny" data-act="catalog">Itinerary catalog</button>
-      <button type="button" class="btn-tiny" data-act="sample-return">Sample-return sketch</button>
-      <button type="button" class="btn-tiny" data-act="pin">Pin plan</button>
-      <button type="button" class="btn-tiny" data-act="diff">Diff pins</button>
-      <button type="button" class="btn-tiny" data-act="clear-pins">Clear pins</button>
-      <button type="button" class="btn-tiny" data-act="residual">Residuals</button>
-      <button type="button" class="btn-tiny" data-act="dsm">Add DSM seed</button>
-      <button type="button" class="btn-tiny" data-act="calendar-csv">Calendar CSV</button>
-      <button type="button" class="btn-tiny" data-act="dag">Run campaign DAG</button>
-      <button type="button" class="btn-tiny" data-act="review">Save review link</button>
-      <button type="button" class="btn-tiny" data-act="reviews">List reviews</button>
-      <button type="button" class="btn-tiny" data-act="stakeholder">Stakeholder package</button>
-      <button type="button" class="btn-tiny" data-act="companion">Companion mode</button>
     </div>
     <div class="studio-row">
       <label>Fidelity wizard
@@ -121,8 +112,6 @@ export function renderStudioPanel(host) {
         </select>
       </label>
       <button type="button" class="btn-tiny" data-act="fidelity">Apply</button>
-    </div>
-    <div class="studio-row">
       <label>Playbook
         <select id="studio-playbook">
           ${playbooks.map((p) => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join('')}

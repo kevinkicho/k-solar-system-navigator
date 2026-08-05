@@ -445,17 +445,17 @@ export function renderRouteUI() {
       import('./campaign-timeline-ui.js').then((m) => m.renderCampaignTimeline?.(host)).catch(() => {});
       import('./ai-chrome.js').then((m) => m.renderNextActionsStrip?.(host)).catch(() => {});
       import('./studio-panel.js').then((m) => m.renderStudioPanel?.(host)).catch(() => {});
-      // Campaign log step on successful compute
+      // Log every successful compute (plan timeline seed — not only first)
       try {
         if (state.transferData?.dossier || state.transferData?.lambertOk) {
-          import('../agent/campaign-object.js').then(({ pushCampaignStep, getCampaign }) => {
-            if (!getCampaign()?.steps?.length) {
-              pushCampaignStep({
-                kind: 'compute',
-                label: 'Initial compute',
-                source: 'route-display',
-              });
-            }
+          import('../agent/campaign-object.js').then(({ pushCampaignStep }) => {
+            const o = state.routeOrigin?.name || '?';
+            const d = state.routeDestination?.name || '?';
+            pushCampaignStep({
+              kind: 'compute',
+              label: `Compute ${o} → ${d}`,
+              source: 'route-display',
+            });
           }).catch(() => {});
         }
       } catch { /* */ }

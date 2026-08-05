@@ -50,10 +50,23 @@ function saveLocal() {
 
 export function loadCampaignFromLocal() {
   try {
+    if (typeof localStorage === 'undefined') return null;
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    _campaign = JSON.parse(raw);
-    emit();
+    const parsed = JSON.parse(raw);
+    if (!parsed?.steps || !Array.isArray(parsed.steps)) return null;
+    _campaign = {
+      id: parsed.id || `camp-${Date.now()}`,
+      steps: parsed.steps.slice(-MAX_STEPS),
+      cursor: Math.min(
+        Math.max(0, parsed.cursor ?? parsed.steps.length - 1),
+        Math.max(0, parsed.steps.length - 1),
+      ),
+      created_at: parsed.created_at || new Date().toISOString(),
+      updated_at: parsed.updated_at || new Date().toISOString(),
+      product_class: 'preliminary-not-flight-certified',
+    };
+    // Do not emit() here — avoid re-saving during boot; UI will read on first render
     return _campaign;
   } catch {
     return null;

@@ -38,8 +38,10 @@ After compute, Results mounts:
 
 ## Agent tools (C2 allowlist)
 
-`get_window_families`, `get_architecture_matrix`, `pin_plan`, `diff_plan_pins`, `get_residual_dashboard`, `apply_fidelity_preset`, `run_campaign_dag`, `run_playbook`, `list_playbooks`, `get_moon_system_sketch`, `add_dsm_seed`  
-(+ prior campaign / itinerary / watchdog tools)
+Campaign / Studio: `get_window_families`, `apply_window_family`, `get_architecture_matrix`, `apply_architecture_row`, `pin_plan`, `diff_plan_pins`, `get_residual_dashboard`, `get_path_truth`, `get_campaign_snapshot`, `apply_fidelity_preset`, `run_campaign_dag`, `run_campaign_with_log`, `run_playbook`, `list_playbooks`, `get_moon_system_sketch`, `add_dsm_seed`, `get_need_waterfall`, `get_vehicle_doe`, `get_launch_geometry`, `sketch_sample_return`, `get_itinerary_catalog`, `set_companion_mode`  
+(+ prior route / vehicle / recovery / itinerary / watchdog tools)
+
+Naming: **plan timeline** = recompute seeds; **plan flow (DAG)** = branching matrix/recover; **plan flow log** = linear step log with approve gates.
 
 ## Honesty (non-negotiable)
 
