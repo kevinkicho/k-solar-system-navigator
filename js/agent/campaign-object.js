@@ -4,11 +4,12 @@
  */
 
 import { state } from '../state.js';
-import { bodyId } from '../data/catalog.js';
-import { DAY } from '../constants.js';
 import { buildPathTruth, formatPathTruthLine } from '../physics/path-truth.js';
+import { buildPlanRequestFromState } from '../domain/plan-seed.js';
 
 export const CAMPAIGN_SCHEMA_VERSION = 1;
+/** Re-export domain seed builder (single authority). */
+export { buildPlanRequestFromState };
 const MAX_STEPS = 40;
 const STORAGE_KEY = 'helios-campaign-timeline-v1';
 
@@ -71,43 +72,6 @@ export function loadCampaignFromLocal() {
   } catch {
     return null;
   }
-}
-
-/**
- * Compact plan_request-like seed for recompute (share-codec compatible fields).
- */
-export function buildPlanRequestFromState(appState = state, td = appState.transferData) {
-  const o = appState.routeOrigin;
-  const d = appState.routeDestination;
-  if (!o || !d) return null;
-  const depSim = td?.departureSimTime;
-  const depDay = depSim != null
-    ? new Date(depSim * 1000 + Date.UTC(2000, 0, 1, 12)).toISOString().slice(0, 10)
-    : null;
-  const tofDays = td?.transferTime != null ? Math.round(td.transferTime / DAY) : (appState.userTofDays ?? null);
-  const pr = {
-    v: 2,
-    o: bodyId(o) || o.name?.toLowerCase(),
-    d: bodyId(d) || d.name?.toLowerCase(),
-    dep: depDay,
-    tof: tofDays,
-    veh: appState.vehicleId || 'sh-starship',
-    cargo: Math.round(appState.cargoMass_kg || 0),
-    arch: appState.vehicleId === 'sh-starship' ? (appState.starshipArch || 'unrefueled') : undefined,
-    tankers: appState.starshipArch === 'tanker-n' ? (appState.tankerCount || 0) : undefined,
-    f9v: appState.vehicleId === 'falcon9' ? (appState.falcon9Variant || 'expendable') : undefined,
-    eph: appState.ephemerisBackend === 'sample-de' ? 'sample' : undefined,
-    site: appState.launchSiteId || 'any',
-  };
-  if (appState.flybys?.length) {
-    pr.fb = appState.flybys.slice(0, 6).map((f) => ({
-      id: f.bodyId || (f.bodyName || '').toLowerCase(),
-      date: f.simTime != null
-        ? new Date(f.simTime * 1000 + Date.UTC(2000, 0, 1, 12)).toISOString().slice(0, 10)
-        : null,
-    })).filter((x) => x.id);
-  }
-  return pr;
 }
 
 /**

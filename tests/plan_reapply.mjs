@@ -1,10 +1,9 @@
 /**
  * Plan reapply + review recompute pure contracts (no browser DOM).
  */
-import { normalizePlanRequest } from '../js/ui/plan-reapply.js';
+import { normalizePlanRequest, buildPlanRequestFromState, digestPlanSeed } from '../js/domain/plan-seed.js';
 import { parsePlanRequest, encodePlanRequestObject } from '../js/ui/share-codec.js';
 import {
-  buildPlanRequestFromState,
   pushCampaignStep,
   listCampaignSteps,
   undoCampaignStep,
@@ -13,6 +12,9 @@ import {
 } from '../js/agent/campaign-object.js';
 import { state } from '../js/state.js';
 import { BODIES } from '../js/data/bodies.js';
+import { listPlanOnlyBodies, listSceneBodies, listNeos, listDwarfs } from '../js/data/catalog.js';
+import { missionStudyScale, MAX_WALL_DT_S, nearestSpeedIndex, TIME_SPEEDS } from '../js/ui/time-system.js';
+import { DAY } from '../js/constants.js';
 import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -26,7 +28,7 @@ function check(label, ok, detail = '') {
   if (!ok) failed++;
 }
 
-console.log('\n━━━ PLAN REAPPLY + REVIEW RECOMPUTE ━━━');
+console.log('\n━━━ PLAN REAPPLY + DOMAIN SPINE + TIME + BODIES ━━━');
 
 // Compact seed
 const compact = {
@@ -127,6 +129,10 @@ check('campaign schema still defined', typeof CAMPAIGN_SCHEMA_VERSION === 'numbe
 
 // Module presence (hygiene)
 const modules = [
+  'js/domain/plan-seed.js',
+  'js/domain/plan-apply.js',
+  'js/domain/plan-commands.js',
+  'js/domain/plan-session.js',
   'js/ui/plan-reapply.js',
   'js/ui/review-recompute.js',
   'js/agent/plan-flow.js',
@@ -136,18 +142,44 @@ for (const m of modules) {
   check(`module exists ${m}`, existsSync(resolve(ROOT, m)));
 }
 const reapplySrc = readFileSync(resolve(ROOT, 'js/ui/plan-reapply.js'), 'utf8');
-check('reapply exports normalize', /export function normalizePlanRequest/.test(reapplySrc));
-check('reapply restores flybys', /state\.flybys/.test(reapplySrc));
+check('ui plan-reapply re-exports domain', /from '\.\.\/domain\//.test(reapplySrc));
 const reviewSrc = readFileSync(resolve(ROOT, 'js/ui/review-recompute.js'), 'utf8');
-check('review uses normalize', /normalizePlanRequest/.test(reviewSrc));
+check('review uses dispatchPlanCommand', /dispatchPlanCommand/.test(reviewSrc));
 check('review sets recompute=1', /recompute/.test(reviewSrc));
 const flowSrc = readFileSync(resolve(ROOT, 'js/agent/plan-flow.js'), 'utf8');
 check('plan-flow exports runPlanFlow', /export async function runPlanFlow/.test(flowSrc));
 const mainSrc = readFileSync(resolve(ROOT, 'js/main.js'), 'utf8');
 check('main wires tryApplyReviewOnLoad', /tryApplyReviewOnLoad/.test(mainSrc));
 const tlSrc = readFileSync(resolve(ROOT, 'js/ui/campaign-timeline-ui.js'), 'utf8');
-check('timeline uses reapplyPlanRequest', /reapplyPlanRequest/.test(tlSrc));
+check('timeline uses dispatchPlanCommand', /dispatchPlanCommand/.test(tlSrc));
 check('timeline COPY REVIEW URL', /ct-review-url|buildReviewRecomputeUrl/.test(tlSrc));
+const cmdSrc = readFileSync(resolve(ROOT, 'js/domain/plan-commands.js'), 'utf8');
+check('command bus APPLY_SEED', /APPLY_SEED/.test(cmdSrc));
+check('digestPlanSeed works', !!digestPlanSeed(compact));
+
+// Small bodies: scene-hidden, still routeable
+const neos = listNeos();
+const dwarfs = listDwarfs();
+check('NEOs scene-hidden', neos.every((b) => b.sceneVisible === false));
+check('dwarfs scene-hidden', dwarfs.every((b) => b.sceneVisible === false));
+check('itokawa plan-only', neos.some((b) => b.id === 'itokawa' && b.routeable !== false));
+check('haumea plan-only', dwarfs.some((b) => b.id === 'haumea' && b.routeable !== false));
+check('plan-only list non-empty', listPlanOnlyBodies().length >= 5);
+check('scene bodies are planets/moons only (no neo)', !listSceneBodies().some((b) => b.kind === 'neo'));
+const extraSrc = readFileSync(resolve(ROOT, 'js/scene/extra-bodies.js'), 'utf8');
+check('ensureSceneBody for planned small bodies', /ensureSceneBody/.test(extraSrc));
+
+// Constant calendar rate
+const scale200 = missionStudyScale(200 * DAY, 60);
+check('mission study scale finite', Number.isFinite(scale200) && scale200 > 0);
+check('scale ≈ transfer/60s', Math.abs(scale200 - (200 * DAY) / 60) / scale200 < 0.05);
+check('wall dt cap present', MAX_WALL_DT_S > 0 && MAX_WALL_DT_S <= 0.1);
+const animSrc = readFileSync(resolve(ROOT, 'js/animation.js'), 'utf8');
+check('animation uses timeState.advance', /timeState\.advance/.test(animSrc));
+const misSrc = readFileSync(resolve(ROOT, 'js/mission.js'), 'utf8');
+check('launch uses setContinuousScale', /setContinuousScale/.test(misSrc));
+check('nearest speed maps positive', nearestSpeedIndex(DAY) >= 4);
+check('TIME_SPEEDS has pause', TIME_SPEEDS.some((s) => s.scale === 0));
 
 // Encode review URL shape (no DOM location)
 const enc = encodePlanRequestObject(prState);

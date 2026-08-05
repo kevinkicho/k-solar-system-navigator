@@ -155,6 +155,9 @@ export function setRouteOrigin(body) {
   // If a mission was in flight (or arrived), changing the origin invalidates
   // it — the "From X" label and progress bar would be stale.  Bail cleanly.
   if (state.mission.active) _abortMission();
+  if (body?.sceneVisible === false) {
+    import('../scene/extra-bodies.js').then((m) => m.ensureSceneBody?.(body)).catch(() => {});
+  }
   const prev = state.routeOrigin;
   state.routeOrigin = body;
   // Reset surface point when body changes; fluid giants auto-enable 1-bar sphere
@@ -186,6 +189,9 @@ export function setRouteOrigin(body) {
 
 export function setRouteDestination(body) {
   if (state.mission.active) _abortMission();
+  if (body?.sceneVisible === false) {
+    import('../scene/extra-bodies.js').then((m) => m.ensureSceneBody?.(body)).catch(() => {});
+  }
   const prev = state.routeDestination;
   state.routeDestination = body;
   if (!body || !prev || prev.name !== body.name) {

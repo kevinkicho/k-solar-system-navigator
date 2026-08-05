@@ -110,13 +110,16 @@ Naming: **plan timeline** = recompute seeds; **plan flow (DAG)** = branching mat
 
 | Feature | Module |
 |---------|--------|
-| Full plan seed reapply (o/d, vehicle, flybys, sites, eph) | `js/ui/plan-reapply.js` |
-| Normalize compact **or** `parsePlanRequest` shapes | `normalizePlanRequest` |
+| Full plan seed reapply (o/d, vehicle, flybys, sites, eph) | `js/domain/plan-apply.js` (+ UI re-export) |
+| Normalize compact **or** `parsePlanRequest` shapes | `js/domain/plan-seed.js` |
+| Command bus (UNDO/APPLY/WORKFLOW) | `js/domain/plan-commands.js` |
 | Unified plan-flow facade (timeline / DAG / log) | `js/agent/plan-flow.js` |
 | Review URL `?recompute=1` + hash → recompute geometry | `js/ui/review-recompute.js` |
-| Timeline UNDO/REDO/JUMP uses full reapply | `js/ui/campaign-timeline-ui.js` |
+| Timeline UNDO/REDO/JUMP via command bus | `js/ui/campaign-timeline-ui.js` |
 | Studio **COPY REVIEW URL** · **RUN PLAN FLOW** | `js/ui/studio-panel.js` |
-| Pure reapply + review URL contracts | `tests/plan_reapply.mjs` |
+| Domain spine RFC | [domain-spine-rfc.md](./domain-spine-rfc.md) |
+| Plan-only small bodies (scene-hidden) | `catalog.sceneVisible` · `ensureSceneBody` |
+| Constant calendar rate (mission study) | `timeState.setContinuousScale` · `advance()` |
 
 **Naming (product):**
 - **Plan timeline** — campaign-object steps; recompute seeds only (never trust stored Δv)

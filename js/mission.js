@@ -14,12 +14,12 @@ import {
 } from './ui/format.js';
 import { renderRouteUI } from './ui/route-display.js';
 import {
-  timeState, pickMissionStudySpeed, formatTimeCompression,
+  timeState, pickMissionStudySpeed, missionStudyScale, formatTimeCompression,
 } from './ui/time-system.js';
 import { canLaunchMission } from './mission-gates.js';
 
 // Re-export for callers / tests that imported from mission.js
-export { pickMissionStudySpeed, formatTimeCompression };
+export { pickMissionStudySpeed, missionStudyScale, formatTimeCompression };
 
 export function showMissionStudyBar(visible) {
   const bar = document.getElementById('mission-study-bar');
@@ -66,8 +66,7 @@ export function wireMissionStudyBar() {
       const u = Number(scrub.value) / 1000;
       const span = m.arrivalSimTime - m.departureSimTime;
       timeState.simTime = m.departureSimTime + u * span;
-      timeState.setSpeed(3); // pause while scrubbing
-      timeState.updateDisplay();
+      timeState.pause(); // pause while scrubbing
       m.arrived = timeState.simTime >= m.arrivalSimTime;
       syncMissionStudyBar();
       // PR5 flightPathMode=rebuild
@@ -83,8 +82,7 @@ export function wireMissionStudyBar() {
       const m = state.mission;
       if (!m.active) return;
       timeState.simTime = m.departureSimTime;
-      timeState.setSpeed(3);
-      timeState.updateDisplay();
+      timeState.pause();
       m.arrived = false;
       syncMissionStudyBar();
       notify('JUMPED TO DEPARTURE');
@@ -95,8 +93,7 @@ export function wireMissionStudyBar() {
       const m = state.mission;
       if (!m.active) return;
       timeState.simTime = m.arrivalSimTime;
-      timeState.setSpeed(3);
-      timeState.updateDisplay();
+      timeState.pause();
       m.arrived = true;
       syncMissionStudyBar();
       notify('JUMPED TO ARRIVAL');
@@ -110,9 +107,9 @@ export function wireMissionStudyBar() {
         timeState.simTime = m.departureSimTime;
         m.arrived = false;
       }
-      timeState.setSpeed(pickMissionStudySpeed(m.transferData.transferTime));
-      timeState.updateDisplay();
-      notify('MISSION STUDY PLAY · use bottom bar speed to fine-tune');
+      // Constant continuous scale for whole transit (~60s wall) — no mid-flight ramp
+      timeState.setContinuousScale(missionStudyScale(m.transferData.transferTime));
+      notify('MISSION STUDY · constant calendar rate · ship speed varies (vis-viva)');
     };
   }
   showMissionStudyBar(false);
@@ -138,8 +135,8 @@ export function launchMission() {
   m.flybysTriggered = new Set();
 
   timeState.simTime = m.departureSimTime;
-  // Adaptive speed: moon hops stay slow enough to study on the bottom bar
-  timeState.setSpeed(pickMissionStudySpeed(td.transferTime));
+  // Constant continuous calendar rate for the whole transit (not discrete jumps mid-flight)
+  timeState.setContinuousScale(missionStudyScale(td.transferTime));
 
   resetTrail();
   // Place ship at departure *before* showing the CSS2D label — otherwise
@@ -179,7 +176,7 @@ export function launchMission() {
       <div class="info-row"><span class="key">Sun distance</span><span class="val" id="mission-r">—</span></div>
       <div class="info-row"><span class="key">Path mode</span><span class="val" id="mission-path-mode">—</span></div>
       <div class="info-row"><span class="key">Time compression</span><span class="val amber" id="mission-time-x">—</span></div>
-      <p class="mission-study-hint">Ship follows the <strong>2-body Kepler transfer</strong> (vis-viva speed). Calendar time is sped up for study — that is not a thruster throttle. Fast near the Sun, slow in the outer system is physical. Bottom bar: scrub, DEP/ARR, play/speed. <button type="button" class="btn-tiny" id="ms-follow-ship">Follow ship</button></p>
+      <p class="mission-study-hint">Ship follows the <strong>2-body Kepler transfer</strong>. <strong>Calendar rate is constant</strong> (bottom-bar label); the ship still moves faster near the Sun (vis-viva) — that is physics, not a changing time scale. Scrub / DEP / ARR / play. <button type="button" class="btn-tiny" id="ms-follow-ship">Follow ship</button></p>
     </div>
     <button class="route-btn abort" id="btn-abort">Abort Mission</button>
   `;
@@ -258,7 +255,7 @@ export function updateMission() {
   // pause to miss its intended frame, and time overshoots.
   if (timeState.simTime >= m.arrivalSimTime && !m.arrived) {
     m.arrived = true;
-    timeState.setSpeed(3);
+    timeState.pause();
     notify(`ARRIVED AT ${td.body2.name.toUpperCase()}`);
     // Hide the rendezvous markers — they were aids for the pre-flight view.
     // Once arrived, ship & destination coincide, so the markers become

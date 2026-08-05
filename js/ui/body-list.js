@@ -1,6 +1,6 @@
 import { BODIES, findRoutingBodySync } from '../data/bodies.js';
 import { MOONS, moonsByParent } from '../data/moons.js';
-import { listDwarfs, listNeos, listWaypoints, findByIdOrName } from '../data/catalog.js';
+import { listPlanOnlyBodies, listDwarfs, listNeos, listWaypoints, findByIdOrName } from '../data/catalog.js';
 import { state } from '../state.js';
 import { selectBody } from './selection.js';
 
@@ -97,9 +97,44 @@ export function buildBodyList() {
     }
   }
 
-  appendSection(el, '— DWARFS —', listDwarfs());
-  appendSection(el, '— NEOs —', listNeos());
-  appendSection(el, '— WAYPOINTS —', listWaypoints());
+  // Small bodies / waypoints: trip-plannable but scene-hidden (planet-scale UI).
+  // Collapsed by default — open body picker or expand to plan Haumea, Itokawa, …
+  const planOnly = listPlanOnlyBodies();
+  if (planOnly.length) {
+    const toggle = document.createElement('div');
+    toggle.className = 'moon-toggle';
+    toggle.style.opacity = '0.75';
+    toggle.textContent = `▸ Plan-only small bodies (${planOnly.length})`;
+    const box = document.createElement('div');
+    box.id = 'plan-only-bodies';
+    box.style.display = 'none';
+    const note = document.createElement('div');
+    note.className = 'moon-toggle';
+    note.style.cursor = 'default';
+    note.style.opacity = '0.55';
+    note.style.fontSize = '10px';
+    note.textContent = 'Hidden in 3D (labels clutter). Still routeable — search body picker too.';
+    box.appendChild(note);
+    for (const body of planOnly) {
+      const item = document.createElement('div');
+      item.className = 'body-item plan-only-item';
+      item.dataset.name = body.name;
+      item.dataset.id = body.id || '';
+      item.innerHTML = `<div class="body-dot" style="color:${body.color};background:${body.color}"></div>
+        <span class="body-name">${body.name}</span><span class="body-dist" id="dist-${body.name}">plan</span>`;
+      item.onclick = () => selectBody(body);
+      bindContextRoute(item, body);
+      makeDraggable(item, body.name);
+      box.appendChild(item);
+    }
+    toggle.onclick = () => {
+      const open = box.style.display !== 'none';
+      box.style.display = open ? 'none' : 'block';
+      toggle.textContent = `${open ? '▸' : '▾'} Plan-only small bodies (${planOnly.length})`;
+    };
+    el.appendChild(toggle);
+    el.appendChild(box);
+  }
 }
 
 export function updateBodyList() {

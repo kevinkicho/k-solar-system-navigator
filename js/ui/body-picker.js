@@ -28,9 +28,9 @@ function ensureDom() {
         <button type="button" class="btn-tiny bp-close" id="body-picker-close">CLOSE</button>
       </div>
       <input type="search" class="bp-search" id="body-picker-search"
-        placeholder="Search planets, moons, dwarfs…" autocomplete="off" />
+        placeholder="Search planets, moons, Haumea, Itokawa…" autocomplete="off" />
       <div class="bp-list" id="body-picker-list" role="listbox"></div>
-      <p class="bp-hint">Tip: drag from the body list, or right-click a body in the scene / list.</p>
+      <p class="bp-hint">Small bodies (Haumea, Itokawa, …) are plan-only — hidden in 3D until you set them as origin/dest. Tip: drag or right-click planets in the list.</p>
     </div>`;
   document.body.appendChild(rootEl);
   filterInput = rootEl.querySelector('#body-picker-search');
@@ -61,11 +61,11 @@ function groupedBodies() {
     groups.push({ title: 'Satellites', items: listMoons() });
   }
   const dwarfs = listDwarfs();
-  if (dwarfs.length) groups.push({ title: 'Dwarf planets', items: dwarfs });
+  if (dwarfs.length) groups.push({ title: 'Dwarf planets (plan-only)', items: dwarfs });
   const neos = listNeos();
-  if (neos.length) groups.push({ title: 'NEOs / small bodies', items: neos });
+  if (neos.length) groups.push({ title: 'NEOs / small bodies (plan-only)', items: neos });
   const wps = listWaypoints();
-  if (wps.length) groups.push({ title: 'Waypoints', items: wps });
+  if (wps.length) groups.push({ title: 'Waypoints (plan-only)', items: wps });
   return groups;
 }
 
@@ -88,7 +88,7 @@ function renderList(query = '') {
       n++;
       const sub = b.parent
         ? `<span class="bp-sub">${b.parent} moon</span>`
-        : `<span class="bp-sub">${b.kind || 'body'}</span>`;
+        : `<span class="bp-sub">${b.kind || 'body'}${b.sceneVisible === false ? ' · plan' : ''}</span>`;
       html += `
         <button type="button" class="bp-item" role="option" data-id="${b.id || b.name}" data-name="${b.name}">
           <span class="bp-dot" style="background:${b.color || '#5a7a90'}"></span>

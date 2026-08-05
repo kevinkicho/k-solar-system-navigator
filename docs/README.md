@@ -40,6 +40,7 @@ HELIOS on `main` is an **industrial preliminary mission-design workstation** (no
 | [firebase.md](./firebase.md) | **Implemented** | Auth/plans offline flags |
 | [STUDIO.md](./STUDIO.md) | **Landed** (2026-08) | Campaign depth studio · DAG · playbooks · packages |
 | [AI.md](./AI.md) | **Current** | AI core, tools, narratives |
+| [domain-spine-rfc.md](./domain-spine-rfc.md) | **Proposed** (2026-08-05) | PlanSeed · one apply · one bus · why dual arcs |
 
 Historical sections may still mention classroom mode or “educational product.” Treat those as **design history**. Runtime product is industrial preliminary.
 

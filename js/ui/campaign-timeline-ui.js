@@ -8,14 +8,12 @@ import {
   getCampaign,
   listCampaignSteps,
   formatCampaignTimeline,
-  undoCampaignStep,
-  redoCampaignStep,
   pushCampaignStep,
   clearCampaign,
   snapshotCampaign,
   onCampaignChange,
 } from '../agent/campaign-object.js';
-import { reapplyPlanRequest } from './plan-reapply.js';
+import { dispatchPlanCommand } from '../domain/plan-commands.js';
 
 function esc(s) {
   return String(s || '')
@@ -70,36 +68,30 @@ export function renderCampaignTimeline(host) {
   `;
 
   el.querySelector('#ct-undo')?.addEventListener('click', async () => {
-    const step = undoCampaignStep();
-    if (!step) {
+    const r = await dispatchPlanCommand({ type: 'UNDO', source: 'timeline' });
+    if (!r.ok) {
       notify('NOTHING TO UNDO');
       return;
     }
-    await reapplyPlanRequest(step.plan_request, { notifyUser: false });
-    notify(`UNDO → ${step.label}`);
+    notify(`UNDO → ${r.step?.label || 'prior'}`);
     renderCampaignTimeline(host);
   });
   el.querySelector('#ct-redo')?.addEventListener('click', async () => {
-    const step = redoCampaignStep();
-    if (!step) {
+    const r = await dispatchPlanCommand({ type: 'REDO', source: 'timeline' });
+    if (!r.ok) {
       notify('NOTHING TO REDO');
       return;
     }
-    await reapplyPlanRequest(step.plan_request, { notifyUser: false });
-    notify(`REDO → ${step.label}`);
+    notify(`REDO → ${r.step?.label || 'next'}`);
     renderCampaignTimeline(host);
   });
-  el.querySelector('#ct-snap')?.addEventListener('click', () => {
-    pushCampaignStep({
-      kind: 'snapshot',
-      label: 'Manual snapshot',
-      source: 'timeline',
-    });
+  el.querySelector('#ct-snap')?.addEventListener('click', async () => {
+    await dispatchPlanCommand({ type: 'SNAPSHOT', source: 'timeline' });
     notify('PLAN SNAPSHOT');
     renderCampaignTimeline(host);
   });
-  el.querySelector('#ct-clear')?.addEventListener('click', () => {
-    clearCampaign();
+  el.querySelector('#ct-clear')?.addEventListener('click', async () => {
+    await dispatchPlanCommand({ type: 'CLEAR_HISTORY' });
     notify('PLAN TIMELINE CLEARED');
     renderCampaignTimeline(host);
   });
@@ -125,11 +117,16 @@ export function renderCampaignTimeline(host) {
       out.textContent = 'Running plan flow…';
     }
     try {
-      const { runPlanFlow } = await import('../agent/plan-flow.js');
-      const dag = await runPlanFlow({
-        origin: state.routeOrigin?.name,
-        destination: state.routeDestination?.name,
-      }, { source: 'timeline' });
+      const r = await dispatchPlanCommand({
+        type: 'RUN_WORKFLOW',
+        workflow: 'dag',
+        plan: {
+          origin: state.routeOrigin?.name,
+          destination: state.routeDestination?.name,
+        },
+        source: 'timeline',
+      });
+      const dag = r.result;
       if (out) {
         out.textContent = (dag?.nodes || [])
           .map((n) => `${n.status}: ${n.label}${n.detail ? ' — ' + n.detail : ''}`)
@@ -144,17 +141,13 @@ export function renderCampaignTimeline(host) {
     }
   });
 
-  // Click step to jump cursor + reapply
+  // Click step to jump cursor + reapply via command bus
   el.querySelectorAll('[data-step]').forEach((li) => {
     li.style.cursor = 'pointer';
     li.addEventListener('click', async () => {
       const i = Number(li.getAttribute('data-step'));
-      const { setCampaignCursor } = await import('../agent/campaign-object.js');
-      const step = setCampaignCursor(i);
-      if (step?.plan_request) {
-        await reapplyPlanRequest(step.plan_request, { notifyUser: false });
-        notify(`JUMP → ${step.label}`);
-      }
+      const r = await dispatchPlanCommand({ type: 'JUMP', index: i, source: 'timeline' });
+      if (r.ok) notify(`JUMP → ${r.step?.label || i}`);
       renderCampaignTimeline(host);
     });
   });

@@ -1,16 +1,33 @@
 // Simple meshes for dwarfs, NEOs, and waypoints (solid color, no textures).
+// Default: scene-hidden (sceneVisible:false) — still trip-plannable via body picker.
+// When a plan uses a small body as o/d, call ensureSceneBody(body) to show it.
 
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
-import { listDwarfs, listNeos, listWaypoints } from '../data/catalog.js';
+import { listDwarfs, listNeos, listWaypoints, isSceneVisible } from '../data/catalog.js';
 import { generateOrbitPoints } from '../physics/kepler.js';
 import { scene } from './setup.js';
 import { planetMeshes, orbitLines } from './planets.js';
 
-function addSimpleBody(body, { orbit = true } = {}) {
+const _built = new Set();
+
+function addSimpleBody(body, { orbit = true, force = false } = {}) {
+  if (!body || planetMeshes.has(body.name)) {
+    if (body && planetMeshes.has(body.name)) {
+      const g = planetMeshes.get(body.name);
+      if (g) g.visible = true;
+      const ol = orbitLines.get(body.name);
+      if (ol?.line) ol.line.visible = true;
+    }
+    return;
+  }
+  if (!force && !isSceneVisible(body)) return;
+
   const group = new THREE.Group();
+  group.userData.planOnlyBody = body.sceneVisible === false;
   scene.add(group);
   planetMeshes.set(body.name, group);
+  _built.add(body.name);
 
   const r = body.displayRadius || 0.008;
   const sphere = new THREE.Mesh(
@@ -36,7 +53,7 @@ function addSimpleBody(body, { orbit = true } = {}) {
 
   if (orbit && body.a && body.period) {
     try {
-      const pts = generateOrbitPoints(body, 128).map(p => new THREE.Vector3(p.x, p.y, p.z));
+      const pts = generateOrbitPoints(body, 128).map((p) => new THREE.Vector3(p.x, p.y, p.z));
       const line = new THREE.LineLoop(
         new THREE.BufferGeometry().setFromPoints(pts),
         new THREE.LineBasicMaterial({
@@ -51,6 +68,21 @@ function addSimpleBody(body, { orbit = true } = {}) {
   }
 }
 
-for (const b of listDwarfs()) addSimpleBody(b, { orbit: true });
-for (const b of listNeos()) addSimpleBody(b, { orbit: true });
-for (const b of listWaypoints()) addSimpleBody(b, { orbit: false });
+/**
+ * Lazily create mesh when user plans a trip to a scene-hidden body.
+ * @param {object|null} body
+ */
+export function ensureSceneBody(body) {
+  if (!body) return;
+  addSimpleBody(body, { orbit: !!body.a, force: true });
+}
+
+/** Prefetch only scene-visible extras (none by product default). */
+export function buildExtraBodies() {
+  for (const b of listDwarfs()) addSimpleBody(b, { orbit: true });
+  for (const b of listNeos()) addSimpleBody(b, { orbit: true });
+  for (const b of listWaypoints()) addSimpleBody(b, { orbit: false });
+}
+
+// Boot: no-op for sceneVisible:false catalog
+buildExtraBodies();

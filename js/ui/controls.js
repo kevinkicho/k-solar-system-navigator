@@ -15,8 +15,8 @@ import { selectBody } from './selection.js';
 import { timeState } from './time-system.js';
 
 export function wireControls() {
-  document.getElementById('btn-pause').onclick = () => timeState.setSpeed(3);
-  document.getElementById('btn-play').onclick = () => timeState.setSpeed(4);
+  document.getElementById('btn-pause').onclick = () => timeState.pause();
+  document.getElementById('btn-play').onclick = () => timeState.play();
   document.getElementById('btn-rev').onclick = () => timeState.setSpeed(2);
   document.getElementById('btn-fwd-fast').onclick = () => {
     if (timeState.speedIndex <= 4) timeState.setSpeed(5);
@@ -554,7 +554,8 @@ export function wireControls() {
     switch (e.key) {
       case ' ':
         e.preventDefault();
-        timeState.setSpeed(timeState.timeScale === 0 ? 4 : 3);
+        if (timeState.timeScale === 0) timeState.play();
+        else timeState.pause();
         break;
       case '+': case '=': timeState.setSpeed(Math.min(timeState.speedIndex + 1, 10)); break;
       case '-': case '_': timeState.setSpeed(Math.max(timeState.speedIndex - 1, 0)); break;

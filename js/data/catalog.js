@@ -17,20 +17,32 @@ function annotate(list, defaults) {
     if (b.routeable === undefined) b.routeable = true;
     if (b.selectable === undefined) b.selectable = true;
     if (b.flybyEligible === undefined) b.flybyEligible = defaults.flybyEligible;
+    // sceneVisible: false → hidden meshes/labels (still trip-plannable if routeable)
+    if (b.sceneVisible === undefined && defaults.sceneVisible !== undefined) {
+      b.sceneVisible = defaults.sceneVisible;
+    }
   }
   return list;
 }
 
-annotate(BODIES, { kind: 'planet', flybyEligible: true });
-annotate(MOONS, { kind: 'moon', flybyEligible: false });
-annotate(DWARFS, { kind: 'dwarf', flybyEligible: true });
-annotate(NEOS, { kind: 'neo', flybyEligible: false });
+annotate(BODIES, { kind: 'planet', flybyEligible: true, sceneVisible: true });
+annotate(MOONS, { kind: 'moon', flybyEligible: false, sceneVisible: true });
+// Dwarfs / NEOs: plan via body picker; keep scene clean at planet scale
+annotate(DWARFS, { kind: 'dwarf', flybyEligible: true, sceneVisible: false });
+annotate(NEOS, { kind: 'neo', flybyEligible: false, sceneVisible: false });
 // Preserve per-NEO flybyEligible if already set
 for (const n of NEOS) {
   if (n.flybyEligible === undefined) n.flybyEligible = false;
+  n.sceneVisible = false;
 }
-annotate(WAYPOINTS, { kind: 'waypoint', flybyEligible: false });
-for (const w of WAYPOINTS) w.flybyEligible = false;
+for (const d of DWARFS) {
+  d.sceneVisible = false;
+}
+annotate(WAYPOINTS, { kind: 'waypoint', flybyEligible: false, sceneVisible: false });
+for (const w of WAYPOINTS) {
+  w.flybyEligible = false;
+  w.sceneVisible = false;
+}
 
 const CACHE = [...BODIES, ...MOONS, ...DWARFS, ...NEOS, ...WAYPOINTS];
 
@@ -43,6 +55,21 @@ export function listMoons() { return MOONS; }
 export function listDwarfs() { return DWARFS; }
 export function listNeos() { return NEOS; }
 export function listWaypoints() { return WAYPOINTS; }
+
+/** Bodies drawn in the 3D scene (planets/moons). Small bodies stay plan-only by default. */
+export function listSceneBodies() {
+  return CACHE.filter((b) => b.sceneVisible !== false);
+}
+
+/** Dwarfs + NEOs + waypoints — routeable via picker, not shown in scene. */
+export function listPlanOnlyBodies() {
+  return CACHE.filter((b) => b.sceneVisible === false && b.routeable !== false);
+}
+
+export function isSceneVisible(body) {
+  if (!body) return false;
+  return body.sceneVisible !== false;
+}
 
 export function listRouteable() {
   return CACHE.filter(b => b.routeable !== false);
