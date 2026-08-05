@@ -1,34 +1,59 @@
 /**
- * Physics-accurate *view* mode.
+ * Physics-accurate *view* mode → product mode Ops.
  *
  * IMPORTANT: Three.js has no orbital-mechanics solver that makes HELIOS "physics accurate."
  * Accuracy comes from js/physics (Lambert, Kepler, ephemeris). This mode only aligns the
- * *scene* with physical frames (no inclination ×8, physical path, dual overlay).
+ * *scene* with physical frames (no inclination ×8, dual path for honesty).
  */
-import { state, effectivePathGeometry } from '../state.js';
+import { state, PRODUCT_PATH_GEOMETRY, effectivePathGeometry } from '../state.js';
 import { applyBodyScales } from '../scene/body-scale.js';
+
+let _accurateChain = Promise.resolve();
 
 /**
  * @param {boolean} on
  * @param {{ silent?: boolean }} [opts]
+ * @returns {Promise<object|void>}
  */
 export function setPhysicsAccurateView(on, opts = {}) {
-  // Domain product modes: ACCURATE → ops, off → present
-  import('../domain/display-modes.js').then(({ setProductMode }) => {
-    setProductMode(on ? 'ops' : 'present', {
+  const want = !!on;
+  // Sync flags first (avoid race with MAP / product mode)
+  if (want) {
+    state.physicsAccurate = true;
+    state.mapMode = true;
+    state.productMode = 'ops';
+    state.pathGeometry = 'both';
+    state.flightOpsMode = true;
+    if (state.pathAccuracy) state.pathAccuracy.nbodyOverlay = true;
+  } else {
+    state.physicsAccurate = false;
+    state.mapMode = false;
+    state.productMode = 'present';
+    state.pathGeometry = PRODUCT_PATH_GEOMETRY;
+    state.flightOpsMode = false;
+    if (state.pathAccuracy) state.pathAccuracy.nbodyOverlay = false;
+  }
+  syncPhysicsViewUi();
+
+  _accurateChain = _accurateChain
+    .then(() => import('../domain/display-modes.js'))
+    .then(({ setProductMode }) => setProductMode(want ? 'ops' : 'present', {
       silent: opts.silent,
-      skipRecompute: !on,
-    }).then(() => {
+      skipRecompute: !want,
+    }))
+    .then(() => {
       syncPhysicsViewUi();
-      if (on && state.routeOrigin && state.routeDestination) {
-        import('./route-planner.js').then(({ computeRoute }) => computeRoute()).catch(() => {});
+      if (want && state.routeOrigin && state.routeDestination) {
+        return import('./route-planner.js').then(({ computeRoute }) => computeRoute());
       }
-    });
-  });
+    })
+    .catch((e) => console.warn('[HELIOS] setPhysicsAccurateView', e));
+  return _accurateChain;
 }
 
 export function togglePhysicsAccurateView() {
-  setPhysicsAccurateView(!state.physicsAccurate);
+  const on = !(state.physicsAccurate || state.productMode === 'ops');
+  return setPhysicsAccurateView(on);
 }
 
 export function setTrueScaleBodies(on, opts = {}) {
@@ -47,8 +72,9 @@ export function setTrueScaleBodies(on, opts = {}) {
 export function syncPhysicsViewUi() {
   const acc = document.getElementById('btn-physics-accurate');
   if (acc) {
-    acc.classList.toggle('active', !!state.physicsAccurate);
-    acc.setAttribute('aria-pressed', state.physicsAccurate ? 'true' : 'false');
+    const on = !!(state.physicsAccurate || state.productMode === 'ops');
+    acc.classList.toggle('active', on);
+    acc.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
   const ts = document.getElementById('btn-true-scale');
   if (ts) {
@@ -59,11 +85,13 @@ export function syncPhysicsViewUi() {
   if (disp) disp.value = state.display?.mode || 'cinematic';
   const geom = document.getElementById('path-geometry-select');
   if (geom) geom.value = effectivePathGeometry();
+  const modeSel = document.getElementById('product-mode-select');
+  if (modeSel && state.productMode) modeSel.value = state.productMode;
 }
 
 export function wirePhysicsView() {
   const acc = document.getElementById('btn-physics-accurate');
-  if (acc) acc.onclick = () => togglePhysicsAccurateView();
+  if (acc) acc.onclick = () => { void togglePhysicsAccurateView(); };
   const ts = document.getElementById('btn-true-scale');
   if (ts) ts.onclick = () => setTrueScaleBodies(!state.trueScaleBodies);
   const tour = document.getElementById('btn-camera-tour');

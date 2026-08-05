@@ -260,15 +260,37 @@ try {
   const gaBtn = await prodPage.locator('#btn-ga-suggest').count();
   check('SUGGEST GA control present', gaBtn >= 1);
 
-  // MAP toggle must restore product physical (not silent visual)
-  await prodPage.locator('#btn-map-mode, #btn-map-mode-view').first().click().catch(() => {});
-  await prodPage.waitForTimeout(200);
-  await prodPage.locator('#btn-map-mode, #btn-map-mode-view').first().click().catch(() => {});
-  await prodPage.waitForTimeout(200);
-  const afterMap = await prodPage.evaluate(() => window.__HELIOS?.state?.pathGeometry);
-  check('MAP off restores physical pathGeometry', afterMap === 'physical', `got=${afterMap}`);
-  const geomSel = await prodPage.locator('#path-geometry-select').inputValue().catch(() => '');
-  check('path-geometry select shows physical', geomSel === 'physical' || geomSel === '', `sel=${geomSel}`);
+  // MAP toggle must restore product physical (not silent dual "both")
+  // Use evaluate so we await the mode chain (sync flags + async display settle).
+  const mapToggle = await prodPage.evaluate(async () => {
+    const st = window.__HELIOS?.state;
+    const { setMapMode } = await import('/js/ui/map-mode.js');
+    await setMapMode(true, { silent: true });
+    const mid = { pathGeometry: st.pathGeometry, mapMode: st.mapMode, productMode: st.productMode };
+    await setMapMode(false, { silent: true });
+    return {
+      mid,
+      pathGeometry: st.pathGeometry,
+      mapMode: st.mapMode,
+      productMode: st.productMode,
+      sel: document.getElementById('path-geometry-select')?.value || '',
+    };
+  }).catch((e) => ({ error: e.message }));
+  check(
+    'MAP on sets dual pathGeometry both',
+    mapToggle?.mid?.pathGeometry === 'both' || mapToggle?.mid?.productMode === 'compare',
+    JSON.stringify(mapToggle?.mid || mapToggle),
+  );
+  check(
+    'MAP off restores physical pathGeometry',
+    mapToggle?.pathGeometry === 'physical',
+    `got=${mapToggle?.pathGeometry} mode=${mapToggle?.productMode} err=${mapToggle?.error || ''}`,
+  );
+  check(
+    'path-geometry select shows physical',
+    mapToggle?.sel === 'physical' || mapToggle?.sel === '',
+    `sel=${mapToggle?.sel}`,
+  );
 
   // SUGGEST GA Accept path: Earth→Jupiter often yields assist seed
   await prodPage.locator('.body-item', { hasText: 'Earth' }).first().click({ button: 'right' }).catch(() => {});

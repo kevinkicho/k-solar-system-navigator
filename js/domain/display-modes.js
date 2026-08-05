@@ -99,7 +99,13 @@ export async function setProductMode(modeId, opts = {}) {
   state.productMode = id;
   state.mapMode = !!preset.mapMode;
   state.physicsAccurate = !!preset.physicsAccurate;
-  state.pathGeometry = preset.pathGeometry;
+  // Always apply preset pathGeometry (Present must leave dual "both" behind)
+  state.pathGeometry = preset.pathGeometry || PRODUCT_PATH_GEOMETRY;
+  if (id === 'present' || id === 'analyze') {
+    state.pathGeometry = id === 'analyze' ? 'physical' : (preset.pathGeometry || PRODUCT_PATH_GEOMETRY);
+    // Never keep dual overlay after leaving Compare/Ops
+    if (state.pathGeometry === 'both') state.pathGeometry = PRODUCT_PATH_GEOMETRY;
+  }
   state.flightOpsMode = !!preset.flightOpsMode;
   if (state.pathAccuracy) {
     state.pathAccuracy.nbodyOverlay = !!preset.nbodyOverlay;
