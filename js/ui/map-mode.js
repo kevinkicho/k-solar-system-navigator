@@ -74,6 +74,9 @@ export function rebuildOrbitLines() {
     const pts = generateOrbitPoints(body, 256).map((p) => new THREE.Vector3(p.x, p.y, p.z));
     data.line.geometry.dispose();
     data.line.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+    try {
+      if (data.line.computeLineDistances) data.line.computeLineDistances();
+    } catch { /* solid materials */ }
   }
 }
 

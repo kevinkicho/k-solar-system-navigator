@@ -23,8 +23,8 @@ export const PRODUCT_MODES = {
     dualOverlay: false,
     flightOpsMode: false,
     nbodyOverlay: false,
-    badge: 'VIEW: PRESENT · one scene arc',
-    title: 'Presentation — one visual fly-study arc (matches planet tilts). Need/Δv stay physical. Not dual path.',
+    badge: 'VIEW: PRESENT · one transfer arc',
+    title: 'One cyan transfer arc. Dim dashed ellipses = planet orbits (not a second mission). Need/Δv physical.',
   },
   analyze: {
     id: 'analyze',

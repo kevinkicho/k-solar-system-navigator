@@ -36,16 +36,17 @@ export function setTransferRibbon(points, opts = {}) {
   clearTransferRibbon();
   if (!points || points.length < 2) return;
 
-  const color = opts.color ?? 0xff9800;
+  const color = opts.color ?? 0x4fc3f7;
   const radius = opts.radius ?? estimateRadius(points);
   try {
-    const curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.15);
-    const tubular = Math.min(180, Math.max(32, points.length * 2));
-    const geo = new THREE.TubeGeometry(curve, tubular, radius, 5, false);
+    // centripetal CatmullRom avoids loops/overshoot on high-e transfers (jagged arcs)
+    const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.5);
+    const tubular = Math.min(256, Math.max(48, points.length * 2));
+    const geo = new THREE.TubeGeometry(curve, tubular, radius, 8, false);
     const mat = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.28,
+      opacity: 0.42,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
@@ -55,6 +56,16 @@ export function setTransferRibbon(points, opts = {}) {
     scene.add(ribbonMesh);
   } catch (err) {
     console.warn('[HELIOS] transfer ribbon failed', err);
+    // Fallback: plain polyline if tube fails
+    try {
+      const geo = new THREE.BufferGeometry().setFromPoints(points);
+      const mat = new THREE.LineBasicMaterial({
+        color, transparent: true, opacity: 0.85,
+      });
+      ribbonMesh = new THREE.Line(geo, mat);
+      ribbonMesh.name = 'transfer-ribbon-fallback';
+      scene.add(ribbonMesh);
+    } catch { /* */ }
     return;
   }
 

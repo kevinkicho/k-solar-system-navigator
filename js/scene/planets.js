@@ -175,10 +175,18 @@ for (const body of BODIES) {
   const orbitGeo = new THREE.BufferGeometry().setFromPoints(
     generateOrbitPoints(body).map(p => new THREE.Vector3(p.x, p.y, p.z)),
   );
-  const orbitMat = new THREE.LineBasicMaterial({
-    color: new THREE.Color(body.color), transparent: true, opacity: 0.2,
+  // Planet orbits: dim dashed so they are never mistaken for the transfer arc
+  const orbitMat = new THREE.LineDashedMaterial({
+    color: new THREE.Color(body.color),
+    transparent: true,
+    opacity: 0.12,
+    dashSize: 0.15,
+    gapSize: 0.12,
+    scale: 1,
   });
   const orbitLine = new THREE.LineLoop(orbitGeo, orbitMat);
+  try { orbitLine.computeLineDistances(); } catch { /* */ }
+  orbitLine.userData.isPlanetOrbit = true;
   scene.add(orbitLine);
   orbitLines.set(body.name, { line: orbitLine, material: orbitMat });
 }

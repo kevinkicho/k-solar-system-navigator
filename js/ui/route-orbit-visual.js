@@ -428,24 +428,51 @@ function schedulePathRefine(td, opts) {
         if (!msg || msg.requestId !== state.pathRefineRequestId) return;
         if (msg.type !== 'path-refined' || !msg.points?.length) return;
         if (shouldHidePathForTrailOnly()) return;
+        // Replace the *primary* transfer stroke only — same color, never a second orange path
         const pts = msg.points.map((p) => new THREE.Vector3(p.x, p.y, p.z));
-        if (pts.length >= 2) setTransferLine(makeDashedLine(pts, 0xff9800, 0.85));
+        if (pts.length < 2) return;
+        const geom = td.scenePathGeometry || opts.geometry || 'visual';
+        const color = geom === 'visual' ? 0x4fc3f7 : 0x00e5ff;
+        const stroke = state.transferStroke
+          || (state.showTransferRibbon === false ? 'line' : 'ribbon');
+        if (stroke === 'line' || stroke === 'both') {
+          setTransferLine(makeDashedLine(pts, color, 0.9));
+        } else {
+          setTransferLine(null);
+        }
+        if (stroke === 'ribbon' || stroke === 'both') {
+          const tofDays = td.transferTime != null ? td.transferTime / DAY : null;
+          setTransferRibbon(pts, {
+            color,
+            labels: [
+              { frac: 0, text: 'DEP' },
+              { frac: 0.5, text: tofDays != null ? `MID ${(tofDays * 0.5).toFixed(0)}d` : 'MID' },
+              { frac: 1, text: 'ARR' },
+            ],
+          });
+        } else {
+          try { clearTransferRibbon(); } catch { /* */ }
+        }
       };
     }
-    // Serialize minimal payload — worker re-samples with adaptive using orbit elements
+    // Worker densifies the *same* orbit the scene path used (visual vs physical)
+    const geom = opts.geometry || td.scenePathGeometry || 'visual';
+    const orbit = geom === 'physical'
+      ? (td.orbitPhysical || td.orbit)
+      : (td.orbit || td.orbitPhysical);
     pathRefineWorker.postMessage({
       type: 'refine',
       requestId: reqId,
-      // Pass enough to rebuild path without full body objects
       tof: td.transferTime,
       tDep: td.departureSimTime,
       longWay: !!td.longWay,
       offsetPolicy: opts.offsetPolicy,
-      orbit: serializeOrbit(td.orbit || td.orbitPhysical),
+      exaggerateSun: geom === 'visual' || opts.offsetExaggerate !== false,
+      orbit: serializeOrbit(orbit),
       dep3D: td.dep3D,
       arr3D: td.arr3D,
-      nSamples: 128,
-      maxSamples: 1024,
+      nSamples: 160,
+      maxSamples: 640,
     });
   } catch {
     /* workers optional */
