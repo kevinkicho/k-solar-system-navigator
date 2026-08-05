@@ -175,18 +175,19 @@ for (const body of BODIES) {
   const orbitGeo = new THREE.BufferGeometry().setFromPoints(
     generateOrbitPoints(body).map(p => new THREE.Vector3(p.x, p.y, p.z)),
   );
-  // Planet orbits: dim dashed so they are never mistaken for the transfer arc
+  // Planet orbits: muted slate dashed — transfer is hot cyan (#00e5ff), not planet color
   const orbitMat = new THREE.LineDashedMaterial({
-    color: new THREE.Color(body.color),
+    color: 0x3d5a73,
     transparent: true,
-    opacity: 0.12,
-    dashSize: 0.15,
-    gapSize: 0.12,
+    opacity: 0.14,
+    dashSize: 0.18,
+    gapSize: 0.14,
     scale: 1,
   });
   const orbitLine = new THREE.LineLoop(orbitGeo, orbitMat);
   try { orbitLine.computeLineDistances(); } catch { /* */ }
   orbitLine.userData.isPlanetOrbit = true;
+  orbitLine.userData.bodyName = body.name;
   scene.add(orbitLine);
   orbitLines.set(body.name, { line: orbitLine, material: orbitMat });
 }

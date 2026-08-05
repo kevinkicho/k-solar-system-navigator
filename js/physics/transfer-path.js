@@ -190,9 +190,18 @@ function resolvePathOpts(td, opts = {}) {
   const offsetPolicy = opts.offsetPolicy
     ?? td.pathOffsetPolicy
     ?? 'time_varying';
-  const sampleMode = opts.sampleMode ?? 'equal_time';
+  const tofGuess = opts.tof ?? td.transferTime ?? td.tof ?? 0;
+  const orbE = td.orbitPhysical?.e ?? td.orbit?.e ?? 0;
+  // High-e / long TOF: more knots + equal true anomaly when available (less mid-path pile-up)
+  let sampleMode = opts.sampleMode;
+  if (sampleMode == null) {
+    sampleMode = (orbE > 0.75 || tofGuess > 1500 * DAY) ? 'equal_nu' : 'equal_time';
+  }
   const geometry = opts.geometry ?? 'visual';
-  const nSamples = Math.max(16, Math.min(1024, opts.nSamples ?? 320));
+  let nDefault = 320;
+  if (tofGuess > 4000 * DAY || orbE > 0.9) nDefault = 640;
+  else if (tofGuess > 1500 * DAY || orbE > 0.7) nDefault = 480;
+  const nSamples = Math.max(16, Math.min(1024, opts.nSamples ?? nDefault));
   const exaggerate = opts.exaggerate !== false;
   const tDep = opts.tDep ?? td.departureSimTime ?? td.departSimTime ?? 0;
   const tof = opts.tof ?? td.transferTime ?? td.tof ?? 0;

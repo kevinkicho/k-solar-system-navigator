@@ -160,23 +160,26 @@ export function updateTransferOrbitVisual() {
 
   const drawPts = samplesToLinePoints(built.points);
   if (drawPts.length >= 2) {
-    const color = (cinematicXf || primaryGeom === 'visual') ? 0x4fc3f7 : 0x00e5ff;
-    // One stroke only — ribbon+dashed looked like two trajectories
+    // Hot cyan — distinct from Neptune/Uranus orbit colors (planet orbits are dim)
+    const color = 0x00e5ff;
+    // One stroke only — never ribbon + dashed dual transfer
     const stroke = state.transferStroke
       || (state.showTransferRibbon === false ? 'line' : 'ribbon');
     const tofDays = td.transferTime != null ? td.transferTime / DAY : null;
+    const e = td.orbitPhysical?.e ?? td.orbit?.e ?? 0;
+    const highE = e > 0.7 || (tofDays != null && tofDays > 1500);
     const labels = [
       { frac: 0, text: 'DEP' },
       { frac: 0.5, text: tofDays != null ? `MID ${(tofDays * 0.5).toFixed(0)}d` : 'MID' },
-      { frac: 1, text: primaryGeom === 'visual' ? 'ARR (scene)' : 'ARR' },
+      { frac: 1, text: 'ARR' },
     ];
     if (stroke === 'line' || stroke === 'both') {
-      setTransferLine(makeDashedLine(drawPts, color, 0.9));
+      setTransferLine(makeDashedLine(drawPts, color, 0.95));
     } else {
       setTransferLine(null);
     }
     if (stroke === 'ribbon' || stroke === 'both') {
-      setTransferRibbon(drawPts, { color, labels });
+      setTransferRibbon(drawPts, { color, labels, highE });
     } else {
       try { clearTransferRibbon(); } catch { /* */ }
     }

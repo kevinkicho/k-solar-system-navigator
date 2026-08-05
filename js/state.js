@@ -65,6 +65,13 @@ export function scenePathGeometry(override) {
   if (state.productMode === 'analyze') return 'physical';
   // Optional experimental blend still samples physical then transforms
   if (useCinematicEndpointTransform()) return 'physical';
+  // Extreme outer / high-e: physical scene path (visual×tilt makes fake multi-bows)
+  try {
+    const td = state.transferData;
+    const e = td?.orbitPhysical?.e ?? td?.orbit?.e;
+    const r2 = td?.body2?.a;
+    if ((e != null && e > 0.9) || (r2 != null && r2 > 15)) return 'physical';
+  } catch { /* */ }
   // Present / cinematic default: visual Lambert so the fly study matches tilted planets
   return 'visual';
 }
